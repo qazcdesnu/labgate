@@ -19,6 +19,8 @@ scripts/test-matrix.sh          # 전체
 scripts/test-matrix.sh 3.13     # 특정 버전만
 ```
 
+전체 실행에는 생성되는 commit-msg hook을 Python 3.9로 돌리는 검사도 포함된다 (hook은 Python ≥ 3.9 지원).
+
 GitHub Actions가 push마다 같은 조합을 Linux와 macOS에서 돌린다 (`.github/workflows/test.yml`).
 
 ## 설치

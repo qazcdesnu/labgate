@@ -5,7 +5,8 @@
 ## 완료 조건 (모든 단계 공통)
 
 - `scripts/test-matrix.sh` 통과: Python 3.10–3.13 × 의존성 최신·최소(`pyproject.toml` 하한) = 8개 조합
-- GitHub Actions(`.github/workflows/test.yml`) 통과: 위 조합 × Linux·macOS
+- 생성되는 hook은 Python 3.9에서도 통과 (`test-matrix.sh` 전체 실행에 포함)
+- GitHub Actions(`.github/workflows/test.yml`) 통과: 위 조합 × Linux·macOS, hook × Python 3.9
 
 ## 단계
 
@@ -14,8 +15,8 @@
 | 1 | 패키지 뼈대(`pyproject.toml`, `--version`), `config.py`와 테스트 | §4, §6, §8.2 | ✅ 완료 | `05684ca`, `25936a1` |
 | 2 | 부록 A·B·C 원문을 템플릿 파일로 옮기기, `render.py`, `stubs.py`와 테스트 | §8.1, §9, 부록 A·B·C | ✅ 완료 | `c1208bf` |
 | 3 | `plan.py`와 테스트 (경로 집합, 파일 권한, frontmatter 파싱, 파일 수) | §7, §8.4, §14.1 | ✅ 완료 | `261d42b` |
-| 4 | commit-msg hook 단위 테스트 (§14.1 표의 사례 전체) | §11, 부록 C | 다음 | |
-| 5 | `writer.py`, `gitops.py`, `prompts.py`, `cli.py`의 `init` 명령, 통합 테스트 | §5, §8.3, §10, §14.2 | | |
+| 4 | commit-msg hook 단위 테스트 (§14.1 표의 사례 전체) | §11, 부록 C | ✅ 완료 | `6b3a881` |
+| 5 | `writer.py`, `gitops.py`, `prompts.py`, `cli.py`의 `init` 명령, 통합 테스트 | §5, §8.3, §10, §14.2 | 다음 | |
 | 6 | 수용 기준 점검 (마일스톤 1개·20개, `git status` 깨끗함, M0-T0 승인 커밋이 hook 통과) | §14.3 | | |
 
 ## 단계별 메모
@@ -38,3 +39,10 @@
 - `build_plan(config, today)`는 경로 순으로 정렬한 `PlannedFile` 목록을 돌려준다. 정적·Jinja 파일 표는 `plan.py` 상단 상수(`STATIC_FILES`, `SINGLE_TEMPLATES`, `MILESTONE_TEMPLATES`, `GITKEEP_*`)에 있다.
 - 테스트의 기대 경로는 `plan.py`와 별도로 §7.1 트리를 보고 적었다. 템플릿 폴더의 모든 파일이 표에서 쓰이는지도 검사한다(템플릿을 추가하고 표에 빠뜨리면 실패).
 - 파일 수: N=1 → 55, N=3 → 67, N=20 → 169 (Claude Code 사용), N=3 미사용 → 60.
+
+### 4단계
+
+- `tests/test_hook.py`: 생성될 hook과 `agent-commit`을 임시 저장소에 설치하고 실제 `git commit`으로 검사한다. 사용자 전역 Git 설정은 테스트마다 차단한다(`GIT_CONFIG_GLOBAL`, `HOME`).
+- §14.1 표 15개 사례 + §11의 나머지 규칙 20개 + `--author` 인식, identities 손상, agent-commit 신원·옵션 차단 (총 52개). agent-commit은 §14.2의 통합 테스트 일부를 앞당겨 다룬 것이다.
+- hook의 `#!/usr/bin/env python3`는 PATH를 따르므로, 테스트는 PATH 맨 앞에 테스트 중인 Python(또는 `HOOK_PYTHON`)을 둔다. 덕분에 매트릭스가 hook도 3.10–3.13에서 검증하고, 별도로 3.9에서도 돌린다.
+- 확인된 hook 동작: `Approve: M0-T0,`처럼 끝에 빈 항목이 있으면 무시하고 통과한다.
