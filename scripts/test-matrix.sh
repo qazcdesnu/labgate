@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 지원하는 모든 Python 버전에서, 최신 의존성과 최소 의존성(pyproject 하한) 두 조합으로 테스트한다.
+# 전체 실행이면 생성되는 hook을 Python 3.9로도 테스트한다.
 # 사용법: scripts/test-matrix.sh [버전 ...]   (기본: 3.10 3.11 3.12 3.13)
 # 필요: uv
 set -euo pipefail
@@ -26,6 +27,17 @@ for v in "${VERSIONS[@]}"; do
     fi
   done
 done
+
+# 생성되는 hook은 Python ≥ 3.9를 지원한다 (설계 문서 §4): hook 테스트만 3.9 인터프리터로 실행
+if ((${#VERSIONS[@]} == 4)); then
+  py39="$(uv python find 3.9 2>/dev/null || { uv python install -q 3.9 && uv python find 3.9; })"
+  env="$WORK/${VERSIONS[0]}-highest"
+  if out="$(cd "$ROOT" && HOOK_PYTHON="$py39" "$env/bin/python" -m pytest -q -p no:cacheprovider tests/test_hook.py 2>&1)"; then
+    echo "✓ hook/py3.9: $(tail -1 <<< "$out")"
+  else
+    echo "✗ hook/py3.9"; tail -20 <<< "$out"; failed+=("hook/py3.9")
+  fi
+fi
 
 if ((${#failed[@]})); then
   echo "실패: ${failed[*]}"; exit 1
