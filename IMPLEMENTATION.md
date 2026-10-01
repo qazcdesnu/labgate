@@ -16,8 +16,8 @@
 | 2 | 부록 A·B·C 원문을 템플릿 파일로 옮기기, `render.py`, `stubs.py`와 테스트 | §8.1, §9, 부록 A·B·C | ✅ 완료 | `c1208bf` |
 | 3 | `plan.py`와 테스트 (경로 집합, 파일 권한, frontmatter 파싱, 파일 수) | §7, §8.4, §14.1 | ✅ 완료 | `261d42b` |
 | 4 | commit-msg hook 단위 테스트 (§14.1 표의 사례 전체) | §11, 부록 C | ✅ 완료 | `6b3a881` |
-| 5 | `writer.py`, `gitops.py`, `prompts.py`, `cli.py`의 `init` 명령, 통합 테스트 | §5, §8.3, §10, §14.2 | 다음 | |
-| 6 | 수용 기준 점검 (마일스톤 1개·20개, `git status` 깨끗함, M0-T0 승인 커밋이 hook 통과) | §14.3 | | |
+| 5 | `writer.py`, `gitops.py`, `prompts.py`, `cli.py`의 `init` 명령, 통합 테스트 | §5, §8.3, §10, §14.2 | ✅ 완료 | `b55d142` |
+| 6 | 수용 기준 점검 (마일스톤 1개·20개, `git status` 깨끗함, M0-T0 승인 커밋이 hook 통과) | §14.3 | 다음 | |
 
 ## 단계별 메모
 
@@ -46,3 +46,15 @@
 - §14.1 표 15개 사례 + §11의 나머지 규칙 20개 + `--author` 인식, identities 손상, agent-commit 신원·옵션 차단 (총 52개). agent-commit은 §14.2의 통합 테스트 일부를 앞당겨 다룬 것이다.
 - hook의 `#!/usr/bin/env python3`는 PATH를 따르므로, 테스트는 PATH 맨 앞에 테스트 중인 Python(또는 `HOOK_PYTHON`)을 둔다. 덕분에 매트릭스가 hook도 3.10–3.13에서 검증하고, 별도로 3.9에서도 돌린다.
 - 확인된 hook 동작: `Approve: M0-T0,`처럼 끝에 빈 항목이 있으면 무시하고 통과한다.
+
+### 5단계
+
+- 구현하며 정한 동작은 설계 문서 1.4에 반영했다: `--force` 시 기존 파일도 `init` 커밋에 포함, EOF도 중단(130), 대화형은 터미널 필요(아니면 2), Git 초기화 중 중단 안내, dry-run 트리 형식(실행 파일 `*`), `--no-git`·Claude Code 미사용 시 안내 문구, `-y`.
+- 쓰기는 `open(..., "x")`로 해서 충돌 검사를 지나쳐도 기존 파일을 덮어쓰지 않는다.
+- 초기 커밋은 `GIT_AUTHOR_*`, `GIT_COMMITTER_*`와 함께 `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`도 지운 환경에서 실행한다(다른 Git hook 안에서 `lg`를 실행해도 대상 저장소가 바뀌지 않도록).
+- 사용자 전역 설정은 존중한다. 예: `commit.gpgsign=true`이면 초기 커밋도 서명을 시도한다(실패하면 코드 4와 수동 명령 안내).
+- 테스트:
+  - 대화형은 prompt_toolkit 파이프 입력으로 실제 questionary를 구동한다(`tests/test_init.py`의 `keys`). 키를 다 보낸 뒤 입력을 닫으므로, 입력이 모자라면 멈추지 않고 EOF(코드 130)로 실패한다.
+  - 테스트 격리 장치가 `GIT_*`를 지우므로, 사용자 환경 변수 누출은 별도 테스트로 재현한다.
+- 알려진 경고: 최소 의존성 조합(questionary 2.0.0 → prompt_toolkit ≤ 3.0.36)에서 Python 3.12+이면 prompt_toolkit 내부의 `DeprecationWarning`(이벤트 루프)이 1건 난다. 동작에는 영향 없음.
+- 개발용 `.venv`는 uv 기본값이라 Python 3.14다(지원 범위 밖이지만 통과).
