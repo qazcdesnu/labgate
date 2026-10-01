@@ -1,7 +1,18 @@
 # `rp` CLI 설계 문서 — v1 (`rp init`)
 
-> 문서 버전: 1.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 1.1 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `rp init`을 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B에 있다.
+
+**1.1 변경 (2026-10-01, 구현 전 검토 반영)**
+
+- §5.3: 폴더·Git 검사를 입력 수집 앞으로 이동, dry-run은 경고만, 상위 폴더 자동 생성, Ctrl-C → 130
+- §5.4, §7.2: 생성 파일 수 정정(83 → 67)과 계산식 추가
+- §8.1: 점(`.`)으로 시작하는 템플릿은 `dot-` 접두어로 저장
+- §11.1, C.1: commit-msg hook이 가위 줄(`commit -v`) 아래를 무시. §14.1에 사례 추가
+- §12: `--author` 금지 이유 정정
+- A.5: 권한 규칙을 공백 형식으로 바꾸고 `git push -f` 추가, 한계 명시
+- B.2 §4: frontmatter 예외 목록과 `type` 값 표 정리. stub 사양 `catalog-entry` → `catalog`
+- B.3 §6.2, A.3, A.6: 대화 경로의 `.rp/pending/` 쓰기 허용, "사람 커밋 대기 상태"에서는 에이전트 커밋 금지
 
 ---
 
@@ -119,28 +130,31 @@ Typer는 명령이 하나뿐인 앱에서 하위 명령을 생략해 버리므�
 
 ### 5.3 동작 순서
 
-1. **입력 수집.** `--config`가 있으면 파일을 읽고, 없으면 §6.3의 대화형 질문을 한다.
-2. **설정 검증.** §6.2 규칙. 실패 시 모든 오류를 모아 출력하고 코드 2.
-3. **대상 폴더 검사.**
-   - 존재하지 않음 → 진행.
+1. **경로 확정.** `PATH` 인자, 또는 대화형 첫 질문(§6.3 #1)으로 대상 경로를 정한다. `--config`인데 `PATH`가 없으면 코드 2.
+2. **대상 폴더 검사.** 나머지 입력을 받기 전에 한다(대화형에서 질문에 다 답한 뒤 실패하지 않도록).
+   - 존재하지 않음 → 진행. 상위 폴더가 없어도 진행한다(쓰기 단계에서 만든다, §8.3).
+   - 존재하는데 폴더가 아님 → 코드 3.
    - 존재하고 비어 있음 → 진행.
-   - 존재하고 비어 있지 않음 → `--force` 없으면 코드 3.
-   - `--force`여도 생성할 경로와 같은 파일이 하나라도 있으면 충돌 목록을 출력하고 코드 3. (디렉터리가 이미 있는 것은 충돌이 아니다.)
-4. **Git 사전 검사** (`--no-git`이 아닐 때).
+   - 존재하고 비어 있지 않음 → `--force` 없으면 코드 3. (파일 단위 충돌 검사는 생성 계획이 나온 뒤 4단계에서 한다.)
+3. **Git 사전 검사** (`--no-git`이 아닐 때). 이것도 나머지 입력 전에 한다.
    - `git --version` 실패 → 코드 4.
-   - 대상 폴더(또는 존재하는 가장 가까운 상위 폴더)에서 `git rev-parse --is-inside-work-tree`가 `true` → 중첩 저장소를 막기 위해 코드 4. 메시지에 `--no-git` 사용 안내.
-5. **생성 계획 작성.** §7의 표대로 `PlannedFile(path, content, mode)` 목록을 메모리에 만든다. 이 단계에서 모든 템플릿을 렌더링한다. 렌더링 오류는 코드 1.
+   - 대상 폴더(또는 존재하는 가장 가까운 상위 폴더)에서 `git rev-parse --is-inside-work-tree`가 `true` → 중첩 저장소를 막기 위해 코드 4. 메시지에 `--no-git` 사용 안내. (Git 저장소 밖이면 이 명령은 0이 아닌 코드로 끝나는데, 이는 "저장소 아님"으로 처리한다.)
+   - **`--dry-run`이면** 위 두 경우를 오류 대신 경고로 출력하고 계속한다(아무것도 쓰지 않으므로).
+4. **입력 수집과 설정 검증.** `--config`가 있으면 파일을 읽고, 없으면 §6.3의 나머지 질문을 한다. §6.2 규칙으로 검증하고, 실패 시 모든 오류를 모아 출력하고 코드 2.
+5. **생성 계획 작성.** §7의 표대로 `PlannedFile(path, content, mode)` 목록을 메모리에 만든다. 이 단계에서 모든 템플릿을 렌더링한다. 렌더링 오류는 코드 1. 대상 폴더가 존재하고 `--force`이면, 생성할 경로와 같은 파일이 하나라도 있을 때 충돌 목록을 출력하고 코드 3 (dry-run이면 경고만). 디렉터리가 이미 있는 것은 충돌이 아니다.
 6. **dry-run이면** 트리와 파일 수를 출력하고 코드 0.
 7. **대화형 모드이고 `--yes`가 아니면** 입력 요약을 보여주고 확인을 받는다. 거부 시 코드 130.
 8. **파일 쓰기.** §8.3 쓰기 규칙.
 9. **Git 초기화.** §10. 실패 시 생성된 파일은 그대로 두고, 실패한 단계와 수동 복구 명령을 출력한 뒤 코드 4.
 10. **다음 단계 안내 출력** (§5.4).
 
+어느 단계에서든 Ctrl-C(`KeyboardInterrupt`, questionary가 `None`을 돌려주는 경우 포함)는 쓰기 전이면 그대로, 쓰기 중이면 §8.3 롤백 후 코드 130으로 끝낸다. Typer/click의 기본 `Abort` 처리(코드 1)에 맡기지 않는다.
+
 ### 5.4 성공 시 출력 예
 
 ```
 ✓ 프로젝트를 만들었습니다: /home/me/research/cap-partition
-  파일 83개, 초기 커밋 3f2a1c9 (init)
+  파일 67개, 초기 커밋 3f2a1c9 (init)
 
 다음 단계:
   1. notes/ 에 기존 계획 자료를 넣으세요.
@@ -210,7 +224,7 @@ milestones:
 
 | # | 질문 | 기본값 / 처리 |
 |---|---|---|
-| 1 | 프로젝트 경로 | `PATH` 인자가 있으면 생략 |
+| 1 | 프로젝트 경로 | `PATH` 인자가 있으면 생략. 답한 직후 §5.3의 2–3단계(폴더·Git 검사)를 한다 |
 | 2 | 프로젝트 이름 | 필수 |
 | 3 | slug | 경로의 마지막 이름을 소문자화하고 `[a-z0-9-]` 외 문자를 `-`로 바꾼 값. 결과가 규칙에 안 맞으면 기본값 없이 재질문 |
 | 4 | 한 줄 요약 | 필수 |
@@ -264,7 +278,7 @@ milestones:
 │   │   ├── roadmap.spec.md            # stub
 │   │   ├── milestone.spec.md          # stub
 │   │   ├── task-map.spec.md           # stub
-│   │   ├── catalog-entry.spec.md      # stub
+│   │   ├── catalog.spec.md            # stub
 │   │   ├── decision.spec.md           # stub
 │   │   ├── experiment-readme.spec.md  # stub
 │   │   ├── run-record.spec.md         # stub
@@ -354,6 +368,8 @@ milestones:
 
 모든 텍스트 파일은 UTF-8, LF 줄바꿈, 파일 끝 개행 1개로 쓴다.
 
+생성 파일 수 (마일스톤 N개): `claude_code=true`이면 `49 + 6N`, `false`이면 `42 + 6N` (`CLAUDE.md`와 `.claude/` 7개 제외). 마일스톤 하나당 6개는 `milestone.md`, `<M>-T0.md`, `task-map.md`, `.gitkeep` 3개(`experiments/<M>/`, `results/<M>/figures/`, `results/<M>/tables/`)다. 예: N=3, Claude Code 사용 → 67개.
+
 ---
 
 ## 8. 패키지 구조와 모듈 책임
@@ -381,6 +397,8 @@ rp-research/
 ```
 
 `templates/` 아래 파일 이름은 출력 경로를 따른다. 예: `jinja/plan/milestones/milestone.md.j2`, `static/specs/workflow.md`. 반복 생성되는 파일은 `plan.py`가 템플릿 하나를 여러 경로로 렌더링한다. 템플릿은 `importlib.resources.files("rp") / "templates"`로 읽는다.
+
+예외: 출력 경로가 `.`으로 시작하는 파일·폴더는 템플릿 쪽에서 앞의 `.`을 빼고 `dot-`를 붙여 저장한다 (`static/dot-gitignore` → `.gitignore`, `static/dot-claude/settings.json` → `.claude/settings.json`, `static/dot-rp/hooks/commit-msg` → `.rp/hooks/commit-msg`). 이유: (1) `templates/static/.gitignore`를 그대로 두면 이 CLI 저장소의 Git이 그것을 실제 ignore 규칙으로 적용해 템플릿 폴더 안의 파일을 무시한다. (2) 빌드 도구가 숨김 파일·VCS 무시 파일을 패키지에서 빼는 경우가 있다. 변환은 `plan.py`의 경로 매핑 한 곳에서만 한다. 패키지 테스트에서 wheel에 모든 템플릿이 들어갔는지 확인한다.
 
 ### 8.2 `pyproject.toml`
 
@@ -413,7 +431,7 @@ packages = ["src/rp"]
 
 ### 8.3 쓰기 규칙 (`writer.py`)
 
-- **대상이 존재하지 않을 때:** 같은 부모 폴더에 `.<name>.rp-tmp-<8자리 hex>` 임시 폴더를 만들어 모두 쓴 뒤 `os.rename`으로 대상 이름으로 바꾼다. 중간 실패 시 임시 폴더를 삭제한다.
+- **대상이 존재하지 않을 때:** 부모 폴더가 없으면 먼저 `os.makedirs`로 만들고, 이때 새로 만든 상위 폴더를 기록해 둔다. 같은 부모 폴더에 `.<name>.rp-tmp-<8자리 hex>` 임시 폴더를 만들어 모두 쓴 뒤 `os.rename`으로 대상 이름으로 바꾼다. 중간 실패 시 임시 폴더와 새로 만든 상위 폴더를 삭제한다.
 - **대상이 존재할 때(비어 있거나 `--force`):** 직접 쓴다. 새로 만든 파일과 폴더를 기록해 두고, 중간 실패 시 역순으로 삭제한다. 원래 있던 파일·폴더는 건드리지 않는다.
 - 실행 권한은 `PlannedFile.mode`대로 `os.chmod`로 설정한다.
 
@@ -513,7 +531,8 @@ Actor: human
 Key: value                        ← trailer 블록 = 메시지의 마지막 문단
 ```
 
-- `#`으로 시작하는 줄은 무시한다 (Git 주석).
+- `#`으로 시작하는 줄은 무시한다 (Git 주석). `core.commentChar`를 바꾼 환경은 지원하지 않는다.
+- 가위 줄 `# ------------------------ >8 ------------------------`과 그 아래는 모두 무시한다. Git은 commit-msg hook을 메시지 정리(cleanup) **전에** 실행하므로, `git commit -v`나 `commit.verbose=true`로 편집기를 쓰면 이 줄 아래에 diff가 붙은 채로 hook에 전달된다. 이를 자르지 않으면 diff가 마지막 문단으로 잡혀 trailer를 찾지 못한다.
 - 마지막 문단의 모든 줄이 `Key: value` 형식(`Key`는 대문자로 시작하는 영문·하이픈)이면 trailer 블록으로 본다.
 - 헤더가 `Merge `, `Revert `, `fixup! `, `squash! `, `amend! `로 시작하면 검사하지 않고 통과.
 
@@ -565,7 +584,7 @@ Key: value                        ← trailer 블록 = 메시지의 마지막 �
 
 ## 12. `scripts/agent-commit`
 
-원문은 부록 C.2. `identities.json`의 에이전트 이름·이메일을 `GIT_AUTHOR_*`, `GIT_COMMITTER_*` 환경 변수로 설정하고 `git commit "$@"`을 실행한다. 에이전트는 `git commit` 대신 이것만 사용한다. Claude Code에서는 `.claude/settings.json`이 `git commit` 직접 실행을 막는다. `--author` 옵션은 사용하지 않는다(hook에서 작성자 판별이 환경 변수 기준이므로).
+원문은 부록 C.2. `identities.json`의 에이전트 이름·이메일을 `GIT_AUTHOR_*`, `GIT_COMMITTER_*` 환경 변수로 설정하고 `git commit "$@"`을 실행한다. 에이전트는 `git commit` 대신 이것만 사용한다. Claude Code에서는 `.claude/settings.json`이 `git commit` 직접 실행을 막는다. `--author` 옵션은 막는다. hook은 `--author`로 지정한 작성자도 그대로 인식하므로(Git이 hook 실행 시 `GIT_AUTHOR_*`를 내보냄) 판별 자체는 문제가 없다. 막는 이유는 에이전트가 `--author`로 사람 이메일을 넣으면 사람 전용 타입 커밋을 만들 수 있기 때문이다. 이 스크립트는 작성자를 항상 에이전트로 고정한다.
 
 ---
 
@@ -600,13 +619,14 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 | h | `gate(M1-T2): approve, next M1-T3` + `Actor: human`, `Task: M1-T2`, `Verdict: approve`, `Source: document`, `Next: M1-T3` | 통과 |
 | h | 위에서 `Source` 누락 | 실패 |
 | h | 위에서 `Verdict: ok` | 실패 |
-| a | `task(M1-T3): x` + `Task: M1-T2` | 실패 (scope 불일치) |
+| a | `task(M1-T3): x` + `Actor: agent`, `Task: M1-T2` | 실패 (scope 불일치) |
 | a | `exp: add model` (trailer 없음) | 실패 (Actor 누락) |
 | 등록 안 된 `z@y.com` | 정상 형식 | 실패 (등록되지 않은 작성자) |
 | h | `decide(D1.3): confirm PR metric` + `Actor: human`, `Decisions: D1.3`, `Source: conversation` | 통과 |
 | h | `plan(M0-T0): approve initial task` + `Actor: human`, `Approve: M0-T0` | 통과 |
 | 아무나 | `Merge branch 'x'` | 통과 |
 | a | 헤더 73자 이상 | 실패 |
+| h | 통과하는 `gate` 메시지 뒤에 가위 줄과 diff(`+foo: bar` 같은 줄 포함)가 붙음 | 통과 |
 
 ### 14.2 통합 테스트
 
@@ -713,7 +733,7 @@ updated: {{ today }}
 
 | 폴더 | 내용 | 명명 규칙 |
 |---|---|---|
-| `.rp/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 |
+| `.rp/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.rp/pending/`만 예외: 사람 커밋 대기 중인 메시지 초안, Git 제외) |
 {% if claude_code %}
 | `.claude/` | Claude Code 설정과 슬래시 커맨드 | |
 {% endif %}
@@ -765,12 +785,13 @@ updated: {{ today }}
 
 ## 세션 시작 절차
 
-1. `STATUS.md`를 읽는다.
-2. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다. 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 종료한다.
-3. `reviews/`에서 이 task와 관련해 사람이 응답한 문서(`status: answered`)가 있는지 확인하고, 있으면 먼저 반영한다.
-4. 카드에 연결된 결정(`decisions/`)과 `references/<M>/task-map.md`를 읽는다.
-5. `logs/`의 최근 일지 1–2개를 읽는다.
-6. 이번 세션에 쓸 문서 유형의 사양(`specs/doc-types/`)을 읽는다.
+1. `.rp/pending/COMMIT_MSG`가 있으면 사람 커밋 대기 상태다. workflow.md §6.2의 "사람 커밋 대기 상태"를 따른다.
+2. `STATUS.md`를 읽는다.
+3. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다. 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 종료한다.
+4. `reviews/`에서 이 task와 관련해 사람이 응답한 문서(`status: answered`)가 있는지 확인하고, 있으면 먼저 반영한다.
+5. 카드에 연결된 결정(`decisions/`)과 `references/<M>/task-map.md`를 읽는다.
+6. `logs/`의 최근 일지 1–2개를 읽는다.
+7. 이번 세션에 쓸 문서 유형의 사양(`specs/doc-types/`)을 읽는다.
 
 ## 반드시 지킬 규칙
 
@@ -782,7 +803,7 @@ updated: {{ today }}
    - 결정의 상태를 `confirmed`로 바꾸기
    - review 문서의 `## 응답` 섹션 작성 (대화 경로 예외: workflow.md §6.2)
    - `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준 변경 (변경 제안은 `propose` 커밋)
-   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.rp/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋)
+   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.rp/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 대화 경로의 커밋 메시지 초안 `.rp/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §6.2)
    - tag 생성, 이력 재작성(rebase, 사람 커밋 amend, force push)
 5. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
 6. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
@@ -794,7 +815,7 @@ updated: {{ today }}
 1. 작업 일지 `logs/YYYY-MM-DD_sNN.md`를 쓴다.
 2. task 카드의 "진행 메모"와 `updated`를 갱신한다.
 3. `STATUS.md`를 갱신한다.
-4. `log` 타입으로 커밋해 작업 트리를 깨끗하게 남긴다.
+4. `log` 타입으로 커밋해 작업 트리를 깨끗하게 남긴다. 단, 사람 커밋 대기 상태(`.rp/pending/COMMIT_MSG` 있음)이면 커밋하지 않고, 사람이 실행할 명령을 다시 알린 뒤 끝낸다 (workflow.md §6.2).
 
 ## 참고
 
@@ -825,17 +846,18 @@ updated: {{ today }}
 
 ## A.5 `.claude/settings.json` (S, claude_code)
 
-권한 규칙 문법은 구현 시점의 Claude Code 문서로 재확인한다.
+규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다.
 
 ~~~~json
 {
   "permissions": {
     "deny": [
-      "Bash(git commit:*)",
-      "Bash(git tag:*)",
-      "Bash(git rebase:*)",
-      "Bash(git push --force:*)",
-      "Bash(git reset --hard:*)"
+      "Bash(git commit *)",
+      "Bash(git tag *)",
+      "Bash(git rebase *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)"
     ]
   }
 }
@@ -885,7 +907,7 @@ task $ARGUMENTS 에서 에스컬레이션을 제출한다. specs/workflow.md §7
 `session-close.md`
 
 ~~~~markdown
-AGENTS.md의 "세션 종료 절차"를 수행하라. 마지막에 `git status`가 깨끗한지 확인하고, 이번 세션 요약을 3줄로 보고하라.
+AGENTS.md의 "세션 종료 절차"를 수행하라. 마지막에 `git status`가 깨끗한지 확인하라(사람 커밋 대기 상태이면 stage된 변경만 남아 있어야 한다). 이번 세션 요약을 3줄로 보고하라.
 ~~~~
 
 ## A.7 `STATUS.md` (J)
@@ -1221,7 +1243,7 @@ updated: {{ today }}
 | roadmap | [roadmap.spec.md](doc-types/roadmap.spec.md) | — | `plan/roadmap.md` | stub |
 | milestone | [milestone.spec.md](doc-types/milestone.spec.md) | — | `plan/milestones/<M>/milestone.md` | stub |
 | task-map | [task-map.spec.md](doc-types/task-map.spec.md) | — | `references/<M>/task-map.md` | stub |
-| catalog-entry | [catalog-entry.spec.md](doc-types/catalog-entry.spec.md) | — | `references/catalog.md` | stub |
+| catalog | [catalog.spec.md](doc-types/catalog.spec.md) | — | `references/catalog.md` | stub |
 | decision | [decision.spec.md](doc-types/decision.spec.md) | — | `decisions/<D-ID>_<slug>.md` | stub |
 | experiment-readme | [experiment-readme.spec.md](doc-types/experiment-readme.spec.md) | — | `experiments/<M>/<Task>_<slug>/README.md` | stub |
 | run-record | [run-record.spec.md](doc-types/run-record.spec.md) | — | `experiments/<M>/<Task>_<slug>/runs/<Run-ID>.yaml` | stub |
@@ -1275,18 +1297,32 @@ ID는 한 번 부여하면 바꾸지 않는다. 폐기된 대상의 ID는 재사
 
 ## 4. Frontmatter
 
-모든 Markdown 문서(README, FILEMAP 제외)는 YAML frontmatter로 시작한다.
+Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontmatter 없음):
+
+- 루트 `README.md`: 사람용 입구
+- `AGENTS.md`, 그리고 있다면 `CLAUDE.md`와 `.claude/` 아래 파일: 에이전트 도구가 그대로 읽는 지침
+- `notes/`, `paper/` 아래 파일: 형식 자유
+
+`specs/templates/`의 양식은 frontmatter를 갖지만 값이 `<...>` 자리 표시이므로 검증 대상이 아니다.
 
 공통 필드:
 
 | 필드 | 필수 | 설명 |
 |---|---|---|
 | `id` | ✓ | 문서 ID |
-| `type` | ✓ | 문서 유형 (사양 이름과 같음) |
+| `type` | ✓ | 문서 유형. 아래 표 참고 |
 | `spec_version` | ✓ | 따르는 사양 버전 (현재 1) |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
-| `updated` | ✓ | 마지막 수정일 |
+| `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
+
+`type` 값:
+
+| 구분 | `type` |
+|---|---|
+| 사양이 있는 문서 | `specs/doc-types/`의 사양 이름과 같다: `task-card`, `review`, `roadmap`, `milestone`, `task-map`, `catalog`, `decision`, `experiment-readme`, `run-record`, `task-result`, `milestone-report`, `worklog`, `status` |
+| 사양 문서 자신 | `spec` |
+| 목록·안내 문서 (사양 없음) | `filemap` (`FILEMAP.md`), `spec-index` (`specs/README.md`), `decision-index` (`decisions/index.md`) |
 
 - 값이 없으면 `null`. 목록이 비면 `[]`.
 - 사람이 입력한 문자열은 큰따옴표로 감싼다.
@@ -1372,7 +1408,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 ## 4. 세션 절차
 
-시작·종료 절차는 [AGENTS.md](../AGENTS.md)에 있다. 모든 세션은 깨끗한 작업 트리로 끝난다.
+시작·종료 절차는 [AGENTS.md](../AGENTS.md)에 있다. 모든 세션은 깨끗한 작업 트리로 끝난다. 예외는 사람 커밋 대기 상태(§6.2)뿐이다.
 
 ## 5. Task 실행
 
@@ -1412,10 +1448,17 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ### 6.2 대화 경로 (사람이 대화로 판정)
 
 1. 에이전트가 사람의 발언을 그대로 반영해 `## 응답`을 작성하고 `verdict`, `source: conversation`, `status: answered`를 채운다. 사람이 말하지 않은 내용을 추가하지 않는다.
-2. 에이전트가 관련 변경(카드·결정 상태 등)을 stage하고, 커밋 메시지 초안을 `.rp/pending/COMMIT_MSG`에 쓴다.
-3. 에이전트는 사람에게 `git diff --cached` 확인과 다음 명령 실행을 요청하고 멈춘다:
-   `git commit -F .rp/pending/COMMIT_MSG && git tag gate/<Task>`
+2. 에이전트가 관련 변경(카드·결정 상태 등)을 stage하고, 커밋 메시지 초안을 `.rp/pending/COMMIT_MSG`에 쓴다. `.rp/pending/`은 Git에서 제외되며, 에이전트가 쓸 수 있는 `.rp/` 안의 유일한 위치다.
+3. 에이전트는 사람에게 `git diff --cached` 확인과 다음 명령 실행을 요청하고 멈춘다 (tag는 `approve`일 때만):
+   `git commit -F .rp/pending/COMMIT_MSG && rm .rp/pending/COMMIT_MSG && git tag gate/<Task>`
 4. 사람이 확인 후 실행한다. 내용이 다르면 수정 후 커밋한다.
+
+같은 방식이 `decide`, `respond` 커밋의 대화 경로에도 적용된다.
+
+**사람 커밋 대기 상태.** `.rp/pending/COMMIT_MSG`가 있는 동안 stage된 변경은 사람의 커밋을 기다리는 것이다. 이 상태에서 에이전트는:
+
+- 어떤 커밋도 하지 않는다 (stage된 변경이 에이전트 커밋에 섞이기 때문). 세션 종료 시에도 `log` 커밋을 하지 않고, 작업 트리가 깨끗하지 않은 채로 끝내며 그 이유를 보고한다 (§4 "깨끗한 작업 트리"의 유일한 예외).
+- 세션 시작 시 이 파일이 있으면, `git log`에 그 메시지로 된 사람 커밋이 이미 있는지 확인한다. 있으면 파일을 지우고 §6.3으로 간다. 없으면 사람에게 커밋 실행을 다시 요청하고 다른 작업을 하지 않는다.
 
 ### 6.3 판정 후 정리 (에이전트)
 
@@ -1810,7 +1853,7 @@ status: complete
 | `roadmap` | 로드맵 | 연구 질문, 가설, 마일스톤 목록, 공통 실험 원칙을 정의한다 | `plan/roadmap.md` |
 | `milestone` | 마일스톤 | 마일스톤의 목표, task 목록, Go/No-go 기준을 정의한다 | `plan/milestones/<M>/milestone.md` |
 | `task-map` | Task–문헌 매핑 | 마일스톤의 각 task에 필요한 참고문헌과 읽을 부분을 연결한다 | `references/<M>/task-map.md` |
-| `catalog-entry` | 참고문헌 목록 항목 | 참고문헌 ID와 서지 정보, 원본 파일, 요약을 기록한다 | `references/catalog.md` |
+| `catalog` | 참고문헌 목록 | 참고문헌마다 ID, 서지 정보, 원본 파일, 요약을 한 행으로 기록한다 | `references/catalog.md` |
 | `decision` | 결정 | 하나의 설계·실험 결정의 선택지, 근거, 상태를 기록한다 | `decisions/<D-ID>_<slug>.md` |
 | `experiment-readme` | 실험 설명 | task별 실험 폴더의 목적, 실행 방법, 연결된 task·결정을 설명한다 | `experiments/<M>/<Task>_<slug>/README.md` |
 | `run-record` | 실행 기록 | 실행 한 번의 설정, 시드, 커밋, 환경, 지표 요약을 기록한다 | `experiments/<M>/<Task>_<slug>/runs/<Run-ID>.yaml` |
@@ -2010,6 +2053,7 @@ TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
 TASK_ID_RE = re.compile(r"^M\d+-T\d+$")
 DECISION_ID_RE = re.compile(r"^D\d+\.\d+$")
 MAX_HEADER = 72
+SCISSORS = "# ------------------------ >8 ------------------------"
 
 
 def git(*args):
@@ -2035,7 +2079,10 @@ def author_email():
 
 def parse(text):
     """(header, trailers, errors)를 돌려준다. 메시지가 비면 header는 None."""
-    lines = [l.rstrip() for l in text.splitlines() if not l.startswith("#")]
+    raw = text.splitlines()
+    if SCISSORS in raw:  # commit -v: 가위 줄 아래(diff)는 메시지가 아니다
+        raw = raw[: raw.index(SCISSORS)]
+    lines = [l.rstrip() for l in raw if not l.startswith("#")]
     while lines and not lines[-1]:
         lines.pop()
     if not lines:
