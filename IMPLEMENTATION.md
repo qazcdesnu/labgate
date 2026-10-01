@@ -2,6 +2,8 @@
 
 [labgate-design.md](labgate-design.md)(무엇을 만드는가)를 구현하는 순서와 진행 상황이다. 단계를 마칠 때마다 상태와 커밋을 갱신한다.
 
+**현재 상태: v1(`lg init`) 구현 완료. §14.3 수용 기준을 모두 충족한다.**
+
 ## 완료 조건 (모든 단계 공통)
 
 - `scripts/test-matrix.sh` 통과: Python 3.10–3.13 × 의존성 최신·최소(`pyproject.toml` 하한) = 8개 조합
@@ -17,7 +19,7 @@
 | 3 | `plan.py`와 테스트 (경로 집합, 파일 권한, frontmatter 파싱, 파일 수) | §7, §8.4, §14.1 | ✅ 완료 | `261d42b` |
 | 4 | commit-msg hook 단위 테스트 (§14.1 표의 사례 전체) | §11, 부록 C | ✅ 완료 | `6b3a881` |
 | 5 | `writer.py`, `gitops.py`, `prompts.py`, `cli.py`의 `init` 명령, 통합 테스트 | §5, §8.3, §10, §14.2 | ✅ 완료 | `b55d142` |
-| 6 | 수용 기준 점검 (마일스톤 1개·20개, `git status` 깨끗함, M0-T0 승인 커밋이 hook 통과) | §14.3 | 다음 | |
+| 6 | 수용 기준 점검 (마일스톤 1개·20개, `git status` 깨끗함, M0-T0 승인 커밋이 hook 통과) | §14.3 | ✅ 완료 | `a154ddd` |
 
 ## 단계별 메모
 
@@ -58,3 +60,25 @@
   - 테스트 격리 장치가 `GIT_*`를 지우므로, 사용자 환경 변수 누출은 별도 테스트로 재현한다.
 - 알려진 경고: 최소 의존성 조합(questionary 2.0.0 → prompt_toolkit ≤ 3.0.36)에서 Python 3.12+이면 prompt_toolkit 내부의 `DeprecationWarning`(이벤트 루프)이 1건 난다. 동작에는 영향 없음.
 - 개발용 `.venv`는 uv 기본값이라 Python 3.14다(지원 범위 밖이지만 통과).
+
+### 6단계
+
+`tests/test_acceptance.py`는 설치된 `lg` 실행 파일을 별도 프로세스로 실행한다(사람이 쓰는 그대로). 수용 기준과 확인하는 테스트:
+
+| §14.3 수용 기준 | 확인 |
+|---|---|
+| §14.1, §14.2 테스트 모두 통과 | §14.1: `test_config.py`, `test_render.py`, `test_templates.py`, `test_plan.py`, `test_writer.py`, `test_hook.py`. §14.2: `test_init.py` (6항목 각각 `test_init_with_config`, `test_agent_commit_in_generated_project`(2·3), `test_dry_run_writes_nothing`, `test_no_git`, `test_inside_existing_repo`) |
+| 마일스톤 1개, 20개 설정 모두에서 생성 성공 | `test_acceptance[1·20 × Claude Code 사용·미사용]` |
+| 생성된 Markdown에 렌더링되지 않은 템플릿 문법 없음 (사용자 입력의 `{{`·`{%`는 그대로, 생성 성공) | `test_acceptance`, `test_user_braces_are_kept_and_generation_succeeds` |
+| 생성 직후 `git status` 깨끗함 | `test_acceptance` (`--ignored` 포함) |
+| §5.4 안내대로 M0-T0 승인 커밋을 실행하면 hook 통과 | `test_acceptance` (`lg` 출력에서 명령을 그대로 꺼내 실행), `test_approve_together_with_card_status` |
+
+- 결함 주입 확인: 안내문의 승인 커밋 타입을 `plan` → `gate`로 바꾸면 5개 테스트가 실패한다.
+- 배포 확인(수동): wheel을 빌드해 새 가상환경에 설치(`pipx install .`과 같은 형태)하고 `lg init`을 실행 → 성공, 실행 권한 유지, 작업 트리 깨끗함.
+- 최종: 로컬 매트릭스 8개 조합 각 227개 통과, hook × Python 3.9 52개 통과.
+
+## 남은 결정·후속 작업
+
+- 개발용 `.venv`가 Python 3.14다. 지원 범위(3.10–3.13)에 3.14를 넣을지, 개발 환경을 3.13으로 고정할지.
+- Claude Code 슬래시 커맨드는 `.claude/commands/`(지원되지만 구식)로 생성한다. `.claude/skills/`로 옮길지는 v1 이후 검토.
+- §15 향후 확장(`lg gate`, `lg status`, `lg validate`, `lg upgrade`, `lg doctor`).
