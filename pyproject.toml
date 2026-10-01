@@ -14,6 +14,9 @@ dependencies = [
   "jinja2>=3.1",
   "pyyaml>=6.0.2",
   "pydantic>=2.8",
+  # Python 3.14용 wheel이 있는 첫 버전 (그 아래는 소스 빌드 실패)
+  "pyyaml>=6.0.3; python_version >= '3.14'",
+  "pydantic>=2.12; python_version >= '3.14'",
 ]
 
 [project.optional-dependencies]

@@ -1,7 +1,11 @@
 # `labgate` CLI 설계 문서 — v1 (`lg init`)
 
-> 문서 버전: 1.4 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 1.5 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`을 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B에 있다.
+
+**1.5 변경 (2026-10-01)**
+
+- §4, §8.2: 지원 Python에 3.14 추가. 3.14 전용 의존성 하한(환경 마커)
 
 **1.4 변경 (2026-10-01, `lg init` 구현 중 확정)**
 
@@ -99,11 +103,11 @@
 
 | 항목 | 선택 |
 |---|---|
-| 언어 | Python 3.10–3.13 지원 (CLI, 네 버전 모두에서 테스트 통과가 조건). 생성되는 hook은 Python ≥ 3.9 표준 라이브러리만 사용 |
+| 언어 | Python 3.10–3.14 지원 (CLI, 다섯 버전 모두에서 테스트 통과가 조건). 생성되는 hook은 Python ≥ 3.9 표준 라이브러리만 사용 |
 | 명령 구조 | `typer` ≥ 0.15.4. 그 아래 버전은 click 상한을 두지 않아 최신 click과 함께 설치되는데, 이 조합에서 0.12는 `--version`이 "Missing command"로, 0.13–0.15.3은 `--help`가 `make_metavar()` 오류로 실패한다 |
 | 대화형 입력 | `questionary` ≥ 2.0 |
 | 템플릿 | `jinja2` ≥ 3.1 |
-| 설정 | `pyyaml` ≥ 6.0.2, 검증은 `pydantic` ≥ 2.8 (이보다 낮으면 Python 3.12/3.13용 wheel이 없어 설치 실패) |
+| 설정 | `pyyaml` ≥ 6.0.2, 검증은 `pydantic` ≥ 2.8 (이보다 낮으면 Python 3.12/3.13용 wheel이 없어 설치 실패). Python 3.14에서는 `pyyaml` ≥ 6.0.3, `pydantic` ≥ 2.12 (환경 마커) |
 | 테스트 | `pytest` |
 | 배포 | `pipx install .` (패키지명·import 이름 `labgate`, 명령명 `lg`) |
 | 외부 의존 | `git` 실행 파일 (`--no-git`이면 불필요), 생성된 프로젝트에서 `python3`, `bash` |
@@ -441,6 +445,8 @@ dependencies = [
   "jinja2>=3.1",
   "pyyaml>=6.0.2",
   "pydantic>=2.8",
+  "pyyaml>=6.0.3; python_version >= '3.14'",
+  "pydantic>=2.12; python_version >= '3.14'",
 ]
 
 [project.optional-dependencies]
