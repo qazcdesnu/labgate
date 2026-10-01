@@ -1,0 +1,33 @@
+---
+id: {{ m.id }}
+type: milestone
+spec_version: {{ spec_version }}
+title: {{ m.title | yq }}
+status: planned
+go_nogo: null
+created: {{ today }}
+updated: {{ today }}
+---
+# {{ m.id }}. {{ m.title }}
+
+## 목표
+
+> TODO: {{ m.id }}-T0에서 작성
+
+## Task 목록
+
+| ID | 제목 | 상태 | 카드 |
+|---|---|---|---|
+| `{{ m.id }}-T0` | 착수 계획 | draft | [{{ m.id }}-T0](tasks/{{ m.id }}-T0.md) |
+
+## Go / No-go 기준
+
+> TODO: {{ m.id }}-T0에서 작성
+
+## 관련 결정
+
+(없음)
+
+## 결과
+
+- 마일스톤 보고: `results/{{ m.id }}/report.md` (마일스톤 종료 시 작성)

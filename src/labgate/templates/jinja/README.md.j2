@@ -1,0 +1,31 @@
+# {{ project.name }}
+
+{{ project.summary }}
+
+## 연구 질문
+
+{{ project.research_question }}
+
+## 처음 볼 문서
+
+1. [STATUS.md](STATUS.md): 현재 상태와 사람의 판단이 필요한 항목
+2. [plan/roadmap.md](plan/roadmap.md): 전체 계획
+3. [FILEMAP.md](FILEMAP.md): 폴더 구조
+4. [specs/README.md](specs/README.md): 문서 작성 규칙
+5. [specs/workflow.md](specs/workflow.md): 작업 절차와 승인 게이트
+
+## 사람이 하는 일
+
+- `STATUS.md`의 "사람 판단 대기"를 확인하고 `reviews/open/`의 요청에 응답한다.
+- 판정과 확정은 사람 신원의 커밋으로 남긴다. 사람 전용 커밋 타입: `gate`, `decide`, `plan`, `spec`, `respond` ([specs/git-commit.md](specs/git-commit.md)).
+- 게이트를 통과시키면 tag를 남긴다: `git tag gate/<Task>`.
+
+## 저장소를 새로 클론했을 때
+
+```bash
+git config core.hooksPath .lg/hooks
+git config user.name "<이름>"
+git config user.email "<.lg/identities.json에 등록된 이메일>"
+```
+
+<sub>labgate {{ labgate_version }}로 {{ today }}에 초기화됨 · spec_version {{ spec_version }}</sub>

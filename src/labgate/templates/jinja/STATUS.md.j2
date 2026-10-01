@@ -1,0 +1,34 @@
+---
+id: STATUS
+type: status
+spec_version: {{ spec_version }}
+updated: {{ today }}
+---
+# 상태판
+
+## 현재 위치
+
+- 마일스톤: `{{ milestones[0].id }}` ({{ milestones[0].title }})
+- Task: `{{ milestones[0].id }}-T0` (draft: 사람 승인 대기)
+
+## 사람 판단 대기
+
+| 항목 | 종류 | 요청일 | 문서 |
+|---|---|---|---|
+| `{{ milestones[0].id }}-T0` 승인 | task 승인 | {{ today }} | [{{ milestones[0].id }}-T0](plan/milestones/{{ milestones[0].id }}/tasks/{{ milestones[0].id }}-T0.md) |
+
+## 진행 중
+
+(없음)
+
+## 막힘
+
+(없음)
+
+## 최근 게이트
+
+(없음)
+
+## 다음 예정
+
+- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 (문헌 정리, task 분해, 기존 계획 이관)

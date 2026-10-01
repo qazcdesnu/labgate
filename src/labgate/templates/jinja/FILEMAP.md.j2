@@ -1,0 +1,57 @@
+---
+id: FILEMAP
+type: filemap
+spec_version: {{ spec_version }}
+updated: {{ today }}
+---
+# 폴더 지도
+
+이 문서는 "무엇이 어디에 있는가"를 설명한다. "어떻게 써야 하는가"는 [specs/](specs/README.md)에 있다.
+
+## 루트 문서
+
+| 파일 | 역할 | 주로 쓰는 쪽 |
+|---|---|---|
+| `README.md` | 사람용 입구 | 사람 |
+| `FILEMAP.md` | 이 문서 | 공통 |
+| `AGENTS.md` | 에이전트 행동 규칙의 원본 | 사람 (에이전트는 읽기만) |
+{% if claude_code %}
+| `CLAUDE.md` | Claude Code 연결: `AGENTS.md` 참조 | 사람 |
+{% endif %}
+| `STATUS.md` | 현재 상태판, 사람 판단 대기 목록 | 에이전트 |
+
+## 폴더
+
+| 폴더 | 내용 | 명명 규칙 |
+|---|---|---|
+| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 대기 중인 메시지 초안, Git 제외) |
+{% if claude_code %}
+| `.claude/` | Claude Code 설정과 슬래시 커맨드 | |
+{% endif %}
+| `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식 | `doc-types/<유형>.spec.md` |
+| `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
+| `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
+| `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
+| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 실험 | `<M>/<Task>_<slug>/` |
+| `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |
+| `results/` | task 결과, 마일스톤 보고, 그림, 표 | `<M>/<Task>_result.md`, `<M>/report.md` |
+| `reviews/` | 게이트 요청과 에스컬레이션 (`open/` → `closed/`) | `<Task>_gate-NN.md`, `<Task>_esc-NN.md` |
+| `logs/` | 에이전트 세션 작업 일지 | `YYYY-MM-DD_sNN.md` |
+| `data/` | 데이터 생성 설정, 데이터 설명서 | |
+| `paper/` | 원고, 그림, 참고문헌 bib | |
+| `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |
+| `scripts/` | 프로젝트 도구 (`agent-commit` 등) | |
+| `env/` | 환경 설정 | |
+
+## 마일스톤
+
+| ID | 제목 | 계획 | 문헌 매핑 | 결과 |
+|---|---|---|---|---|
+{% for m in milestones %}
+| `{{ m.id }}` | {{ m.title }} | [milestone.md](plan/milestones/{{ m.id }}/milestone.md) | [task-map.md](references/{{ m.id }}/task-map.md) | `results/{{ m.id }}/` |
+{% endfor %}
+
+## ID가 문서를 잇는 방식
+
+모든 문서는 ID로 서로를 가리킨다. 규칙은 [specs/conventions.md](specs/conventions.md) §1.
+예: `results/M1/M1-T2_result.md`의 근거가 `M1-T2_run-003`이고, 이 실행은 결정 `D1.1`과 참고문헌 `guo2025-loglinear`를 따른다.

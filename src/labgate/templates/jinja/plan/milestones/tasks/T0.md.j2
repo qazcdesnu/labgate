@@ -1,0 +1,88 @@
+---
+id: {{ m.id }}-T0
+type: task-card
+spec_version: {{ spec_version }}
+title: "착수 계획"
+milestone: {{ m.id }}
+status: draft
+depends_on: []
+decisions: []
+references: []
+budget:
+  gpu_hours: 0
+  wall_days: null
+created: {{ today }}
+updated: {{ today }}
+---
+# {{ m.id }}-T0. 착수 계획
+
+## 목표
+
+{{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 필요한 문헌을 정리하고, 마일스톤을 task로 분해하고, task와 문헌을 연결한다.
+
+## 범위
+
+### 포함
+
+- 문헌 조사, 원본을 `references/library/`에 저장, `references/catalog.md`에 등록
+- task 분해: `{{ m.id }}-T1` 이후 task 카드를 `draft`로 작성
+- `references/{{ m.id }}/task-map.md` 작성
+- `plan/milestones/{{ m.id }}/milestone.md`의 목표, task 목록, Go/No-go 기준 초안 작성 (마일스톤이 `planned`인 동안 허용)
+{% if prev is none %}
+- `notes/`의 기존 계획 자료를 `plan/roadmap.md`, 각 `milestone.md`, `decisions/`로 이관 (기존 결정은 `proposed` 상태로)
+- 이번 마일스톤에 필요한 stub 사양의 초안을 `notes/spec-drafts/`에 작성 (확정은 사람의 `spec` 커밋)
+{% endif %}
+
+### 제외
+
+- 실험 코드 작성과 실행
+- 결정 확정
+
+## 입력
+
+- `plan/roadmap.md`
+- `plan/milestones/{{ m.id }}/milestone.md`
+{% if prev is none %}
+- `notes/`의 기존 계획 자료 (사람이 넣어 둠)
+{% else %}
+- 이전 마일스톤 보고: `results/{{ prev.id }}/report.md`
+{% endif %}
+
+## 산출물
+
+- `{{ m.id }}-T1` 이후 task 카드 (`draft`)
+- `references/{{ m.id }}/task-map.md`
+- 갱신된 `references/catalog.md`, `references/library/`
+- `milestone.md` 초안
+{% if prev is none %}
+- 이관된 `plan/roadmap.md`, 각 `milestone.md`, `decisions/` 문서
+{% endif %}
+- 게이트 요청서 `reviews/open/{{ m.id }}-T0_gate-01.md`
+
+## 완료 기준
+
+- [ ] 모든 새 task 카드가 `specs/doc-types/task-card.spec.md`를 만족한다
+- [ ] 모든 task가 검증 가능한 완료 기준을 하나 이상 갖는다
+- [ ] `task-map.md`에 각 task의 참고문헌, 또는 참고문헌이 없는 이유가 있다
+- [ ] 등록한 모든 문헌의 원본이 `references/library/`에 있고 `catalog.md`에 기재되어 있다
+- [ ] `milestone.md`에 Go/No-go 기준 초안이 있다
+{% if prev is none %}
+- [ ] 기존 계획의 결정 항목이 모두 `decisions/`에 `proposed`로 옮겨졌다
+{% endif %}
+- [ ] 게이트 요청서를 제출했다
+
+## 자원 예산
+
+- GPU: 0시간 (실행 없음)
+
+## 위험과 가정
+
+> 착수 시 에이전트가 작성
+
+## 진행 메모
+
+> 에이전트가 세션마다 갱신
+
+## 게이트 이력
+
+(없음)

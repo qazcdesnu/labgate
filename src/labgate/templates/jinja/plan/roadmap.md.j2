@@ -1,0 +1,39 @@
+---
+id: roadmap
+type: roadmap
+spec_version: {{ spec_version }}
+status: draft
+created: {{ today }}
+updated: {{ today }}
+---
+# 로드맵: {{ project.name }}
+
+## 연구 질문
+
+{{ project.research_question }}
+
+## 가설
+
+> TODO: {{ milestones[0].id }}-T0에서 작성
+
+## 마일스톤
+
+| ID | 제목 | 상태 | 계획 |
+|---|---|---|---|
+{% for m in milestones %}
+| `{{ m.id }}` | {{ m.title }} | planned | [milestone.md](milestones/{{ m.id }}/milestone.md) |
+{% endfor %}
+
+## 공통 실험 원칙
+
+> TODO: {{ milestones[0].id }}-T0에서 작성
+
+## 범위 밖
+
+> TODO
+
+## 변경 이력
+
+| 날짜 | 변경 | 커밋 |
+|---|---|---|
+| {{ today }} | 초기화 | `init` |

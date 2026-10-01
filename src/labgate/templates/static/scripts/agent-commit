@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# 에이전트 신원으로 커밋한다.
+# 사용법: scripts/agent-commit -m "<헤더>" -m "<trailer 블록>"
+#         scripts/agent-commit -F <메시지 파일>
+# 나머지 인자는 git commit에 그대로 전달된다. --author, --no-verify는 쓰지 않는다.
+set -euo pipefail
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-verify|-n|--author|--author=*)
+      echo "agent-commit: '$arg' 옵션은 사용할 수 없습니다." >&2
+      exit 2
+      ;;
+  esac
+done
+
+ROOT="$(git rev-parse --show-toplevel)"
+CFG="$ROOT/.lg/identities.json"
+
+field() {
+  python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["agent"][sys.argv[2]])' "$CFG" "$1"
+}
+
+NAME="$(field name)"
+EMAIL="$(field email)"
+
+export GIT_AUTHOR_NAME="$NAME" GIT_AUTHOR_EMAIL="$EMAIL"
+export GIT_COMMITTER_NAME="$NAME" GIT_COMMITTER_EMAIL="$EMAIL"
+exec git commit "$@"

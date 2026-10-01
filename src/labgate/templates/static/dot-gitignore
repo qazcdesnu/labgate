@@ -1,0 +1,27 @@
+# 실행 산출물 원본
+runs/*
+!runs/.gitkeep
+
+# 대화 경로 게이트용 임시 커밋 메시지
+.lg/pending/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# 실험 도구
+wandb/
+mlruns/
+
+# OS / 편집기
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 대용량 원본 데이터는 필요 시 아래 주석을 해제
+# data/raw/
