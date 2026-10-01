@@ -5,6 +5,9 @@ runs/*
 # 대화 경로 게이트용 임시 커밋 메시지
 .lg/pending/
 
+# Claude Code 워크트리 (실험 격리용, main에 병합하지 않음)
+.claude/worktrees/
+
 # Python
 __pycache__/
 *.py[cod]

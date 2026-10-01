@@ -19,7 +19,7 @@
 |---|---|
 | 무엇이 달라지는가 | 아이디어와 작업 사이의 **판단**이 문서와 커밋으로 남는다. 착상 → 재현 → 탐색 → 본 실험 → 논문의 모든 수치가 실행 ID와 결정 ID로 거슬러 올라간다. 연구자는 코드·실행·정리 대신 **판정**에 시간을 쓴다. |
 | 시너지 | Claude Code는 실행력(코드, 장시간 실행, 문헌 정리, 문서 작성)을, labgate는 그 실행의 경계(승인된 범위, 예산, 사람 전용 결정, 기록 형식)를 제공한다. 서로의 약점(에이전트의 범위 이탈 / 문서 작성 부담)을 메운다. |
-| 충돌 | **실제 충돌 2건 확인** (Claude Code의 커밋 공동 작성자 trailer, 워크트리 브랜치·병합). 둘 다 생성 파일 설정으로 해소 가능하며 [§6](#6-충돌-점검)에 조치안을 적었다. 나머지는 보완 또는 가외성(중복 안전장치)이다. |
+| 충돌 | **실제 충돌 2건 확인** (Claude Code의 커밋 공동 작성자 trailer, 워크트리 브랜치·병합). **둘 다 해소했다** (설계 문서 1.6, [§6](#6-충돌-점검)). 나머지는 보완 또는 가외성(중복 안전장치)이거나, 후속 과제로 남긴 긴장·공백이다. |
 | 설계 점검 | 목적(추적성, 사람의 판정권, 세션 연속성)은 시나리오 전 구간에서 성립한다. 비용은 게이트 대기와 문서 읽기 부담이며, 탐색이 빠른 구간에서는 task를 넓게 잡아야 한다 ([§4.2](#42-비용과-한계)). |
 
 ---
@@ -218,8 +218,8 @@ CODI의 핵심 설계 결정이 이 구간에서 내려진다.
 
 | # | Claude Code 기능 | labgate 규칙 | 판정 | 확인 방법 |
 |---|---|---|---|---|
-| 1 | **커밋 공동 작성자 trailer** (기본 `Co-Authored-By: <모델 이름> <noreply@anthropic.com>`) | hook은 **마지막 문단**에서 `Actor` 등 trailer를 찾는다 | **충돌** | 실험 (§6.2) |
-| 2 | **워크트리** (`--worktree`, 서브에이전트 `isolation: worktree`) → `worktree-<name>` 브랜치 생성 | `main` 하나의 선형 이력. hook은 `Merge ` 커밋을 검사 없이 통과시킴 | **충돌** | 문서 + 실험 (§6.3) |
+| 1 | **커밋 공동 작성자 trailer** (기본 `Co-Authored-By: <모델 이름> <noreply@anthropic.com>`) | hook은 **마지막 문단**에서 `Actor` 등 trailer를 찾는다 | **충돌 → 해소** | 실험 (§6.2) |
+| 2 | **워크트리** (`--worktree`, 서브에이전트 `isolation: worktree`) → `worktree-<name>` 브랜치 생성 | `main` 하나의 선형 이력. hook은 `Merge ` 커밋을 검사 없이 통과시킴 | **충돌 → 해소** | 문서 + 실험 (§6.3) |
 | 3 | 자동 메모리 (기본 켜짐, `~/.claude/projects/<project>/memory/`) | 사실의 원본은 저장소(Git) | **긴장** (직접 충돌은 아님) | 문서 |
 | 4 | `permissions.deny`의 문자열 일치 | 에이전트의 `--no-verify` 금지 | 공백 (hook으로도 못 막음) | 문서 + 실험 |
 | 5 | 내장 커밋 지침 (Claude Code가 커밋 방법을 컨텍스트에 넣음) | `scripts/agent-commit`만 사용 | 가외성 + 경합 | 문서 |
@@ -243,7 +243,9 @@ Claude Code는 기본적으로 자신이 만드는 커밋에 `Co-Authored-By: <�
 
 에이전트는 거부 메시지를 보고 고쳐서 다시 커밋할 수 있다. 하지만 **매 커밋마다 한 번씩 실패**하고, 사람의 판정 커밋 초안(대화 경로)에도 섞여 들어간다. 사람 커밋에 "Claude가 공동 작성자"라는 표시가 붙는 것은 판정의 신원 분리라는 취지와도 어긋난다.
 
-**조치안** (생성 파일 수정, 설계 문서 개정 필요):
+> **해소 (설계 문서 1.6, labgate 0.1.0 이후 생성분):** 아래 1을 적용하고, `git-commit.md`·AGENTS.md에 "trailer는 마지막 한 문단에"를 명시했다. hook은 trailer 문단이 나뉜 경우 그 사실을 안내한다. 테스트: `test_hook.py`의 `test_split_trailer_paragraph_hint`·`test_coauthor_in_same_trailer_paragraph_passes`, `test_acceptance.py`의 `test_claude_code_attribution_disabled`.
+
+**조치안**:
 
 1. **핵심:** 생성되는 `.claude/settings.json`에서 커밋 attribution을 끈다. 문서상 `attribution.commit`을 **빈 문자열**로 두면 숨겨진다.
    ```json
@@ -261,6 +263,10 @@ Claude Code는 워크트리를 `.claude/worktrees/<name>/`에 만들고 새 브�
 - 병합 커밋은 hook이 검사 없이 통과시킨다. 실험에서 에이전트 신원의 `Merge branch 'worktree-x'` 커밋이 그대로 들어갔다.
 - 규약(workflow §1.3)의 "`main` 하나의 선형 이력"이 깨진다.
 - `.claude/worktrees/`가 `.gitignore`에 없어서 메인 작업 트리에 추적되지 않은 파일로 보인다 (Claude Code 문서도 이 경로를 무시 목록에 넣으라고 권한다).
+
+> **해소 (설계 문서 1.6):** 정책은 **"워크트리는 실험 격리용, `main`에 병합·cherry-pick하지 않음"**으로 정했다. 채택할 결과는 파일을 `main`으로 옮겨 `scripts/agent-commit`으로 새로 커밋한다(hook 검사와 task 범위가 그대로 적용된다).
+> - 실험으로 확인: `git merge`는 commit-msg hook을 실행하므로 hook이 에이전트의 병합 커밋을 거부한다. `git cherry-pick`은 hook을 실행하지 않으므로 규약과 deny 규칙으로만 막는다. 워크트리 안의 커밋에도 hook이 그대로 적용된다.
+> - 테스트: `test_hook.py`의 `test_agent_git_merge_rejected_by_hook`, `test_acceptance.py`의 `test_worktree_for_experiment_isolation`.
 
 **조치안:**
 
@@ -292,8 +298,8 @@ deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --n
 
 **실사용 전에 고칠 것** (우선순위 순, 모두 생성 파일 변경이라 설계 문서 개정 → 템플릿 동기화 → 테스트 순으로 진행):
 
-1. **[충돌 1]** `.claude/settings.json`에 `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` 추가. `git-commit.md`에 "trailer는 마지막 한 문단에" 명시.
-2. **[충돌 2]** `.gitignore`에 `.claude/worktrees/` 추가. AGENTS.md에 워크트리·브랜치 정책 명시. `git merge` deny 추가 검토.
+1. ~~**[충돌 1]** `.claude/settings.json`에 `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` 추가. `git-commit.md`에 "trailer는 마지막 한 문단에" 명시.~~ → 해소 (설계 문서 1.6)
+2. ~~**[충돌 2]** `.gitignore`에 `.claude/worktrees/` 추가. AGENTS.md에 워크트리·브랜치 정책 명시. `git merge` deny 추가 검토.~~ → 해소 (설계 문서 1.6: 실험 격리용, 병합·cherry-pick 금지, hook이 에이전트 병합 거부)
 3. **[긴장]** 자동 메모리 사용 지침 추가 (또는 `autoMemoryEnabled: false`).
 4. **[공백]** `--no-verify` 차단용 PreToolUse hook 추가 검토.
 5. **[운영]** 탐색 구간의 task 크기 지침(넓은 범위 + 예산)을 `workflow.md`에 추가 검토.

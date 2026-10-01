@@ -16,7 +16,8 @@ ALL_TYPES = HUMAN_TYPES | AGENT_TYPES | COMMON_TYPES
 
 TASK_REQUIRED = {"gate", "respond", "task", "run", "result", "review"}
 SOURCE_REQUIRED = {"gate", "decide", "respond"}
-PASSTHROUGH_PREFIXES = ("Merge ", "Revert ", "fixup! ", "squash! ", "amend! ")
+PASSTHROUGH_PREFIXES = ("Revert ", "fixup! ", "squash! ", "amend! ")
+MERGE_PREFIX = "Merge "
 
 HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summary>\S.*)$")
 TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
@@ -78,26 +79,36 @@ def parse(text):
             if key in trailers:
                 errors.append(f"trailer '{key}'가 중복되었습니다.")
             trailers[key] = m.group("value").strip()
+    earlier = body[: len(body) - len(block)]
+    if "Actor" not in trailers and any(l.startswith("Actor:") for l in earlier):
+        errors.append(
+            "trailer가 여러 문단으로 나뉘었습니다. Actor 등 trailer와 Co-Authored-By 같은 "
+            "줄을 마지막 한 문단에 모아 쓰세요 (Claude Code는 .claude/settings.json의 attribution)."
+        )
     return header, trailers, errors
 
 
-def check_identity(actor, errors):
+def author_role():
+    """작성자 역할: ("human" | "agent", None) 또는 (None, 오류 문구)."""
     try:
         ids = load_identities()
     except (OSError, ValueError, subprocess.CalledProcessError) as e:
-        errors.append(f".lg/identities.json을 읽지 못했습니다: {e}")
-        return
+        return None, f".lg/identities.json을 읽지 못했습니다: {e}"
     email = author_email()
     humans = {h["email"].lower() for h in ids.get("humans", [])}
     agent = ids.get("agent", {}).get("email", "").lower()
     if email and email == agent:
-        role = "agent"
-    elif email in humans:
-        role = "human"
-    else:
-        errors.append(f"등록되지 않은 작성자입니다: <{email}> (.lg/identities.json 확인)")
-        return
-    if role != actor:
+        return "agent", None
+    if email in humans:
+        return "human", None
+    return None, f"등록되지 않은 작성자입니다: <{email}> (.lg/identities.json 확인)"
+
+
+def check_identity(actor, errors):
+    role, error = author_role()
+    if error:
+        errors.append(error)
+    elif role != actor:
         errors.append(f"작성자 신원({role})과 Actor({actor})가 다릅니다.")
 
 
@@ -124,6 +135,13 @@ def main():
     header, trailers, errors = parse(text)
     if header is None:
         return report(errors)
+    if header.startswith(MERGE_PREFIX):
+        if author_role()[0] == "agent":
+            return report([
+                "에이전트는 병합 커밋을 만들 수 없습니다. 워크트리는 실험 격리용이며 main에 병합하지 "
+                "않습니다. 채택할 결과는 main에서 scripts/agent-commit 으로 다시 커밋하세요 (AGENTS.md)."
+            ])
+        return 0
     if header.startswith(PASSTHROUGH_PREFIXES):
         return 0
 

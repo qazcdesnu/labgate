@@ -161,9 +161,39 @@ def test_human_plan_approve(repo):
     assert_pass(repo.commit("plan(M0-T0): approve initial task\n\nActor: human\nApprove: M0-T0\n"))
 
 
-@pytest.mark.parametrize("author", [HUMAN, AGENT, STRANGER])
+@pytest.mark.parametrize("author", [HUMAN, STRANGER])
 def test_merge_passes(repo, author):
     assert_pass(repo.commit("Merge branch 'x'\n", author))
+
+
+def test_agent_merge_commit_rejected(repo):
+    """워크트리는 실험 격리용이며 main에 병합하지 않는다 (§2, §11.1)."""
+    assert_fail(repo.commit("Merge branch 'worktree-x'\n", AGENT), "에이전트는 병합 커밋을 만들 수 없습니다")
+
+
+def test_agent_git_merge_rejected_by_hook(repo):
+    """실제 `git merge`도 commit-msg hook을 실행하므로 에이전트의 병합이 막힌다."""
+    repo.commit("init: x\n\nActor: human\n")
+    repo.git("checkout", "-q", "-b", "worktree-exp")
+    (repo.root / "a.txt").write_text("a")
+    repo.git("add", "a.txt")
+    assert_pass(repo.commit("exp: idea\n\nActor: agent\n", AGENT))
+    repo.git("checkout", "-q", "-")
+    result = repo.git("merge", "--no-ff", "worktree-exp", "-m", "Merge branch 'worktree-exp'",
+                      author=AGENT, check=False)
+    assert result.returncode != 0 and "에이전트는 병합 커밋을 만들 수 없습니다" in result.stderr
+    assert repo.git("log", "-1", "--format=%s").stdout.strip() == "init: x"
+
+
+def test_split_trailer_paragraph_hint(repo):
+    """Claude Code의 공동 작성자 줄이 별도 문단으로 붙은 경우: 거부하고 원인을 안내한다."""
+    msg = "log: x\n\nActor: agent\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+    assert_fail(repo.commit(msg, AGENT), "Actor trailer가 필요합니다", "trailer가 여러 문단으로 나뉘었습니다")
+
+
+def test_coauthor_in_same_trailer_paragraph_passes(repo):
+    msg = "log: x\n\nActor: agent\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+    assert_pass(repo.commit(msg, AGENT))
 
 
 def test_header_too_long(repo):

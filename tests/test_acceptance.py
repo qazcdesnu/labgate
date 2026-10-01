@@ -124,3 +124,34 @@ def test_lg_version_entry_point(tmp_path):
 
     out = subprocess.run([str(LG), "--version"], capture_output=True, text=True, check=True).stdout
     assert re.fullmatch(rf"labgate {re.escape(__version__)}\n", out)
+
+
+def test_worktree_for_experiment_isolation(tmp_path):
+    """시나리오 §6.3: 워크트리는 실험 격리용. 안에서도 hook이 돌고, main은 깨끗하며, 병합은 막힌다."""
+    p = Project(tmp_path, config_yaml(1, True))
+    assert p.result.returncode == 0, p.result.stderr
+    p.git("worktree", "add", "-q", ".claude/worktrees/exp", "-b", "worktree-exp")
+    wt = p.root / ".claude/worktrees/exp"
+    agent_commit = [str(wt / "scripts/agent-commit"), "--allow-empty"]
+
+    ok = subprocess.run(agent_commit + ["-m", "exp: try idea", "-m", "Actor: agent"],
+                        cwd=wt, env=p.env, capture_output=True, text=True)
+    assert ok.returncode == 0, ok.stderr
+    bad = subprocess.run(agent_commit + ["-m", "exp: no trailer"],
+                         cwd=wt, env=p.env, capture_output=True, text=True)
+    assert bad.returncode != 0 and "Actor trailer가 필요합니다" in bad.stderr
+
+    assert p.git("status", "--porcelain") == ""  # .claude/worktrees/ 는 무시된다
+
+    merge = p.sh("GIT_AUTHOR_NAME=research-agent GIT_AUTHOR_EMAIL=agent@cap-partition.local "
+                 "git merge --no-ff worktree-exp -m \"Merge branch 'worktree-exp'\"")
+    assert merge.returncode != 0 and "에이전트는 병합 커밋을 만들 수 없습니다" in merge.stderr
+
+
+def test_claude_code_attribution_disabled(tmp_path):
+    """시나리오 §6.2: 생성된 Claude Code 설정이 공동 작성자 줄을 끈다."""
+    import json
+
+    p = Project(tmp_path, config_yaml(1, True))
+    settings = json.loads((p.root / ".claude/settings.json").read_text(encoding="utf-8"))
+    assert settings["attribution"]["commit"] == ""

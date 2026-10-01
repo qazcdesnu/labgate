@@ -1,7 +1,12 @@
 # `labgate` CLI 설계 문서 — v1 (`lg init`)
 
-> 문서 버전: 1.5 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 1.6 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`을 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B에 있다.
+
+**1.6 변경 (2026-10-02, 사용 시나리오 점검에서 발견한 Claude Code와의 충돌 해소)**
+
+- 충돌 1 (공동 작성자 줄): A.5 `.claude/settings.json`에 `attribution`(빈 문자열) 추가. B.4 §2·A.3에 "trailer는 마지막 한 문단에 모두". §11.1·C.1 hook이 trailer 문단 분리를 안내
+- 충돌 2 (워크트리 브랜치·병합): §2·A.3·B.3·B.4에 "워크트리는 실험 격리용, 병합·cherry-pick 금지". A.5 deny에 `git merge`, `git cherry-pick`. A.8 `.gitignore`에 `.claude/worktrees/`. §11.1·C.1 hook이 에이전트의 병합 커밋을 거부. §14.1 hook 사례 추가
 
 **1.5 변경 (2026-10-01)**
 
@@ -72,7 +77,7 @@
 
 | 항목 | 결정 |
 |---|---|
-| 브랜치 | `main` 하나의 선형 이력. task 브랜치 없음. 게이트 지점은 tag(`gate/<Task>`, `milestone/<M>-<verdict>`)로 표시 |
+| 브랜치 | `main` 하나의 선형 이력. task 브랜치 없음. 게이트 지점은 tag(`gate/<Task>`, `milestone/<M>-<verdict>`)로 표시. Claude Code 워크트리(`worktree-<name>` 브랜치)는 **실험 격리용**으로만 쓰고 `main`에 병합·cherry-pick하지 않는다. 채택할 결과는 `main`에서 다시 커밋한다 |
 | 승인 단위 | task = 승인 게이트 사이의 작업 단위. 게이트 1회가 "현재 task 판정 + 다음 task 승인"을 함께 처리 |
 | 사람/에이전트 구분 | (1) 커밋 작성자 신원 분리, (2) 사람 전용 커밋 타입. hook으로 둘의 일치를 강제 |
 | 대화로 전달된 판정 | 에이전트는 변경을 stage하고 커밋 메시지 초안만 작성. 커밋은 사람이 실행 |
@@ -565,7 +570,9 @@ Key: value                        ← trailer 블록 = 메시지의 마지막 �
 - `#`으로 시작하는 줄은 무시한다 (Git 주석). `core.commentChar`를 바꾼 환경은 지원하지 않는다.
 - 가위 줄 `# ------------------------ >8 ------------------------`과 그 아래는 모두 무시한다. Git은 commit-msg hook을 메시지 정리(cleanup) **전에** 실행하므로, `git commit -v`나 `commit.verbose=true`로 편집기를 쓰면 이 줄 아래에 diff가 붙은 채로 hook에 전달된다. 이를 자르지 않으면 diff가 마지막 문단으로 잡혀 trailer를 찾지 못한다.
 - 마지막 문단의 모든 줄이 `Key: value` 형식(`Key`는 대문자로 시작하는 영문·하이픈)이면 trailer 블록으로 본다.
-- 헤더가 `Merge `, `Revert `, `fixup! `, `squash! `, `amend! `로 시작하면 검사하지 않고 통과.
+- 헤더가 `Revert `, `fixup! `, `squash! `, `amend! `로 시작하면 검사하지 않고 통과.
+- 헤더가 `Merge `로 시작하면 작성자가 에이전트일 때만 오류("에이전트는 병합 커밋을 만들 수 없습니다"), 그 밖에는 검사하지 않고 통과. `git merge`는 commit-msg hook을 실행하므로 여기서 막을 수 있다. (`git cherry-pick`은 hook을 실행하지 않으므로 규약과 `.claude/settings.json`의 deny로만 막는다.)
+- 마지막 문단에 `Actor`가 없는데 그 앞 문단에 `Actor:` 줄이 있으면 "trailer가 여러 문단으로 나뉘었다"는 안내를 오류에 덧붙인다. Claude Code가 공동 작성자 줄을 별도 문단으로 붙이는 경우의 원인을 바로 알 수 있게 한다.
 
 ### 11.2 타입
 
@@ -655,7 +662,10 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 | 등록 안 된 `z@y.com` | 정상 형식 | 실패 (등록되지 않은 작성자) |
 | h | `decide(D1.3): confirm PR metric` + `Actor: human`, `Decisions: D1.3`, `Source: conversation` | 통과 |
 | h | `plan(M0-T0): approve initial task` + `Actor: human`, `Approve: M0-T0` | 통과 |
-| 아무나 | `Merge branch 'x'` | 통과 |
+| h, 등록 안 된 작성자 | `Merge branch 'x'` | 통과 |
+| a | `Merge branch 'worktree-x'` | 실패 (에이전트 병합 금지) |
+| a | `log: x` ⏎⏎ `Actor: agent` ⏎⏎ `Co-Authored-By: Claude …` (trailer가 두 문단) | 실패 (Actor 누락 + 문단 분리 안내) |
+| a | `log: x` ⏎⏎ `Actor: agent` ⏎ `Co-Authored-By: Claude …` (한 문단) | 통과 |
 | a | 헤더 73자 이상 | 실패 |
 | h | 통과하는 `gate` 메시지 뒤에 가위 줄과 diff(`+foo: bar` 같은 줄 포함)가 붙음 | 통과 |
 
@@ -827,7 +837,7 @@ updated: {{ today }}
 ## 반드시 지킬 규칙
 
 1. 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
-2. 커밋은 `scripts/agent-commit`으로만 한다. `git commit`을 직접 실행하지 않는다. `--no-verify`, `--author`를 쓰지 않는다.
+2. 커밋은 `scripts/agent-commit`으로만 한다. `git commit`을 직접 실행하지 않는다. `--no-verify`, `--author`를 쓰지 않는다. trailer(`Actor` 등)는 메시지의 **마지막 한 문단**에 모두 쓰고, 그 뒤에 다른 문단(서명, `Co-Authored-By` 등)을 붙이지 않는다 ([specs/git-commit.md](specs/git-commit.md) §2).
 3. 사람 전용 커밋 타입(`gate`, `decide`, `plan`, `spec`, `respond`)을 쓰지 않는다.
 4. 다음은 하지 않는다. 단, 현재 task 카드의 "범위 › 포함"에 명시된 경우는 예외다.
    - task 상태를 `draft → approved`, `in-review → closed | revise | redirected`로 바꾸기 (사람 커밋을 반영하는 경우 제외, workflow.md §6.3)
@@ -836,10 +846,12 @@ updated: {{ today }}
    - `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준 변경 (변경 제안은 `propose` 커밋)
    - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 대화 경로의 커밋 메시지 초안 `.lg/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §6.2)
    - tag 생성, 이력 재작성(rebase, 사람 커밋 amend, force push)
-5. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
-6. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
-7. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
-8. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
+   - 브랜치 병합(`git merge`)과 `git cherry-pick`
+5. 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 **실험 격리용**으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 `main`에 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
+6. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
+7. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
+8. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
+9. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
 
 ## 세션 종료 절차
 
@@ -879,6 +891,8 @@ updated: {{ today }}
 
 규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다.
 
+`attribution`은 Claude Code가 커밋 메시지 끝에 붙이는 공동 작성자 줄(기본 `Co-Authored-By: <모델> <noreply@anthropic.com>`)과 PR 문구를 끈다. 이 줄이 별도 문단으로 붙으면 hook이 마지막 문단에서 `Actor`를 찾지 못해 커밋이 거부된다. 빈 문자열이 문서상 끄는 방법이다. `"attribution": false`는 v2.1.281 미만에서 설정 파일 전체를 건너뛰게 해 deny 규칙까지 사라지므로 쓰지 않는다. 사용 중단된 `includeCoAuthoredBy`도 쓰지 않는다.
+
 ~~~~json
 {
   "permissions": {
@@ -888,8 +902,15 @@ updated: {{ today }}
       "Bash(git rebase *)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
-      "Bash(git reset --hard *)"
+      "Bash(git reset --hard *)",
+      "Bash(git merge *)",
+      "Bash(git cherry-pick *)"
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }
 ~~~~
@@ -989,6 +1010,9 @@ runs/*
 
 # 대화 경로 게이트용 임시 커밋 메시지
 .lg/pending/
+
+# Claude Code 워크트리 (실험 격리용, main에 병합하지 않음)
+.claude/worktrees/
 
 # Python
 __pycache__/
@@ -1404,7 +1428,7 @@ status: complete
 
 1. **Task는 승인 게이트 사이의 작업 단위다.** 에이전트는 승인된 task 범위 안에서 자율적으로 일하고, 경계에서 사람이 판정한다.
 2. **사실의 원본은 Git 커밋이다.** 특히 사람의 판정·확정은 사람 신원의 커밋(trailer 포함)이 원본이다. 문서의 상태 필드는 이를 반영한 것이며, 둘이 다르면 커밋이 우선한다.
-3. **이력은 `main` 하나로 선형이다.** 게이트 지점은 tag로 표시한다.
+3. **이력은 `main` 하나로 선형이다.** 게이트 지점은 tag로 표시한다. 워크트리 브랜치는 실험 격리용 임시 브랜치이며 `main`에 병합·cherry-pick하지 않는다 ([AGENTS.md](../AGENTS.md)).
 
 ## 2. 역할
 
@@ -1577,7 +1601,7 @@ Actor: human | agent
 
 - 헤더는 72자 이하. 요약은 무엇을 했는지 한 문장.
 - 본문은 왜 했는지, 무엇이 달라졌는지.
-- 마지막 문단은 trailer 블록(`Key: value` 줄만).
+- 마지막 문단은 trailer 블록(`Key: value` 줄만). **trailer는 이 한 문단에 모두 쓴다.** `Co-Authored-By` 같은 다른 trailer를 넣으려면 같은 문단에 넣는다. trailer 뒤에 빈 줄을 두고 다른 문단을 붙이면 hook이 trailer를 찾지 못한다.
 - scope: task 관련 타입은 Task ID와 같아야 한다. 그 밖에는 선택(결정 ID, 마일스톤 ID 등).
 
 ## 3. 타입
@@ -1684,7 +1708,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 
 ## 7. 금지
 
-- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, 사람 전용 타입, tag, 이력 재작성.
+- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, 사람 전용 타입, tag, 이력 재작성, 브랜치 병합과 cherry-pick (워크트리는 실험 격리용, AGENTS.md).
 - 사람: 이력 재작성 (실수는 `git revert`).
 - `--no-verify`는 사람이 긴급할 때만 쓰고, 다음 커밋 본문에 이유를 남긴다.
 ~~~~
@@ -2077,7 +2101,8 @@ ALL_TYPES = HUMAN_TYPES | AGENT_TYPES | COMMON_TYPES
 
 TASK_REQUIRED = {"gate", "respond", "task", "run", "result", "review"}
 SOURCE_REQUIRED = {"gate", "decide", "respond"}
-PASSTHROUGH_PREFIXES = ("Merge ", "Revert ", "fixup! ", "squash! ", "amend! ")
+PASSTHROUGH_PREFIXES = ("Revert ", "fixup! ", "squash! ", "amend! ")
+MERGE_PREFIX = "Merge "
 
 HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summary>\S.*)$")
 TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
@@ -2139,26 +2164,36 @@ def parse(text):
             if key in trailers:
                 errors.append(f"trailer '{key}'가 중복되었습니다.")
             trailers[key] = m.group("value").strip()
+    earlier = body[: len(body) - len(block)]
+    if "Actor" not in trailers and any(l.startswith("Actor:") for l in earlier):
+        errors.append(
+            "trailer가 여러 문단으로 나뉘었습니다. Actor 등 trailer와 Co-Authored-By 같은 "
+            "줄을 마지막 한 문단에 모아 쓰세요 (Claude Code는 .claude/settings.json의 attribution)."
+        )
     return header, trailers, errors
 
 
-def check_identity(actor, errors):
+def author_role():
+    """작성자 역할: ("human" | "agent", None) 또는 (None, 오류 문구)."""
     try:
         ids = load_identities()
     except (OSError, ValueError, subprocess.CalledProcessError) as e:
-        errors.append(f".lg/identities.json을 읽지 못했습니다: {e}")
-        return
+        return None, f".lg/identities.json을 읽지 못했습니다: {e}"
     email = author_email()
     humans = {h["email"].lower() for h in ids.get("humans", [])}
     agent = ids.get("agent", {}).get("email", "").lower()
     if email and email == agent:
-        role = "agent"
-    elif email in humans:
-        role = "human"
-    else:
-        errors.append(f"등록되지 않은 작성자입니다: <{email}> (.lg/identities.json 확인)")
-        return
-    if role != actor:
+        return "agent", None
+    if email in humans:
+        return "human", None
+    return None, f"등록되지 않은 작성자입니다: <{email}> (.lg/identities.json 확인)"
+
+
+def check_identity(actor, errors):
+    role, error = author_role()
+    if error:
+        errors.append(error)
+    elif role != actor:
         errors.append(f"작성자 신원({role})과 Actor({actor})가 다릅니다.")
 
 
@@ -2185,6 +2220,13 @@ def main():
     header, trailers, errors = parse(text)
     if header is None:
         return report(errors)
+    if header.startswith(MERGE_PREFIX):
+        if author_role()[0] == "agent":
+            return report([
+                "에이전트는 병합 커밋을 만들 수 없습니다. 워크트리는 실험 격리용이며 main에 병합하지 "
+                "않습니다. 채택할 결과는 main에서 scripts/agent-commit 으로 다시 커밋하세요 (AGENTS.md)."
+            ])
+        return 0
     if header.startswith(PASSTHROUGH_PREFIXES):
         return 0
 

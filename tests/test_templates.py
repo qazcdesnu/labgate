@@ -186,7 +186,15 @@ def test_static_frontmatter():
 
 def test_settings_json_valid():
     data = json.loads(read_static("dot-claude/settings.json"))
-    assert "Bash(git commit *)" in data["permissions"]["deny"]
+    deny = data["permissions"]["deny"]
+    assert {"Bash(git commit *)", "Bash(git merge *)", "Bash(git cherry-pick *)"} <= set(deny)
+    # 공동 작성자 줄 끄기: 빈 문자열(하위 호환). `false`는 v2.1.281 미만에서 파일 전체를 무시하게 한다
+    assert data["attribution"] == {"commit": "", "pr": "", "sessionUrl": False}
+    assert "includeCoAuthoredBy" not in data
+
+
+def test_gitignore_excludes_claude_worktrees():
+    assert ".claude/worktrees/" in read_static("dot-gitignore").splitlines()
 
 
 def test_hook_is_valid_python():

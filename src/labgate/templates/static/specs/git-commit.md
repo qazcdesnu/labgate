@@ -30,7 +30,7 @@ Actor: human | agent
 
 - 헤더는 72자 이하. 요약은 무엇을 했는지 한 문장.
 - 본문은 왜 했는지, 무엇이 달라졌는지.
-- 마지막 문단은 trailer 블록(`Key: value` 줄만).
+- 마지막 문단은 trailer 블록(`Key: value` 줄만). **trailer는 이 한 문단에 모두 쓴다.** `Co-Authored-By` 같은 다른 trailer를 넣으려면 같은 문단에 넣는다. trailer 뒤에 빈 줄을 두고 다른 문단을 붙이면 hook이 trailer를 찾지 못한다.
 - scope: task 관련 타입은 Task ID와 같아야 한다. 그 밖에는 선택(결정 ID, 마일스톤 ID 등).
 
 ## 3. 타입
@@ -137,6 +137,6 @@ tag는 해당 `gate` 커밋에 붙인다.
 
 ## 7. 금지
 
-- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, 사람 전용 타입, tag, 이력 재작성.
+- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, 사람 전용 타입, tag, 이력 재작성, 브랜치 병합과 cherry-pick (워크트리는 실험 격리용, AGENTS.md).
 - 사람: 이력 재작성 (실수는 `git revert`).
 - `--no-verify`는 사람이 긴급할 때만 쓰고, 다음 커밋 본문에 이유를 남긴다.

@@ -25,7 +25,7 @@
 ## 반드시 지킬 규칙
 
 1. 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
-2. 커밋은 `scripts/agent-commit`으로만 한다. `git commit`을 직접 실행하지 않는다. `--no-verify`, `--author`를 쓰지 않는다.
+2. 커밋은 `scripts/agent-commit`으로만 한다. `git commit`을 직접 실행하지 않는다. `--no-verify`, `--author`를 쓰지 않는다. trailer(`Actor` 등)는 메시지의 **마지막 한 문단**에 모두 쓰고, 그 뒤에 다른 문단(서명, `Co-Authored-By` 등)을 붙이지 않는다 ([specs/git-commit.md](specs/git-commit.md) §2).
 3. 사람 전용 커밋 타입(`gate`, `decide`, `plan`, `spec`, `respond`)을 쓰지 않는다.
 4. 다음은 하지 않는다. 단, 현재 task 카드의 "범위 › 포함"에 명시된 경우는 예외다.
    - task 상태를 `draft → approved`, `in-review → closed | revise | redirected`로 바꾸기 (사람 커밋을 반영하는 경우 제외, workflow.md §6.3)
@@ -34,10 +34,12 @@
    - `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준 변경 (변경 제안은 `propose` 커밋)
    - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 대화 경로의 커밋 메시지 초안 `.lg/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §6.2)
    - tag 생성, 이력 재작성(rebase, 사람 커밋 amend, force push)
-5. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
-6. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
-7. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
-8. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
+   - 브랜치 병합(`git merge`)과 `git cherry-pick`
+5. 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 **실험 격리용**으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 `main`에 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
+6. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
+7. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
+8. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
+9. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
 
 ## 세션 종료 절차
 
