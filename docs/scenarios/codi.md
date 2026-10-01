@@ -19,7 +19,7 @@
 |---|---|
 | 무엇이 달라지는가 | 아이디어와 작업 사이의 **판단**이 문서와 커밋으로 남는다. 착상 → 재현 → 탐색 → 본 실험 → 논문의 모든 수치가 실행 ID와 결정 ID로 거슬러 올라간다. 연구자는 코드·실행·정리 대신 **판정**에 시간을 쓴다. |
 | 시너지 | Claude Code는 실행력(코드, 장시간 실행, 문헌 정리, 문서 작성)을, labgate는 그 실행의 경계(승인된 범위, 예산, 사람 전용 결정, 기록 형식)를 제공한다. 서로의 약점(에이전트의 범위 이탈 / 문서 작성 부담)을 메운다. |
-| 충돌 | **실제 충돌 2건 확인** (Claude Code의 커밋 공동 작성자 trailer, 워크트리 브랜치·병합). **둘 다 해소했다** (설계 문서 1.6, [§6](#6-충돌-점검)). 나머지는 보완 또는 가외성(중복 안전장치)이거나, 후속 과제로 남긴 긴장·공백이다. |
+| 충돌 | 실제 충돌 2건(Claude Code의 커밋 공동 작성자 trailer, 워크트리 브랜치·병합)은 labgate가 생성하는 설정과 hook으로 대응한다 ([§6](#6-충돌-점검)). 나머지는 보완 또는 가외성(중복 안전장치)이고, 긴장 1건과 공백 1건이 후속 과제로 남아 있다. |
 | 설계 점검 | 목적(추적성, 사람의 판정권, 세션 연속성)은 시나리오 전 구간에서 성립한다. 비용은 게이트 대기와 문서 읽기 부담이며, 탐색이 빠른 구간에서는 task를 넓게 잡아야 한다 ([§4.2](#42-비용과-한계)). |
 
 ---
@@ -218,8 +218,8 @@ CODI의 핵심 설계 결정이 이 구간에서 내려진다.
 
 | # | Claude Code 기능 | labgate 규칙 | 판정 | 확인 방법 |
 |---|---|---|---|---|
-| 1 | **커밋 공동 작성자 trailer** (기본 `Co-Authored-By: <모델 이름> <noreply@anthropic.com>`) | hook은 **마지막 문단**에서 `Actor` 등 trailer를 찾는다 | **충돌 → 해소** | 실험 (§6.2) |
-| 2 | **워크트리** (`--worktree`, 서브에이전트 `isolation: worktree`) → `worktree-<name>` 브랜치 생성 | `main` 하나의 선형 이력. hook은 `Merge ` 커밋을 검사 없이 통과시킴 | **충돌 → 해소** | 문서 + 실험 (§6.3) |
+| 1 | **커밋 공동 작성자 trailer** (기본 `Co-Authored-By: <모델 이름> <noreply@anthropic.com>`) | hook은 **마지막 문단**에서 `Actor` 등 trailer를 찾는다 | **충돌** → labgate가 대응 | 실험 (§6.2) |
+| 2 | **워크트리** (`--worktree`, 서브에이전트 `isolation: worktree`) → `worktree-<name>` 브랜치 생성 | `main` 하나의 선형 이력 | **충돌** → labgate가 대응 | 문서 + 실험 (§6.3) |
 | 3 | 자동 메모리 (기본 켜짐, `~/.claude/projects/<project>/memory/`) | 사실의 원본은 저장소(Git) | **긴장** (직접 충돌은 아님) | 문서 |
 | 4 | `permissions.deny`의 문자열 일치 | 에이전트의 `--no-verify` 금지 | 공백 (hook으로도 못 막음) | 문서 + 실험 |
 | 5 | 내장 커밋 지침 (Claude Code가 커밋 방법을 컨텍스트에 넣음) | `scripts/agent-commit`만 사용 | 가외성 + 경합 | 문서 |
@@ -241,54 +241,49 @@ Claude Code는 기본적으로 자신이 만드는 커밋에 `Co-Authored-By: <�
 | `Actor: agent` ⏎ `Co-Authored-By: Claude …` (같은 문단) | ✓ 통과 |
 | 대화 경로에서 Claude가 쓴 사람의 `gate` 초안 + 별도 문단의 `Co-Authored-By` | ✗ `Actor`, `Task` 누락으로 거부 |
 
-에이전트는 거부 메시지를 보고 고쳐서 다시 커밋할 수 있다. 하지만 **매 커밋마다 한 번씩 실패**하고, 사람의 판정 커밋 초안(대화 경로)에도 섞여 들어간다. 사람 커밋에 "Claude가 공동 작성자"라는 표시가 붙는 것은 판정의 신원 분리라는 취지와도 어긋난다.
+이대로라면 에이전트는 **매 커밋마다 한 번씩 거부**당하고, 이 줄이 사람의 판정 커밋 초안(대화 경로)에도 섞여 들어간다. 사람 커밋에 "Claude가 공동 작성자"라는 표시가 붙는 것은 판정의 신원 분리라는 취지와도 어긋난다.
 
-> **해소 (설계 문서 1.6, labgate 0.1.0 이후 생성분):** 아래 1을 적용하고, `git-commit.md`·AGENTS.md에 "trailer는 마지막 한 문단에"를 명시했다. hook은 trailer 문단이 나뉜 경우 그 사실을 안내한다. 테스트: `test_hook.py`의 `test_split_trailer_paragraph_hint`·`test_coauthor_in_same_trailer_paragraph_passes`, `test_acceptance.py`의 `test_claude_code_attribution_disabled`.
+**labgate의 대응:**
 
-**조치안**:
-
-1. **핵심:** 생성되는 `.claude/settings.json`에서 커밋 attribution을 끈다. 문서상 `attribution.commit`을 **빈 문자열**로 두면 숨겨진다.
+1. 생성되는 `.claude/settings.json`이 Claude Code의 커밋·PR attribution을 끈다. 문서상 `attribution.commit`을 빈 문자열로 두면 숨겨진다.
    ```json
    { "attribution": { "commit": "", "pr": "", "sessionUrl": false } }
    ```
-   - `"attribution": false` 한 줄로도 모두 끌 수 있지만 Claude Code v2.1.281 이상에서만 읽힌다. 그보다 낮은 버전은 이 값을 거부하고 **설정 파일 전체를 건너뛴다.** 그러면 같은 파일의 deny 규칙까지 사라지므로, 문서가 권하는 대로 하위 호환되는 빈 문자열 형식을 쓴다.
-   - 예전 키 `includeCoAuthoredBy`는 v2.0.62부터 사용 중단되었고, `attribution.commit`이나 `attribution.pr`을 설정하면 무시된다. 생성 파일에는 쓰지 않는다.
-   - AI 사용을 커밋에 표시하고 싶다면 빈 문자열 대신 문구를 두되, `specs/git-commit.md`에 "trailer는 마지막 한 문단에 모두 쓴다"를 명시한다. Claude Code는 CLAUDE.md 등 프로젝트 지침의 attribution 규칙을 이 설정보다 우선한다고 Claude에게 알린다(관리형 설정 제외).
-2. (선택) hook이 마지막 문단에서 `Actor`를 못 찾으면 "trailer 블록이 둘로 나뉘었다"고 구체적으로 알려 준다.
+   - `"attribution": false` 한 줄로도 모두 끌 수 있지만 Claude Code v2.1.281 이상에서만 읽힌다. 그보다 낮은 버전은 이 값을 거부하고 **설정 파일 전체를 건너뛰어** 같은 파일의 deny 규칙까지 사라지므로, 하위 호환되는 빈 문자열 형식을 쓴다.
+   - 사용 중단된 예전 키 `includeCoAuthoredBy`는 쓰지 않는다 (`attribution`을 설정하면 무시된다).
+2. `specs/git-commit.md`와 AGENTS.md가 "trailer는 마지막 한 문단에 모두 쓴다"를 규정한다. AI 사용을 커밋에 표시하고 싶다면 빈 문자열 대신 문구를 두고, 그 줄을 trailer 문단 안에 넣으면 된다.
+3. 그래도 trailer가 여러 문단으로 나뉘면 hook이 거부하면서 그 원인을 알려 준다.
 
 ### 6.3 충돌 2: 워크트리 브랜치와 선형 이력
 
-Claude Code는 워크트리를 `.claude/worktrees/<name>/`에 만들고 새 브랜치 `worktree-<name>`을 딴다. 서브에이전트에 `isolation: worktree`를 주거나, 사용자가 "워크트리에서 작업해"라고 하면 생긴다. 이 작업을 `main`에 합치면 다음 문제가 생긴다.
+Claude Code는 워크트리를 `.claude/worktrees/<name>/`에 만들고 새 브랜치 `worktree-<name>`을 딴다. 서브에이전트에 `isolation: worktree`를 주거나, 사용자가 "워크트리에서 작업해"라고 하면 생긴다. 이 브랜치를 `main`에 합치면 규약(workflow §1.3)의 "`main` 하나의 선형 이력"이 깨지고, 병합 커밋은 일반 커밋 규약(타입, `Actor`)을 따르지 않는다. 또 `.claude/worktrees/`가 메인 작업 트리에 추적되지 않은 파일로 보인다.
 
-- 병합 커밋은 hook이 검사 없이 통과시킨다. 실험에서 에이전트 신원의 `Merge branch 'worktree-x'` 커밋이 그대로 들어갔다.
-- 규약(workflow §1.3)의 "`main` 하나의 선형 이력"이 깨진다.
-- `.claude/worktrees/`가 `.gitignore`에 없어서 메인 작업 트리에 추적되지 않은 파일로 보인다 (Claude Code 문서도 이 경로를 무시 목록에 넣으라고 권한다).
+**labgate의 대응:** 워크트리는 **실험 격리용**으로만 쓰고 `main`에 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하므로, hook 검사와 task 범위가 그대로 적용된다.
 
-> **해소 (설계 문서 1.6):** 정책은 **"워크트리는 실험 격리용, `main`에 병합·cherry-pick하지 않음"**으로 정했다. 채택할 결과는 파일을 `main`으로 옮겨 `scripts/agent-commit`으로 새로 커밋한다(hook 검사와 task 범위가 그대로 적용된다).
-> - 실험으로 확인: `git merge`는 commit-msg hook을 실행하므로 hook이 에이전트의 병합 커밋을 거부한다. `git cherry-pick`은 hook을 실행하지 않으므로 규약과 deny 규칙으로만 막는다. 워크트리 안의 커밋에도 hook이 그대로 적용된다.
-> - 테스트: `test_hook.py`의 `test_agent_git_merge_rejected_by_hook`, `test_acceptance.py`의 `test_worktree_for_experiment_isolation`.
+| 장치 | 내용 |
+|---|---|
+| AGENTS.md, workflow.md, git-commit.md | 위 정책을 규정 |
+| commit-msg hook | 에이전트의 병합 커밋을 거부한다. `git merge`는 commit-msg hook을 실행하므로 여기서 막힌다 |
+| `.claude/settings.json` deny | `git merge`, `git cherry-pick`. cherry-pick은 hook을 실행하지 않으므로 이 규칙과 규약으로만 막는다 |
+| `.gitignore` | `.claude/worktrees/` (Claude Code 문서도 권장) |
 
-**조치안:**
-
-1. 생성되는 `.gitignore`에 `.claude/worktrees/`를 추가한다.
-2. AGENTS.md에 "워크트리는 실험 격리에만 쓰고, 결과는 병합하지 말고 `main`에서 다시 커밋한다" 또는 "워크트리 금지" 중 하나를 정해 적는다.
-3. `.claude/settings.json`의 deny에 `Bash(git merge *)`를 추가하고, hook의 `Merge ` 통과를 사람 작성자로 제한하는 것을 검토한다.
+워크트리 안에서 만드는 커밋에도 hook이 그대로 적용된다 (Git 설정의 `core.hooksPath`를 공유하고, `.lg/hooks/`도 함께 체크아웃되기 때문).
 
 ### 6.4 긴장: 자동 메모리
 
 Claude Code는 기본적으로 사용자의 교정과 선호를 `~/.claude/projects/<project>/memory/`에 스스로 기록한다. 이 기록은 **저장소 밖, 해당 기기에만** 있고 사람의 게이트 검토를 거치지 않는다. labgate의 "사실의 원본은 저장소"와 직접 충돌하지는 않지만, 연구 판단이 메모리에만 남으면 추적성이 새어 나간다. 예를 들어 "D1.1은 `:` 토큰으로 정했음"이 결정 문서가 아니라 메모리에만 남는 경우다.
 
-**조치안:** AGENTS.md나 CLAUDE.md에 "연구 사실과 판단은 `logs/`, `decisions/`, task 카드에 쓴다. 자동 메모리에는 개인 작업 습관만 둔다"를 적는다. 엄격하게 하려면 프로젝트 `.claude/settings.json`에 `"autoMemoryEnabled": false`를 둔다.
+**후속 과제:** AGENTS.md나 CLAUDE.md에 "연구 사실과 판단은 `logs/`, `decisions/`, task 카드에 쓴다. 자동 메모리에는 개인 작업 습관만 둔다"를 적는다. 엄격하게 하려면 프로젝트 `.claude/settings.json`에 `"autoMemoryEnabled": false`를 둔다.
 
 ### 6.5 공백: `--no-verify`
 
 deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --no-verify`처럼 형태를 바꾸면 피해 갈 수 있고, `--no-verify`로 건너뛴 커밋은 hook도 볼 수 없다. 현재는 AGENTS.md 지침과 사람의 이력 검토에만 의존한다.
 
-**조치안:** Claude Code의 PreToolUse hook(설정 파일에 등록, 명령 내용을 검사해 거부)으로 `--no-verify`, `-n`, `core.hooksPath` 변경을 막는다. Claude Code 문서도 "CLAUDE.md는 강제가 아니며, 반드시 막아야 하면 PreToolUse hook을 쓰라"고 안내한다.
+**후속 과제:** Claude Code의 PreToolUse hook(설정 파일에 등록, 명령 내용을 검사해 거부)으로 `--no-verify`, `-n`, `core.hooksPath` 변경을 막는다. Claude Code 문서도 "CLAUDE.md는 강제가 아니며, 반드시 막아야 하면 PreToolUse hook을 쓰라"고 안내한다.
 
 ### 6.6 가외성과 경합: 내장 커밋 지침
 
-사용자가 "커밋해 줘"라고 하면 Claude Code는 내장 지침대로 `git commit`을 시도한다. labgate는 이를 deny로 막고 CLAUDE.md로 `scripts/agent-commit`을 쓰게 한다. 결과적으로 안전하지만(가외성), 내장 지침과 프로젝트 지침이 컨텍스트에서 경합해 첫 시도가 거부될 수 있다. `includeGitInstructions: false`로 내장 커밋·PR 지침을 컨텍스트에서 뺄 수 있지만, 이 설정은 세션 시작 시의 Git 상태 스냅샷(현재 브랜치, `git status`, 최근 커밋)도 함께 뺀다. 충돌 1의 해소에는 필요 없고 경합은 deny와 hook이 이미 막으므로 **기본 생성 파일에는 넣지 않는다.** 첫 시도 거부가 잦으면 사용자가 선택적으로 켠다.
+사용자가 "커밋해 줘"라고 하면 Claude Code는 내장 지침대로 `git commit`을 시도한다. labgate는 이를 deny로 막고 CLAUDE.md로 `scripts/agent-commit`을 쓰게 한다. 결과적으로 안전하지만(가외성), 내장 지침과 프로젝트 지침이 컨텍스트에서 경합해 첫 시도가 거부될 수 있다. `includeGitInstructions: false`로 내장 커밋·PR 지침을 컨텍스트에서 뺄 수 있지만, 이 설정은 세션 시작 시의 Git 상태 스냅샷(현재 브랜치, `git status`, 최근 커밋)도 함께 뺀다. 충돌 1의 대응에는 필요 없고 경합은 deny와 hook이 이미 막으므로 **기본 생성 파일에는 넣지 않는다.** 첫 시도 거부가 잦으면 사용자가 선택적으로 켠다.
 
 ---
 
@@ -296,13 +291,11 @@ deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --n
 
 **개발 의도는 시나리오 전 구간에서 성립한다.** 착상 → 재현 → 탐색 → 본 실험 → 확장 → 논문의 각 경계에서 사람의 판정이 커밋으로 남고, 에이전트는 승인된 범위와 예산 안에서 일하며, 결정과 수치가 끊기지 않고 이어진다.
 
-**실사용 전에 고칠 것** (우선순위 순, 모두 생성 파일 변경이라 설계 문서 개정 → 템플릿 동기화 → 테스트 순으로 진행):
+Claude Code와의 실제 충돌 2건은 생성 설정과 hook으로 대응한다(§6.2, §6.3). **남은 과제:**
 
-1. ~~**[충돌 1]** `.claude/settings.json`에 `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` 추가. `git-commit.md`에 "trailer는 마지막 한 문단에" 명시.~~ → 해소 (설계 문서 1.6)
-2. ~~**[충돌 2]** `.gitignore`에 `.claude/worktrees/` 추가. AGENTS.md에 워크트리·브랜치 정책 명시. `git merge` deny 추가 검토.~~ → 해소 (설계 문서 1.6: 실험 격리용, 병합·cherry-pick 금지, hook이 에이전트 병합 거부)
-3. **[긴장]** 자동 메모리 사용 지침 추가 (또는 `autoMemoryEnabled: false`).
-4. **[공백]** `--no-verify` 차단용 PreToolUse hook 추가 검토.
-5. **[운영]** 탐색 구간의 task 크기 지침(넓은 범위 + 예산)을 `workflow.md`에 추가 검토.
+1. **[긴장]** 자동 메모리 사용 지침 추가 (또는 `autoMemoryEnabled: false`) — §6.4
+2. **[공백]** `--no-verify` 차단용 PreToolUse hook 검토 — §6.5
+3. **[운영]** 탐색 구간의 task 크기 지침(넓은 범위 + 예산)을 `workflow.md`에 추가 검토 — §4.2
 
 ---
 
@@ -310,11 +303,10 @@ deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --n
 
 - Hao, S., Sukhbaatar, S., Su, D., Li, X., Hu, Z., Weston, J., Tian, Y. *Training Large Language Models to Reason in a Continuous Latent Space.* arXiv:2412.06769 (2024). https://arxiv.org/abs/2412.06769
 - Shen, Z., Yan, H., Zhang, L., Hu, Z., Du, Y., He, Y. *CODI: Compressing Chain-of-Thought into Continuous Space via Self-Distillation.* arXiv:2502.21074 (2025). https://arxiv.org/abs/2502.21074
-- Claude Code 문서 (2026-10-01 확인):
+- Claude Code 문서 (2026-10-02 확인, Claude Code 2.1.286):
   - 메모리·AGENTS.md·`/init`: https://code.claude.com/docs/en/memory
   - 설정 범위, `settings.local.json`: https://code.claude.com/docs/en/settings
   - `attribution`, `includeGitInstructions`: https://code.claude.com/docs/en/settings-reference
   - 워크트리: https://code.claude.com/docs/en/worktrees
   - 권한 규칙: https://code.claude.com/docs/en/permissions
-- 2026-10-02 정정: `attribution.commit`의 기본값과 끄는 방법(`null` → 빈 문자열)을 문서 원문(`settings-reference.md`)으로 다시 확인해 고쳤다. 처음 작성 때는 웹 요약 도구가 문서를 잘못 옮긴 내용을 그대로 썼다.
-- 충돌 실험: 생성된 프로젝트(labgate 0.1.0)에서 `scripts/agent-commit`, `git commit`, `git merge`로 직접 확인.
+- 충돌 실험: 생성된 프로젝트에서 `scripts/agent-commit`, `git commit`, `git merge`, `git cherry-pick`으로 직접 확인.
