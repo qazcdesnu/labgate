@@ -1,13 +1,31 @@
-"""Typer 앱 (설계 문서 §5). `init`은 이후 단계에서 구현한다."""
+"""Typer 앱과 `lg init` (설계 문서 §5)."""
 from __future__ import annotations
 
+import os
+import sys
+import traceback
+from datetime import date
+from pathlib import Path, PurePosixPath
 from typing import Optional
 
 import typer
 
-from . import __version__
+from . import __version__, gitops, prompts
+from .config import Config, ConfigError, load_config
+from .gitops import GitError
+from .plan import EXECUTABLE, PlannedFile, build_plan
+from .render import RenderError
+from .writer import TargetError, check_target, find_conflicts, write_plan
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_TARGET, EXIT_GIT, EXIT_ABORT = 0, 1, 2, 3, 4, 130
+
+
+class Fail(Exception):
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
 
 
 def _version(value: bool) -> None:
@@ -26,7 +44,198 @@ def main(
 
 
 @app.command()
-def init() -> None:
+def init(
+    path: Optional[Path] = typer.Argument(None, help="생성할 프로젝트 폴더. 생략하면 묻는다.", show_default=False),
+    config_file: Optional[Path] = typer.Option(
+        None, "--config", help="설정 파일(YAML)로 모든 입력을 받는다. PATH 필수.", show_default=False
+    ),
+    force: bool = typer.Option(False, "--force", help="비어 있지 않은 폴더에도 만든다. 기존 파일은 덮어쓰지 않는다."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="만들 파일 트리와 개수만 출력한다."),
+    no_git: bool = typer.Option(False, "--no-git", help="Git 초기화와 초기 커밋을 하지 않는다."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="대화형 모드의 마지막 확인을 건너뛴다."),
+) -> None:
     """연구 프로젝트 작업 공간을 만든다."""
-    typer.echo("lg init은 아직 구현되지 않았습니다.", err=True)
-    raise typer.Exit(1)
+    try:
+        code = _init(path, config_file, force, dry_run, no_git, yes)
+    except Fail as e:
+        _err(str(e))
+        code = e.code
+    except ConfigError as e:
+        _err("✗ 설정이 올바르지 않습니다:\n" + "\n".join(f"  - {x}" for x in e.errors))
+        code = EXIT_USAGE
+    except TargetError as e:
+        _err(f"✗ {e}")
+        code = EXIT_TARGET
+    except GitError as e:
+        _err(f"✗ {e}")
+        code = EXIT_GIT
+    except RenderError as e:
+        _err(f"✗ 템플릿 렌더링 오류 (labgate 버그입니다): {e}")
+        code = EXIT_ERROR
+    except KeyboardInterrupt:
+        _err("\n중단했습니다. 아무것도 만들지 않았습니다.")  # 쓰기 중 중단은 writer가 이미 롤백했다
+        code = EXIT_ABORT
+    except Exception as e:  # noqa: BLE001 - §13: 예기치 못한 오류는 한 줄로, traceback은 LG_DEBUG=1일 때만
+        if os.environ.get("LG_DEBUG") == "1":
+            traceback.print_exc()
+        _err(f"✗ 예기치 못한 오류: {type(e).__name__}: {e}\n  자세한 내용은 LG_DEBUG=1 로 다시 실행하세요.")
+        code = EXIT_ERROR
+    raise typer.Exit(code)
+
+
+def _err(message: str) -> None:
+    typer.echo(message, err=True)
+
+
+def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
+          dry_run: bool, no_git: bool, yes: bool) -> int:
+    interactive = config_file is None
+
+    # 1. 경로 확정
+    if path is None:
+        if not interactive:
+            raise Fail(EXIT_USAGE, "✗ --config 를 쓸 때는 PATH 가 필요합니다.\n  예: lg init ./my-project --config project.yaml")
+        _require_tty()
+        path = prompts.ask_path()
+    target = Path(os.path.abspath(path.expanduser()))
+
+    # 2–3. 대상 폴더와 Git 사전 검사 (나머지 입력 전에)
+    exists = _check_target(target, force, dry_run)
+    if not no_git:
+        _check_git(target, dry_run)
+
+    # 4. 입력 수집과 검증
+    if interactive:
+        _require_tty()
+        config = prompts.ask_config(target)
+    else:
+        config = load_config(config_file)
+
+    # 5. 생성 계획
+    plan = build_plan(config, date.today().isoformat())
+    if exists:
+        conflicts = find_conflicts(target, plan)
+        if conflicts:
+            listing = "\n".join(f"  {c}" for c in conflicts)
+            message = f"이미 있는 파일과 겹칩니다 ({len(conflicts)}개). 기존 파일은 덮어쓰지 않습니다:\n{listing}"
+            if not dry_run:
+                raise TargetError(message + "\n  겹치는 파일을 옮기거나 다른 경로를 지정하세요.")
+            _warn(message)
+
+    # 6. dry-run
+    if dry_run:
+        typer.echo(f"{target}/ (dry-run: 아무것도 쓰지 않습니다)")
+        typer.echo(format_tree(plan))
+        typer.echo(f"\n파일 {len(plan)}개")
+        return EXIT_OK
+
+    # 7. 확인
+    if interactive and not yes:
+        typer.echo("\n" + prompts.summarize(target, config, git=not no_git) + "\n")
+        if not prompts.confirm_create():
+            raise Fail(EXIT_ABORT, "만들지 않았습니다.")
+
+    # 8. 파일 쓰기
+    write_plan(target, plan)
+
+    # 9. Git
+    try:
+        commit = None if no_git else gitops.init_repo(target, config)
+    except KeyboardInterrupt:
+        raise Fail(EXIT_ABORT, f"\nGit 초기화 중에 중단했습니다. 생성된 파일은 그대로 두었습니다: {target}") from None
+
+    # 10. 안내
+    typer.echo(success_message(target, config, len(plan), commit))
+    return EXIT_OK
+
+
+def _require_tty() -> None:
+    if not sys.stdin.isatty():
+        raise Fail(EXIT_USAGE, "✗ 대화형 입력에는 터미널이 필요합니다.\n  --config 로 설정 파일을 지정하세요.")
+
+
+def _warn(message: str) -> None:
+    _err("! " + message.replace("\n", "\n  "))
+
+
+def _check_target(target: Path, force: bool, dry_run: bool) -> bool:
+    try:
+        return check_target(target, force)
+    except TargetError as e:
+        if not dry_run:
+            raise
+        _warn(str(e))
+        return target.is_dir()
+
+
+def _check_git(target: Path, dry_run: bool) -> None:
+    try:
+        gitops.check_available()
+        repo = gitops.inside_work_tree(target)
+        if repo is not None:
+            raise GitError(
+                f"대상이 이미 Git 저장소 안에 있습니다 (저장소: {repo}).\n"
+                "  저장소 밖의 경로를 지정하거나, 그 저장소 안에 파일만 만들려면 --no-git 을 쓰세요."
+            )
+    except GitError as e:
+        if not dry_run:
+            raise
+        _warn(str(e))
+
+
+def format_tree(plan: list[PlannedFile]) -> str:
+    """§7.1 모양의 트리. 실행 파일에는 `*`를 붙인다."""
+    tree: dict = {}
+    modes: dict[PurePosixPath, int] = {}
+    for f in plan:
+        node = tree
+        for part in f.path.parts[:-1]:
+            node = node.setdefault(part + "/", {})
+        node[f.path.parts[-1]] = None
+        modes[f.path] = f.mode
+
+    lines: list[str] = []
+
+    def walk(node: dict, prefix: str, base: PurePosixPath) -> None:
+        names = sorted(node, key=lambda n: (n.endswith("/"), n))  # 파일 먼저, 그다음 폴더
+        for i, name in enumerate(names):
+            last = i == len(names) - 1
+            path = base / name.rstrip("/")
+            mark = " *" if modes.get(path) == EXECUTABLE else ""
+            lines.append(f"{prefix}{'└── ' if last else '├── '}{name}{mark}")
+            if node[name] is not None:
+                walk(node[name], prefix + ("    " if last else "│   "), path)
+
+    walk(tree, "", PurePosixPath())
+    return "\n".join(lines)
+
+
+def success_message(target: Path, config: Config, count: int, commit: Optional[str]) -> str:
+    """§5.4."""
+    first = f"{config.milestones[0].id}-T0"
+    lines = [f"✓ 프로젝트를 만들었습니다: {target}"]
+    if commit:
+        lines.append(f"  파일 {count}개, 초기 커밋 {commit} (init)")
+    else:
+        lines.append(f"  파일 {count}개 (Git 초기화 안 함: --no-git)")
+    lines += ["", "다음 단계:", "  1. notes/ 에 기존 계획 자료를 넣으세요."]
+    if commit:
+        lines += [
+            f"  2. STATUS.md 를 확인하고, {first} 을 승인하세요:",
+            f'       git commit --allow-empty -m "plan({first}): approve initial task" -m "Actor: human',
+            f'     Approve: {first}"',
+            f"     ({first} 카드의 status 를 approved 로 바꿔 함께 커밋해도 됩니다)",
+        ]
+    else:
+        lines += [
+            "  2. Git을 쓰려면 프로젝트 폴더에서 다음을 실행한 뒤, STATUS.md 를 확인하고",
+            f"     {first} 을 승인하세요 (plan 커밋, specs/git-commit.md §5):",
+            "       git init && git symbolic-ref HEAD refs/heads/main",
+            "       git config core.hooksPath .lg/hooks",
+            '       git config user.name "<이름>" && git config user.email "<.lg/identities.json의 이메일>"',
+        ]
+    if config.agent_tools.claude_code:
+        lines.append("  3. 에이전트 세션을 시작하세요 (Claude Code: /session-start)")
+    else:
+        lines.append("  3. 에이전트 세션을 시작하세요 (AGENTS.md 의 \"세션 시작 절차\")")
+    return "\n".join(lines)

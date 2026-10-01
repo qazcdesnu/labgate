@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import isolated_git_env
 from labgate.render import read_static
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git 없음")
@@ -55,19 +56,7 @@ class Repo:
 
 @pytest.fixture
 def repo(tmp_path):
-    hook_python = Path(os.environ.get("HOOK_PYTHON", sys.executable))
-    bindir = tmp_path / "bin"
-    bindir.mkdir()
-    (bindir / "python3").symlink_to(hook_python)
-
-    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    env.update(
-        PATH=f"{bindir}{os.pathsep}{env.get('PATH', '')}",
-        HOME=str(tmp_path),  # 사용자 전역 설정(commit.gpgsign 등) 차단
-        GIT_CONFIG_GLOBAL=os.devnull,
-        GIT_CONFIG_NOSYSTEM="1",
-        LC_ALL="C.UTF-8",
-    )
+    env = isolated_git_env(tmp_path)
     root = tmp_path / "proj"
     (root / ".lg/hooks").mkdir(parents=True)
     hook = root / ".lg/hooks/commit-msg"
