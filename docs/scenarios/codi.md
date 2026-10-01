@@ -218,7 +218,7 @@ CODI의 핵심 설계 결정이 이 구간에서 내려진다.
 
 | # | Claude Code 기능 | labgate 규칙 | 판정 | 확인 방법 |
 |---|---|---|---|---|
-| 1 | **커밋 공동 작성자 trailer** (기본 `Co-authored-by: Claude <claude@anthropic.com>`) | hook은 **마지막 문단**에서 `Actor` 등 trailer를 찾는다 | **충돌** | 실험 (§6.2) |
+| 1 | **커밋 공동 작성자 trailer** (기본 `Co-Authored-By: <모델 이름> <noreply@anthropic.com>`) | hook은 **마지막 문단**에서 `Actor` 등 trailer를 찾는다 | **충돌** | 실험 (§6.2) |
 | 2 | **워크트리** (`--worktree`, 서브에이전트 `isolation: worktree`) → `worktree-<name>` 브랜치 생성 | `main` 하나의 선형 이력. hook은 `Merge ` 커밋을 검사 없이 통과시킴 | **충돌** | 문서 + 실험 (§6.3) |
 | 3 | 자동 메모리 (기본 켜짐, `~/.claude/projects/<project>/memory/`) | 사실의 원본은 저장소(Git) | **긴장** (직접 충돌은 아님) | 문서 |
 | 4 | `permissions.deny`의 문자열 일치 | 에이전트의 `--no-verify` 금지 | 공백 (hook으로도 못 막음) | 문서 + 실험 |
@@ -232,7 +232,7 @@ CODI의 핵심 설계 결정이 이 구간에서 내려진다.
 
 ### 6.2 충돌 1: 공동 작성자 trailer와 hook
 
-Claude Code는 기본적으로 자신이 만드는 커밋에 `Co-authored-by: Claude <claude@anthropic.com>` trailer를 붙인다 (`attribution.commit`의 기본값). 이 줄이 labgate trailer와 **다른 문단**에 오면 hook이 거부한다. 생성된 프로젝트에서 시험한 결과:
+Claude Code는 기본적으로 자신이 만드는 커밋에 `Co-Authored-By: <모델 이름> <noreply@anthropic.com>` trailer를 붙인다 (`attribution.commit`의 기본값, 예: `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`). 이 줄은 커밋 **작성자 신원**(`git config user.name/email`, labgate에서는 `agent-commit`이 정함)을 바꾸지 않고 **메시지 본문 끝에 한 줄을 덧붙일** 뿐이다. 이 줄이 labgate trailer와 **다른 문단**에 오면 hook이 거부한다. 생성된 프로젝트에서 시험한 결과:
 
 | 메시지 끝 부분 | 결과 |
 |---|---|
@@ -245,11 +245,13 @@ Claude Code는 기본적으로 자신이 만드는 커밋에 `Co-authored-by: Cl
 
 **조치안** (생성 파일 수정, 설계 문서 개정 필요):
 
-1. 생성되는 `.claude/settings.json`에 다음을 추가한다. Claude Code 문서가 "CLAUDE.md에 커밋 규칙이 있으면 내장 지침을 끄고 attribution을 설정하라"고 안내하는 바로 그 경우다.
+1. **핵심:** 생성되는 `.claude/settings.json`에서 커밋 attribution을 끈다. 문서상 `attribution.commit`을 **빈 문자열**로 두면 숨겨진다.
    ```json
-   { "attribution": { "commit": null }, "includeGitInstructions": false }
+   { "attribution": { "commit": "", "pr": "", "sessionUrl": false } }
    ```
-   AI 사용을 커밋에 표시하고 싶다면 `null` 대신 문구를 두되, `specs/git-commit.md`에 "trailer는 마지막 한 문단에 모두 쓴다"를 명시한다.
+   - `"attribution": false` 한 줄로도 모두 끌 수 있지만 Claude Code v2.1.281 이상에서만 읽힌다. 그보다 낮은 버전은 이 값을 거부하고 **설정 파일 전체를 건너뛴다.** 그러면 같은 파일의 deny 규칙까지 사라지므로, 문서가 권하는 대로 하위 호환되는 빈 문자열 형식을 쓴다.
+   - 예전 키 `includeCoAuthoredBy`는 v2.0.62부터 사용 중단되었고, `attribution.commit`이나 `attribution.pr`을 설정하면 무시된다. 생성 파일에는 쓰지 않는다.
+   - AI 사용을 커밋에 표시하고 싶다면 빈 문자열 대신 문구를 두되, `specs/git-commit.md`에 "trailer는 마지막 한 문단에 모두 쓴다"를 명시한다. Claude Code는 CLAUDE.md 등 프로젝트 지침의 attribution 규칙을 이 설정보다 우선한다고 Claude에게 알린다(관리형 설정 제외).
 2. (선택) hook이 마지막 문단에서 `Actor`를 못 찾으면 "trailer 블록이 둘로 나뉘었다"고 구체적으로 알려 준다.
 
 ### 6.3 충돌 2: 워크트리 브랜치와 선형 이력
@@ -280,7 +282,7 @@ deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --n
 
 ### 6.6 가외성과 경합: 내장 커밋 지침
 
-사용자가 "커밋해 줘"라고 하면 Claude Code는 내장 지침대로 `git commit`을 시도한다. labgate는 이를 deny로 막고 CLAUDE.md로 `scripts/agent-commit`을 쓰게 한다. 결과적으로 안전하지만(가외성), 내장 지침과 프로젝트 지침이 컨텍스트에서 경합해 첫 시도가 거부될 수 있다. §6.2의 `includeGitInstructions: false`가 이 경합도 없앤다.
+사용자가 "커밋해 줘"라고 하면 Claude Code는 내장 지침대로 `git commit`을 시도한다. labgate는 이를 deny로 막고 CLAUDE.md로 `scripts/agent-commit`을 쓰게 한다. 결과적으로 안전하지만(가외성), 내장 지침과 프로젝트 지침이 컨텍스트에서 경합해 첫 시도가 거부될 수 있다. `includeGitInstructions: false`로 내장 커밋·PR 지침을 컨텍스트에서 뺄 수 있지만, 이 설정은 세션 시작 시의 Git 상태 스냅샷(현재 브랜치, `git status`, 최근 커밋)도 함께 뺀다. 충돌 1의 해소에는 필요 없고 경합은 deny와 hook이 이미 막으므로 **기본 생성 파일에는 넣지 않는다.** 첫 시도 거부가 잦으면 사용자가 선택적으로 켠다.
 
 ---
 
@@ -290,7 +292,7 @@ deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --n
 
 **실사용 전에 고칠 것** (우선순위 순, 모두 생성 파일 변경이라 설계 문서 개정 → 템플릿 동기화 → 테스트 순으로 진행):
 
-1. **[충돌 1]** `.claude/settings.json`에 `attribution.commit: null`, `includeGitInstructions: false` 추가. `git-commit.md`에 "trailer는 마지막 한 문단에" 명시.
+1. **[충돌 1]** `.claude/settings.json`에 `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` 추가. `git-commit.md`에 "trailer는 마지막 한 문단에" 명시.
 2. **[충돌 2]** `.gitignore`에 `.claude/worktrees/` 추가. AGENTS.md에 워크트리·브랜치 정책 명시. `git merge` deny 추가 검토.
 3. **[긴장]** 자동 메모리 사용 지침 추가 (또는 `autoMemoryEnabled: false`).
 4. **[공백]** `--no-verify` 차단용 PreToolUse hook 추가 검토.
@@ -308,4 +310,5 @@ deny 규칙은 명령 문자열이 맞을 때만 막는다. `git -C . commit --n
   - `attribution`, `includeGitInstructions`: https://code.claude.com/docs/en/settings-reference
   - 워크트리: https://code.claude.com/docs/en/worktrees
   - 권한 규칙: https://code.claude.com/docs/en/permissions
+- 2026-10-02 정정: `attribution.commit`의 기본값과 끄는 방법(`null` → 빈 문자열)을 문서 원문(`settings-reference.md`)으로 다시 확인해 고쳤다. 처음 작성 때는 웹 요약 도구가 문서를 잘못 옮긴 내용을 그대로 썼다.
 - 충돌 실험: 생성된 프로젝트(labgate 0.1.0)에서 `scripts/agent-commit`, `git commit`, `git merge`로 직접 확인.

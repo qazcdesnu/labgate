@@ -85,7 +85,7 @@
 ## 남은 결정·후속 작업
 
 - **[사용 시나리오 점검에서 발견, 실사용 전 수정 권장]** ([docs/scenarios/codi.md](docs/scenarios/codi.md) §6–7)
-  1. 충돌: Claude Code의 공동 작성자 trailer가 별도 문단으로 붙으면 hook이 커밋을 거부한다 → 생성 `.claude/settings.json`에 `"attribution": {"commit": null}`, `"includeGitInstructions": false`, `git-commit.md`에 "trailer는 마지막 한 문단에".
+  1. 충돌: Claude Code의 공동 작성자 trailer가 별도 문단으로 붙으면 hook이 커밋을 거부한다 → 생성 `.claude/settings.json`에 `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` (빈 문자열이 문서상 끄는 방법. `attribution: false`는 v2.1.281 미만에서 설정 파일 전체를 건너뛰게 하므로 쓰지 않음), `git-commit.md`에 "trailer는 마지막 한 문단에".
   2. 충돌: 워크트리 브랜치·병합이 선형 이력 규칙을 깨고 병합 커밋은 hook을 통과한다 → `.gitignore`에 `.claude/worktrees/`, AGENTS.md에 워크트리 정책, `git merge` deny 검토.
   3. 긴장: 자동 메모리가 저장소 밖에 연구 판단을 남길 수 있다 → 사용 지침 또는 `autoMemoryEnabled: false`.
   4. 공백: `--no-verify` → Claude Code PreToolUse hook 검토.
