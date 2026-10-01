@@ -6,7 +6,7 @@
 
 ## 완료 조건 (모든 단계 공통)
 
-- `scripts/test-matrix.sh` 통과: Python 3.10–3.13 × 의존성 최신·최소(`pyproject.toml` 하한) = 8개 조합
+- `scripts/test-matrix.sh` 통과: Python 3.10–3.14 × 의존성 최신·최소(`pyproject.toml` 하한) = 10개 조합
 - 생성되는 hook은 Python 3.9에서도 통과 (`test-matrix.sh` 전체 실행에 포함)
 - GitHub Actions(`.github/workflows/test.yml`) 통과: 위 조합 × Linux·macOS, hook × Python 3.9
 
@@ -46,7 +46,7 @@
 
 - `tests/test_hook.py`: 생성될 hook과 `agent-commit`을 임시 저장소에 설치하고 실제 `git commit`으로 검사한다. 사용자 전역 Git 설정은 테스트마다 차단한다(`GIT_CONFIG_GLOBAL`, `HOME`).
 - §14.1 표 15개 사례 + §11의 나머지 규칙 20개 + `--author` 인식, identities 손상, agent-commit 신원·옵션 차단 (총 52개). agent-commit은 §14.2의 통합 테스트 일부를 앞당겨 다룬 것이다.
-- hook의 `#!/usr/bin/env python3`는 PATH를 따르므로, 테스트는 PATH 맨 앞에 테스트 중인 Python(또는 `HOOK_PYTHON`)을 둔다. 덕분에 매트릭스가 hook도 3.10–3.13에서 검증하고, 별도로 3.9에서도 돌린다.
+- hook의 `#!/usr/bin/env python3`는 PATH를 따르므로, 테스트는 PATH 맨 앞에 테스트 중인 Python(또는 `HOOK_PYTHON`)을 둔다. 덕분에 매트릭스가 hook도 3.10–3.14에서 검증하고, 별도로 3.9에서도 돌린다.
 - 확인된 hook 동작: `Approve: M0-T0,`처럼 끝에 빈 항목이 있으면 무시하고 통과한다.
 
 ### 5단계
@@ -77,8 +77,18 @@
 - 배포 확인(수동): wheel을 빌드해 새 가상환경에 설치(`pipx install .`과 같은 형태)하고 `lg init`을 실행 → 성공, 실행 권한 유지, 작업 트리 깨끗함.
 - 최종: 로컬 매트릭스 8개 조합 각 227개 통과, hook × Python 3.9 52개 통과.
 
+### 3.14 지원 추가
+
+- 지원 범위를 3.10–3.14로 넓혔다 (설계 문서 1.5 §4). 3.14에서는 하한 버전의 pyyaml(6.0.2)·pydantic(2.8)에 wheel이 없어 소스 빌드가 실패하므로, 환경 마커로 3.14에서만 하한을 올렸다: `pyyaml>=6.0.3`, `pydantic>=2.12`.
+- 알려진 경고: 3.14 최소 의존성 조합에서 prompt_toolkit 3.0.36의 `asyncio.get_event_loop_policy` 사용 중단 경고(Python 3.16 제거 예정)가 반복된다. 동작에는 영향 없음.
+
 ## 남은 결정·후속 작업
 
-- 개발용 `.venv`가 Python 3.14다. 지원 범위(3.10–3.13)에 3.14를 넣을지, 개발 환경을 3.13으로 고정할지.
+- **[사용 시나리오 점검에서 발견, 실사용 전 수정 권장]** ([docs/scenarios/codi.md](docs/scenarios/codi.md) §6–7)
+  1. 충돌: Claude Code의 공동 작성자 trailer가 별도 문단으로 붙으면 hook이 커밋을 거부한다 → 생성 `.claude/settings.json`에 `"attribution": {"commit": null}`, `"includeGitInstructions": false`, `git-commit.md`에 "trailer는 마지막 한 문단에".
+  2. 충돌: 워크트리 브랜치·병합이 선형 이력 규칙을 깨고 병합 커밋은 hook을 통과한다 → `.gitignore`에 `.claude/worktrees/`, AGENTS.md에 워크트리 정책, `git merge` deny 검토.
+  3. 긴장: 자동 메모리가 저장소 밖에 연구 판단을 남길 수 있다 → 사용 지침 또는 `autoMemoryEnabled: false`.
+  4. 공백: `--no-verify` → Claude Code PreToolUse hook 검토.
+  5. 운영: 탐색 구간 task 크기 지침.
 - Claude Code 슬래시 커맨드는 `.claude/commands/`(지원되지만 구식)로 생성한다. `.claude/skills/`로 옮길지는 v1 이후 검토.
 - §15 향후 확장(`lg gate`, `lg status`, `lg validate`, `lg upgrade`, `lg doctor`).

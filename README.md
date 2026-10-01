@@ -4,6 +4,8 @@
 
 설계: [labgate-design.md](labgate-design.md)
 
+사용 시나리오: [Coconut을 읽고 CODI를 시작하는 연구자](docs/scenarios/codi.md) — 전통 방식과의 비교, Claude Code와의 시너지·충돌 점검
+
 ## 개발
 
 ```bash
@@ -12,7 +14,7 @@ uv pip install --python .venv/bin/python -e '.[dev]'
 .venv/bin/pytest
 ```
 
-지원 Python(3.10–3.13) 전체에서 최신 의존성과 최소 의존성(`pyproject.toml` 하한) 두 조합으로 테스트:
+지원 Python(3.10–3.14) 전체에서 최신 의존성과 최소 의존성(`pyproject.toml` 하한) 두 조합으로 테스트:
 
 ```bash
 scripts/test-matrix.sh          # 전체
