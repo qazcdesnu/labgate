@@ -1,7 +1,12 @@
-# `rp` CLI 설계 문서 — v1 (`rp init`)
+# `labgate` CLI 설계 문서 — v1 (`lg init`)
 
-> 문서 버전: 1.1 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
-> 이 문서만으로 `rp init`을 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B에 있다.
+> 문서 버전: 1.2 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 이 문서만으로 `lg init`을 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B에 있다.
+
+**1.2 변경 (2026-10-01)**
+
+- 이름 변경: 패키지·import `rp-research`/`rp` → `labgate`, 명령 `rp` → `lg`, 생성 프로젝트의 도구 폴더 `.rp/` → `.lg/`, `rp_version` → `labgate_version`, `RP_DEBUG` → `LG_DEBUG` (이유는 §4)
+- 아래 1.1 항목의 `.lg/`도 당시에는 `.rp/`였다
 
 **1.1 변경 (2026-10-01, 구현 전 검토 반영)**
 
@@ -12,7 +17,7 @@
 - §12: `--author` 금지 이유 정정
 - A.5: 권한 규칙을 공백 형식으로 바꾸고 `git push -f` 추가, 한계 명시
 - B.2 §4: frontmatter 예외 목록과 `type` 값 표 정리. stub 사양 `catalog-entry` → `catalog`
-- B.3 §6.2, A.3, A.6: 대화 경로의 `.rp/pending/` 쓰기 허용, "사람 커밋 대기 상태"에서는 에이전트 커밋 금지
+- B.3 §6.2, A.3, A.6: 대화 경로의 `.lg/pending/` 쓰기 허용, "사람 커밋 대기 상태"에서는 에이전트 커밋 금지
 
 ---
 
@@ -39,7 +44,7 @@
 
 | 포함 | 제외 (§15 향후 확장) |
 |---|---|
-| `rp init` (대화형 / 설정 파일) | `rp gate`, `rp status`, `rp validate`, `rp upgrade` |
+| `lg init` (대화형 / 설정 파일) | `lg gate`, `lg status`, `lg validate`, `lg upgrade` |
 | 폴더·문서 생성, 완성 사양 5종, stub 사양 11종 | 기존 계획서 자동 가져오기 |
 | `commit-msg` hook, `scripts/agent-commit` | 문서 내용 검증 도구 |
 | Claude Code 연결 파일 (선택) | 다른 에이전트 도구 연결 |
@@ -89,21 +94,21 @@
 | 템플릿 | `jinja2` ≥ 3.1 |
 | 설정 | `pyyaml` ≥ 6.0, 검증은 `pydantic` ≥ 2.6 |
 | 테스트 | `pytest` |
-| 배포 | `pipx install .` (패키지명 `rp-research`, 명령명 `rp`) |
+| 배포 | `pipx install .` (패키지명·import 이름 `labgate`, 명령명 `lg`) |
 | 외부 의존 | `git` 실행 파일 (`--no-git`이면 불필요), 생성된 프로젝트에서 `python3`, `bash` |
 | 지원 OS | macOS, Linux. Windows는 Git Bash 환경에서 최선 노력(공식 지원 아님) |
 
-명령명 `rp`와 패키지명은 임시이며 바꿔도 이 문서의 다른 내용에는 영향이 없다.
+이름은 labgate(연구실 lab + 승인 게이트 gate), 명령명은 그 이니셜 `lg`다. PyPI의 `rp` 패키지("Ryan's Python")가 같은 이름의 명령과 import 패키지를 설치해 충돌하므로 처음 쓰던 `rp`를 버렸다. 생성되는 프로젝트의 도구 폴더는 `.lg/`다.
 
 ---
 
-## 5. 명령 사양: `rp init`
+## 5. 명령 사양: `lg init`
 
 ### 5.1 형식
 
 ```
-rp init [PATH] [--config FILE] [--force] [--dry-run] [--no-git] [--yes]
-rp --version
+lg init [PATH] [--config FILE] [--force] [--dry-run] [--no-git] [--yes]
+lg --version
 ```
 
 | 인자/옵션 | 설명 |
@@ -115,7 +120,7 @@ rp --version
 | `--no-git` | Git 초기화, hook 경로 설정, 초기 커밋을 하지 않는다 |
 | `--yes` | 대화형 모드의 마지막 확인 질문을 건너뛴다 |
 
-Typer는 명령이 하나뿐인 앱에서 하위 명령을 생략해 버리므로, `@app.callback()`으로 빈 콜백을 등록해 `rp init` 형태를 유지한다.
+Typer는 명령이 하나뿐인 앱에서 하위 명령을 생략해 버리므로, `@app.callback()`으로 빈 콜백을 등록해 `lg init` 형태를 유지한다.
 
 ### 5.2 종료 코드
 
@@ -169,7 +174,7 @@ Typer는 명령이 하나뿐인 앱에서 하위 명령을 생략해 버리므�
 
 ## 6. 설정
 
-### 6.1 설정 파일 형식 (`--config`, 그리고 생성되는 `.rp/project.yaml`)
+### 6.1 설정 파일 형식 (`--config`, 그리고 생성되는 `.lg/project.yaml`)
 
 ```yaml
 schema_version: 1
@@ -195,10 +200,10 @@ milestones:
 
 - 마일스톤 ID는 입력하지 않는다. 순서대로 `M0`, `M1`, …을 부여한다. 설정 파일에 `id`가 있으면 순서와 일치하는지 검사하고, 다르면 오류.
 - `people.agent`는 생략 가능하다. 기본값: 이름 `research-agent`, 이메일 `agent@<slug>.local`.
-- 생성되는 `.rp/project.yaml`에는 위 내용에 다음이 추가된다:
+- 생성되는 `.lg/project.yaml`에는 위 내용에 다음이 추가된다:
   ```yaml
   generated:
-    rp_version: "0.1.0"
+    labgate_version: "0.1.0"
     spec_version: 1
     created: "2026-10-01"
   ```
@@ -254,7 +259,7 @@ milestones:
 ├── CLAUDE.md                          # claude_code=true
 ├── STATUS.md
 ├── .gitignore
-├── .rp/
+├── .lg/
 │   ├── project.yaml
 │   ├── identities.json
 │   └── hooks/
@@ -343,9 +348,9 @@ milestones:
 | `.claude/commands/<name>.md` | S | A.6 | claude_code, 5개 | 644 |
 | `STATUS.md` | J | A.7 | | 644 |
 | `.gitignore` | S | A.8 | | 644 |
-| `.rp/project.yaml` | G | §6.1 | | 644 |
-| `.rp/identities.json` | G | §10.3 | | 644 |
-| `.rp/hooks/commit-msg` | S | C.1 | | 755 |
+| `.lg/project.yaml` | G | §6.1 | | 644 |
+| `.lg/identities.json` | G | §10.3 | | 644 |
+| `.lg/hooks/commit-msg` | S | C.1 | | 755 |
 | `scripts/agent-commit` | S | C.2 | | 755 |
 | `plan/roadmap.md` | J | A.9 | | 644 |
 | `plan/milestones/<M>/milestone.md` | J | A.10 | 마일스톤마다 | 644 |
@@ -377,10 +382,10 @@ milestones:
 ### 8.1 소스 트리
 
 ```
-rp-research/
+labgate/
 ├── pyproject.toml
 ├── README.md
-├── src/rp/
+├── src/labgate/
 │   ├── __init__.py          # __version__ = "0.1.0", SPEC_VERSION = 1
 │   ├── cli.py               # Typer 앱, init 명령, 종료 코드 처리
 │   ├── config.py            # pydantic 모델, YAML 로드/저장, 정규화
@@ -396,9 +401,9 @@ rp-research/
 └── tests/
 ```
 
-`templates/` 아래 파일 이름은 출력 경로를 따른다. 예: `jinja/plan/milestones/milestone.md.j2`, `static/specs/workflow.md`. 반복 생성되는 파일은 `plan.py`가 템플릿 하나를 여러 경로로 렌더링한다. 템플릿은 `importlib.resources.files("rp") / "templates"`로 읽는다.
+`templates/` 아래 파일 이름은 출력 경로를 따른다. 예: `jinja/plan/milestones/milestone.md.j2`, `static/specs/workflow.md`. 반복 생성되는 파일은 `plan.py`가 템플릿 하나를 여러 경로로 렌더링한다. 템플릿은 `importlib.resources.files("labgate") / "templates"`로 읽는다.
 
-예외: 출력 경로가 `.`으로 시작하는 파일·폴더는 템플릿 쪽에서 앞의 `.`을 빼고 `dot-`를 붙여 저장한다 (`static/dot-gitignore` → `.gitignore`, `static/dot-claude/settings.json` → `.claude/settings.json`, `static/dot-rp/hooks/commit-msg` → `.rp/hooks/commit-msg`). 이유: (1) `templates/static/.gitignore`를 그대로 두면 이 CLI 저장소의 Git이 그것을 실제 ignore 규칙으로 적용해 템플릿 폴더 안의 파일을 무시한다. (2) 빌드 도구가 숨김 파일·VCS 무시 파일을 패키지에서 빼는 경우가 있다. 변환은 `plan.py`의 경로 매핑 한 곳에서만 한다. 패키지 테스트에서 wheel에 모든 템플릿이 들어갔는지 확인한다.
+예외: 출력 경로가 `.`으로 시작하는 파일·폴더는 템플릿 쪽에서 앞의 `.`을 빼고 `dot-`를 붙여 저장한다 (`static/dot-gitignore` → `.gitignore`, `static/dot-claude/settings.json` → `.claude/settings.json`, `static/dot-lg/hooks/commit-msg` → `.lg/hooks/commit-msg`). 이유: (1) `templates/static/.gitignore`를 그대로 두면 이 CLI 저장소의 Git이 그것을 실제 ignore 규칙으로 적용해 템플릿 폴더 안의 파일을 무시한다. (2) 빌드 도구가 숨김 파일·VCS 무시 파일을 패키지에서 빼는 경우가 있다. 변환은 `plan.py`의 경로 매핑 한 곳에서만 한다. 패키지 테스트에서 wheel에 모든 템플릿이 들어갔는지 확인한다.
 
 ### 8.2 `pyproject.toml`
 
@@ -408,7 +413,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rp-research"
+name = "labgate"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -423,15 +428,15 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
-rp = "rp.cli:app"
+lg = "labgate.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/rp"]
+packages = ["src/labgate"]
 ```
 
 ### 8.3 쓰기 규칙 (`writer.py`)
 
-- **대상이 존재하지 않을 때:** 부모 폴더가 없으면 먼저 `os.makedirs`로 만들고, 이때 새로 만든 상위 폴더를 기록해 둔다. 같은 부모 폴더에 `.<name>.rp-tmp-<8자리 hex>` 임시 폴더를 만들어 모두 쓴 뒤 `os.rename`으로 대상 이름으로 바꾼다. 중간 실패 시 임시 폴더와 새로 만든 상위 폴더를 삭제한다.
+- **대상이 존재하지 않을 때:** 부모 폴더가 없으면 먼저 `os.makedirs`로 만들고, 이때 새로 만든 상위 폴더를 기록해 둔다. 같은 부모 폴더에 `.<name>.lg-tmp-<8자리 hex>` 임시 폴더를 만들어 모두 쓴 뒤 `os.rename`으로 대상 이름으로 바꾼다. 중간 실패 시 임시 폴더와 새로 만든 상위 폴더를 삭제한다.
 - **대상이 존재할 때(비어 있거나 `--force`):** 직접 쓴다. 새로 만든 파일과 폴더를 기록해 두고, 중간 실패 시 역순으로 삭제한다. 원래 있던 파일·폴더는 건드리지 않는다.
 - 실행 권한은 `PlannedFile.mode`대로 `os.chmod`로 설정한다.
 
@@ -465,7 +470,7 @@ class PlannedFile:
 | `milestones` | `[{id: "M0", index: 0, title}]` |
 | `claude_code` | bool |
 | `today` | `YYYY-MM-DD` (로컬 날짜) |
-| `rp_version`, `spec_version` | 문자열, 정수 |
+| `labgate_version`, `spec_version` | 문자열, 정수 |
 
 마일스톤별 템플릿(A.10, A.11, A.14)에는 추가로 `m`(해당 마일스톤), `prev`(직전 마일스톤 또는 `None`)를 넘긴다. stub 사양 템플릿(B.7)에는 `stub`(B.7 표의 한 행)을 넘긴다.
 
@@ -477,7 +482,7 @@ class PlannedFile:
 
 1. `git init` 후 `git symbolic-ref HEAD refs/heads/main` (Git 버전과 무관하게 기본 브랜치를 `main`으로).
 2. `git config user.name "<humans[0].name>"`, `git config user.email "<humans[0].email>"` (저장소 로컬 설정).
-3. `git config core.hooksPath .rp/hooks`.
+3. `git config core.hooksPath .lg/hooks`.
 4. `git add -A`.
 5. 초기 커밋: 메시지를 임시 파일에 써서 `git commit -F <tmp>`. subprocess 환경에서 `GIT_AUTHOR_*`, `GIT_COMMITTER_*` 변수를 제거하여 로컬 설정(사람 신원)이 쓰이게 한다. 이 커밋은 hook을 통과해야 한다(자체 점검).
 
@@ -497,7 +502,7 @@ Actor: human
 
 각 단계는 `subprocess.run(..., check=True, capture_output=True, text=True)`로 실행하고, 실패 시 단계 이름, 명령, stderr를 출력한 뒤 남은 수동 명령을 안내한다. 예: hook 검사로 초기 커밋이 실패하면 hook이나 identities 생성 버그이므로 stderr를 그대로 보여준다.
 
-### 10.3 `.rp/identities.json`
+### 10.3 `.lg/identities.json`
 
 ```json
 {
@@ -592,7 +597,7 @@ Key: value                        ← trailer 블록 = 메시지의 마지막 �
 
 - 무엇이 잘못되었는지, 어떤 값이었는지, 어떻게 고치는지를 한 줄씩.
 - 검증 오류는 모아서 한 번에 출력.
-- 예외 traceback은 `RP_DEBUG=1` 환경 변수가 있을 때만 출력.
+- 예외 traceback은 `LG_DEBUG=1` 환경 변수가 있을 때만 출력.
 
 ---
 
@@ -630,7 +635,7 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 
 ### 14.2 통합 테스트
 
-1. 설정 파일로 `rp init <tmp>/proj --config cfg.yaml` → 종료 코드 0, `git log`에 커밋 1개, 작성자 = 사람, `git config core.hooksPath` = `.rp/hooks`.
+1. 설정 파일로 `lg init <tmp>/proj --config cfg.yaml` → 종료 코드 0, `git log`에 커밋 1개, 작성자 = 사람, `git config core.hooksPath` = `.lg/hooks`.
 2. 생성된 프로젝트에서 `scripts/agent-commit --allow-empty -m "log: test" -m "Actor: agent"` → 성공, 작성자 = 에이전트.
 3. 같은 곳에서 `scripts/agent-commit --allow-empty -m "gate(M0-T0): approve" -m "Actor: agent
    Task: M0-T0
@@ -654,11 +659,11 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 
 | 명령 | 역할 | v1에서 미리 지킬 것 |
 |---|---|---|
-| `rp gate <verdict> <Task>` | review 응답 기록, 카드 상태 변경, 사람 신원 `gate` 커밋, tag 생성을 한 번에 | 상태값·trailer를 사양대로 고정 |
-| `rp status` | frontmatter와 커밋 이력으로 `STATUS.md` 재생성 | 모든 문서에 frontmatter |
-| `rp validate` | 문서를 사양의 검증 규칙으로 검사 | 사양마다 §7 검증 규칙 섹션 유지 |
-| `rp upgrade` | 사양 버전 갱신 | `spec_version` 필드 |
-| `rp doctor` | hooksPath 등 로컬 설정 점검·복구 | `.rp/` 안에 필요한 정보 보관 |
+| `lg gate <verdict> <Task>` | review 응답 기록, 카드 상태 변경, 사람 신원 `gate` 커밋, tag 생성을 한 번에 | 상태값·trailer를 사양대로 고정 |
+| `lg status` | frontmatter와 커밋 이력으로 `STATUS.md` 재생성 | 모든 문서에 frontmatter |
+| `lg validate` | 문서를 사양의 검증 규칙으로 검사 | 사양마다 §7 검증 규칙 섹션 유지 |
+| `lg upgrade` | 사양 버전 갱신 | `spec_version` 필드 |
+| `lg doctor` | hooksPath 등 로컬 설정 점검·복구 | `.lg/` 안에 필요한 정보 보관 |
 | 계획서 가져오기 | Markdown 계획서 → roadmap, milestone, decisions | — |
 
 
@@ -696,12 +701,12 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 ## 저장소를 새로 클론했을 때
 
 ```bash
-git config core.hooksPath .rp/hooks
+git config core.hooksPath .lg/hooks
 git config user.name "<이름>"
-git config user.email "<.rp/identities.json에 등록된 이메일>"
+git config user.email "<.lg/identities.json에 등록된 이메일>"
 ```
 
-<sub>rp {{ rp_version }}로 {{ today }}에 초기화됨 · spec_version {{ spec_version }}</sub>
+<sub>labgate {{ labgate_version }}로 {{ today }}에 초기화됨 · spec_version {{ spec_version }}</sub>
 ~~~~
 
 ## A.2 `FILEMAP.md` (J)
@@ -733,7 +738,7 @@ updated: {{ today }}
 
 | 폴더 | 내용 | 명명 규칙 |
 |---|---|---|
-| `.rp/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.rp/pending/`만 예외: 사람 커밋 대기 중인 메시지 초안, Git 제외) |
+| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 대기 중인 메시지 초안, Git 제외) |
 {% if claude_code %}
 | `.claude/` | Claude Code 설정과 슬래시 커맨드 | |
 {% endif %}
@@ -785,7 +790,7 @@ updated: {{ today }}
 
 ## 세션 시작 절차
 
-1. `.rp/pending/COMMIT_MSG`가 있으면 사람 커밋 대기 상태다. workflow.md §6.2의 "사람 커밋 대기 상태"를 따른다.
+1. `.lg/pending/COMMIT_MSG`가 있으면 사람 커밋 대기 상태다. workflow.md §6.2의 "사람 커밋 대기 상태"를 따른다.
 2. `STATUS.md`를 읽는다.
 3. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다. 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 종료한다.
 4. `reviews/`에서 이 task와 관련해 사람이 응답한 문서(`status: answered`)가 있는지 확인하고, 있으면 먼저 반영한다.
@@ -803,7 +808,7 @@ updated: {{ today }}
    - 결정의 상태를 `confirmed`로 바꾸기
    - review 문서의 `## 응답` 섹션 작성 (대화 경로 예외: workflow.md §6.2)
    - `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준 변경 (변경 제안은 `propose` 커밋)
-   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.rp/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 대화 경로의 커밋 메시지 초안 `.rp/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §6.2)
+   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 대화 경로의 커밋 메시지 초안 `.lg/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §6.2)
    - tag 생성, 이력 재작성(rebase, 사람 커밋 amend, force push)
 5. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
 6. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
@@ -815,7 +820,7 @@ updated: {{ today }}
 1. 작업 일지 `logs/YYYY-MM-DD_sNN.md`를 쓴다.
 2. task 카드의 "진행 메모"와 `updated`를 갱신한다.
 3. `STATUS.md`를 갱신한다.
-4. `log` 타입으로 커밋해 작업 트리를 깨끗하게 남긴다. 단, 사람 커밋 대기 상태(`.rp/pending/COMMIT_MSG` 있음)이면 커밋하지 않고, 사람이 실행할 명령을 다시 알린 뒤 끝낸다 (workflow.md §6.2).
+4. `log` 타입으로 커밋해 작업 트리를 깨끗하게 남긴다. 단, 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)이면 커밋하지 않고, 사람이 실행할 명령을 다시 알린 뒤 끝낸다 (workflow.md §6.2).
 
 ## 참고
 
@@ -957,7 +962,7 @@ runs/*
 !runs/.gitkeep
 
 # 대화 경로 게이트용 임시 커밋 메시지
-.rp/pending/
+.lg/pending/
 
 # Python
 __pycache__/
@@ -1448,14 +1453,14 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ### 6.2 대화 경로 (사람이 대화로 판정)
 
 1. 에이전트가 사람의 발언을 그대로 반영해 `## 응답`을 작성하고 `verdict`, `source: conversation`, `status: answered`를 채운다. 사람이 말하지 않은 내용을 추가하지 않는다.
-2. 에이전트가 관련 변경(카드·결정 상태 등)을 stage하고, 커밋 메시지 초안을 `.rp/pending/COMMIT_MSG`에 쓴다. `.rp/pending/`은 Git에서 제외되며, 에이전트가 쓸 수 있는 `.rp/` 안의 유일한 위치다.
+2. 에이전트가 관련 변경(카드·결정 상태 등)을 stage하고, 커밋 메시지 초안을 `.lg/pending/COMMIT_MSG`에 쓴다. `.lg/pending/`은 Git에서 제외되며, 에이전트가 쓸 수 있는 `.lg/` 안의 유일한 위치다.
 3. 에이전트는 사람에게 `git diff --cached` 확인과 다음 명령 실행을 요청하고 멈춘다 (tag는 `approve`일 때만):
-   `git commit -F .rp/pending/COMMIT_MSG && rm .rp/pending/COMMIT_MSG && git tag gate/<Task>`
+   `git commit -F .lg/pending/COMMIT_MSG && rm .lg/pending/COMMIT_MSG && git tag gate/<Task>`
 4. 사람이 확인 후 실행한다. 내용이 다르면 수정 후 커밋한다.
 
 같은 방식이 `decide`, `respond` 커밋의 대화 경로에도 적용된다.
 
-**사람 커밋 대기 상태.** `.rp/pending/COMMIT_MSG`가 있는 동안 stage된 변경은 사람의 커밋을 기다리는 것이다. 이 상태에서 에이전트는:
+**사람 커밋 대기 상태.** `.lg/pending/COMMIT_MSG`가 있는 동안 stage된 변경은 사람의 커밋을 기다리는 것이다. 이 상태에서 에이전트는:
 
 - 어떤 커밋도 하지 않는다 (stage된 변경이 에이전트 커밋에 섞이기 때문). 세션 종료 시에도 `log` 커밋을 하지 않고, 작업 트리가 깨끗하지 않은 채로 끝내며 그 이유를 보고한다 (§4 "깨끗한 작업 트리"의 유일한 예외).
 - 세션 시작 시 이 파일이 있으면, `git log`에 그 메시지로 된 사람 커밋이 이미 있는지 확인한다. 있으면 파일을 지우고 §6.3으로 간다. 없으면 사람에게 커밋 실행을 다시 요청하고 다른 작업을 하지 않는다.
@@ -1522,14 +1527,14 @@ status: complete
 ---
 # 커밋 규약
 
-이 규약은 `.rp/hooks/commit-msg`가 검사한다.
+이 규약은 `.lg/hooks/commit-msg`가 검사한다.
 
 ## 1. 신원
 
 | 주체 | 커밋 방법 | 작성자 |
 |---|---|---|
-| 사람 | `git commit` (저장소 로컬 설정) | `.rp/identities.json`의 `humans` 중 하나 |
-| 에이전트 | `scripts/agent-commit` | `.rp/identities.json`의 `agent` |
+| 사람 | `git commit` (저장소 로컬 설정) | `.lg/identities.json`의 `humans` 중 하나 |
+| 에이전트 | `scripts/agent-commit` | `.lg/identities.json`의 `agent` |
 
 작성자 이메일이 둘 중 어디에도 없으면 커밋이 거부된다.
 
@@ -2025,11 +2030,11 @@ updated: <YYYY-MM-DD>
 
 # 부록 C. 실행 파일 원문
 
-## C.1 `.rp/hooks/commit-msg` (S, 755)
+## C.1 `.lg/hooks/commit-msg` (S, 755)
 
 ~~~~python
 #!/usr/bin/env python3
-"""rp commit-msg hook (spec_version 1).
+"""labgate commit-msg hook (spec_version 1).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -2068,7 +2073,7 @@ def split_list(value):
 
 def load_identities():
     root = Path(git("rev-parse", "--show-toplevel"))
-    path = root / ".rp" / "identities.json"
+    path = root / ".lg" / "identities.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -2115,7 +2120,7 @@ def check_identity(actor, errors):
     try:
         ids = load_identities()
     except (OSError, ValueError, subprocess.CalledProcessError) as e:
-        errors.append(f".rp/identities.json을 읽지 못했습니다: {e}")
+        errors.append(f".lg/identities.json을 읽지 못했습니다: {e}")
         return
     email = author_email()
     humans = {h["email"].lower() for h in ids.get("humans", [])}
@@ -2125,7 +2130,7 @@ def check_identity(actor, errors):
     elif email in humans:
         role = "human"
     else:
-        errors.append(f"등록되지 않은 작성자입니다: <{email}> (.rp/identities.json 확인)")
+        errors.append(f"등록되지 않은 작성자입니다: <{email}> (.lg/identities.json 확인)")
         return
     if role != actor:
         errors.append(f"작성자 신원({role})과 Actor({actor})가 다릅니다.")
@@ -2233,7 +2238,7 @@ for arg in "$@"; do
 done
 
 ROOT="$(git rev-parse --show-toplevel)"
-CFG="$ROOT/.rp/identities.json"
+CFG="$ROOT/.lg/identities.json"
 
 field() {
   python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["agent"][sys.argv[2]])' "$CFG" "$1"
