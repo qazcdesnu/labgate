@@ -7,6 +7,7 @@
 
 - 이름 변경: 패키지·import `rp-research`/`rp` → `labgate`, 명령 `rp` → `lg`, 생성 프로젝트의 도구 폴더 `.rp/` → `.lg/`, `rp_version` → `labgate_version`, `RP_DEBUG` → `LG_DEBUG` (이유는 §4)
 - 아래 1.1 항목의 `.lg/`도 당시에는 `.rp/`였다
+- §4, §8.2: 지원 Python을 3.10–3.13으로 명시하고 의존성 하한을 올림 (typer ≥ 0.15.4, pyyaml ≥ 6.0.2, pydantic ≥ 2.8). 최소 버전 조합으로 테스트하다 발견
 
 **1.1 변경 (2026-10-01, 구현 전 검토 반영)**
 
@@ -88,11 +89,11 @@
 
 | 항목 | 선택 |
 |---|---|
-| 언어 | Python ≥ 3.10 (CLI). 생성되는 hook은 Python ≥ 3.9 표준 라이브러리만 사용 |
-| 명령 구조 | `typer` ≥ 0.12 |
+| 언어 | Python 3.10–3.13 지원 (CLI, 네 버전 모두에서 테스트 통과가 조건). 생성되는 hook은 Python ≥ 3.9 표준 라이브러리만 사용 |
+| 명령 구조 | `typer` ≥ 0.15.4. 그 아래 버전은 click 상한을 두지 않아 최신 click과 함께 설치되는데, 이 조합에서 0.12는 `--version`이 "Missing command"로, 0.13–0.15.3은 `--help`가 `make_metavar()` 오류로 실패한다 |
 | 대화형 입력 | `questionary` ≥ 2.0 |
 | 템플릿 | `jinja2` ≥ 3.1 |
-| 설정 | `pyyaml` ≥ 6.0, 검증은 `pydantic` ≥ 2.6 |
+| 설정 | `pyyaml` ≥ 6.0.2, 검증은 `pydantic` ≥ 2.8 (이보다 낮으면 Python 3.12/3.13용 wheel이 없어 설치 실패) |
 | 테스트 | `pytest` |
 | 배포 | `pipx install .` (패키지명·import 이름 `labgate`, 명령명 `lg`) |
 | 외부 의존 | `git` 실행 파일 (`--no-git`이면 불필요), 생성된 프로젝트에서 `python3`, `bash` |
@@ -417,11 +418,11 @@ name = "labgate"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-  "typer>=0.12",
+  "typer>=0.15.4",
   "questionary>=2.0",
   "jinja2>=3.1",
-  "pyyaml>=6.0",
-  "pydantic>=2.6",
+  "pyyaml>=6.0.2",
+  "pydantic>=2.8",
 ]
 
 [project.optional-dependencies]

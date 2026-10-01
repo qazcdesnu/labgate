@@ -12,6 +12,15 @@ uv pip install --python .venv/bin/python -e '.[dev]'
 .venv/bin/pytest
 ```
 
+지원 Python(3.10–3.13) 전체에서 최신 의존성과 최소 의존성(`pyproject.toml` 하한) 두 조합으로 테스트:
+
+```bash
+scripts/test-matrix.sh          # 전체
+scripts/test-matrix.sh 3.13     # 특정 버전만
+```
+
+GitHub Actions가 push마다 같은 조합을 Linux와 macOS에서 돌린다 (`.github/workflows/test.yml`).
+
 ## 설치
 
 ```bash
