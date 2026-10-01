@@ -7,6 +7,7 @@ from labgate.render import (
     base_context,
     check_residue,
     milestone_context,
+    probe_context,
     render,
     stub_context,
     yq,
@@ -66,3 +67,36 @@ def test_milestone_context_prev(config):
 def test_stub_context(config):
     ctx = stub_context(base_context(config, "2026-10-01"), STUBS[0])
     assert ctx["stub"]["name"] == "roadmap"
+
+
+def test_probe_context_replaces_only_strings():
+    ctx = {"a": "x{{", "b": [{"c": "{%"}], "flag": True, "n": 3, "none": None}
+    assert probe_context(ctx) == {"a": "x", "b": [{"c": "x"}], "flag": True, "n": 3, "none": None}
+
+
+@pytest.fixture
+def fake_templates(monkeypatch):
+    """templates/jinja 대신 메모리 템플릿을 쓰는 환경."""
+    import jinja2
+
+    import labgate.render as r
+
+    def use(templates):
+        env = jinja2.Environment(
+            loader=jinja2.DictLoader(templates), undefined=jinja2.StrictUndefined,
+            keep_trailing_newline=True, trim_blocks=True, lstrip_blocks=True,
+        )
+        monkeypatch.setattr(r, "environment", lambda: env)
+
+    return use
+
+
+def test_template_mistake_still_detected(fake_templates):
+    fake_templates({"bad.j2": "# {{ title }}\n{{ '{{' }} 닫히지 않은 자리\n"})
+    with pytest.raises(RenderError, match=r"bad\.j2: 2행에 템플릿 문법 '\{\{'"):
+        render("bad.j2", {"title": "정상 제목"})
+
+
+def test_user_braces_pass_through(fake_templates):
+    fake_templates({"ok.j2": "# {{ title }}\n"})
+    assert render("ok.j2", {"title": "$x^{{2}}$ {% 주석"}) == "# $x^{{2}}$ {% 주석\n"

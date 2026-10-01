@@ -1,4 +1,5 @@
 """템플릿 원문(부록 A·B·C)이 설계 문서와 같고, 모든 조합에서 올바르게 렌더링되는지 검사한다."""
+import copy
 import importlib.util
 import json
 import re
@@ -10,7 +11,8 @@ from importlib.resources import files
 import pytest
 import yaml
 
-from conftest import ROOT, make_config
+from conftest import BASE, ROOT, make_config
+from labgate.config import parse_config
 from labgate.render import base_context, milestone_context, read_static, render, stub_context
 from labgate.stubs import STUBS
 
@@ -207,3 +209,19 @@ def test_wheel_contains_all_templates(tmp_path):
         f"labgate/templates/static/{p}" for p in STATIC
     }
     assert expected <= names, sorted(expected - names)
+
+
+def test_user_input_with_template_like_braces_renders():
+    """LaTeX(`x^{{2}}`)·BibTeX(`{{Transformer}}`)식 입력은 생성이 성공하고 출력에 그대로 들어간다 (§9)."""
+    data = copy.deepcopy(BASE)
+    data["project"]["name"] = "{{Transformer}} 분할 {% 연구"
+    data["project"]["summary"] = "$O(n^{{2}})$ 를 줄인다"
+    data["project"]["research_question"] = "{{BibTeX}} 와 $\\mathbf{{x}}$ 가 같은가?"
+    data["people"]["humans"][0]["name"] = "{{홍}}"
+    data["milestones"][0]["title"] = "{% raw %} 재현"
+    results = render_all(parse_config(data))
+    readme = results[("README.md.j2", None)]
+    assert "# {{Transformer}} 분할 {% 연구" in readme
+    assert "$O(n^{{2}})$ 를 줄인다" in readme
+    fm = frontmatter(results[("plan/milestones/milestone.md.j2", "M0")])
+    assert fm["title"] == "{% raw %} 재현"

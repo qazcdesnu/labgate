@@ -68,17 +68,35 @@ def stub_context(base: dict[str, Any], stub: Stub) -> dict[str, Any]:
 
 
 def render(template: str, context: dict[str, Any]) -> str:
-    """`templates/jinja/` 기준 경로의 템플릿을 렌더링한다. 실패하면 RenderError."""
+    """`templates/jinja/` 기준 경로의 템플릿을 렌더링한다. 실패하면 RenderError.
+
+    잔여 문법 검사는 검사용 컨텍스트(`probe_context`)로 렌더링한 결과에만 한다 (§9).
+    """
+    text = _render(template, context)
+    check_residue(template, _render(template, probe_context(context)))
+    return text
+
+
+def _render(template: str, context: dict[str, Any]) -> str:
     try:
-        text = environment().get_template(template).render(context)
+        return environment().get_template(template).render(context)
     except jinja2.TemplateNotFound as e:
         raise RenderError(f"{template}: 템플릿이 없습니다 ({e.name})") from e
     except jinja2.TemplateSyntaxError as e:
         raise RenderError(f"{template}:{e.lineno}: 템플릿 문법 오류: {e.message}") from e
     except jinja2.UndefinedError as e:
         raise RenderError(f"{template}: 정의되지 않은 변수: {e.message}") from e
-    check_residue(template, text)
-    return text
+
+
+def probe_context(value: Any) -> Any:
+    """모든 문자열을 "x"로 바꾼 같은 구조의 값. 사용자 입력의 `{{`가 검사에 걸리지 않게 한다."""
+    if isinstance(value, str):
+        return "x"
+    if isinstance(value, dict):
+        return {k: probe_context(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [probe_context(v) for v in value]
+    return value
 
 
 def check_residue(name: str, text: str) -> None:
@@ -86,7 +104,9 @@ def check_residue(name: str, text: str) -> None:
     for n, line in enumerate(text.splitlines(), 1):
         for token in RESIDUE:
             if token in line:
-                raise RenderError(f"{name}: 렌더링 결과 {n}행에 '{token}'이 남아 있습니다")
+                raise RenderError(
+                    f"{name}: {n}행에 템플릿 문법 '{token}'이 남아 있습니다 (템플릿 오류)"
+                )
 
 
 def read_static(path: str) -> str:
