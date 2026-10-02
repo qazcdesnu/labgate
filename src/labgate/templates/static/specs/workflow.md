@@ -9,9 +9,9 @@ status: complete
 ## 1. 원칙
 
 1. **Task는 승인 게이트 사이의 작업 단위다.** 에이전트는 승인된 task 범위 안에서 자율적으로 일하고, 경계에서 사람이 판정한다.
-2. **사실의 원본은 Git 커밋이다.** 특히 사람의 판정·확정은 사람 신원의 커밋(trailer 포함)이 원본이다. 문서의 상태 필드는 이를 반영한 것이며, 둘이 다르면 커밋이 우선한다.
+2. **사실의 원본은 Git 커밋이다.** 사람의 판정·확정은 사람 신원의 커밋(trailer 포함)이 원본이고, 문서의 상태 필드는 그것을 반영한다([AGENTS.md](../AGENTS.md) P1).
 3. **이력은 `main` 하나로 선형이다.** 게이트 지점은 tag로 표시한다. 워크트리 브랜치는 실험 격리용 임시 브랜치이며 `main`에 병합·cherry-pick하지 않는다 ([AGENTS.md](../AGENTS.md)).
-4. **규칙은 두 층이다.** 언제나 지키는 일반 규칙은 [AGENTS.md](../AGENTS.md)에, 시작 조건이 있는 단계 목록은 [procedures/](procedures/)에 있다. 이 문서는 원칙과 상태 기계를 정한다.
+4. **규칙의 층과 우선순위는 [AGENTS.md](../AGENTS.md) 0절에 있다.** 불변 원칙은 예외가 없고, 적용할 때는 task 카드, 절차의 특별 규칙([procedures/](procedures/)), 일반 규칙 순으로 구체적인 것이 먼저다. 이 문서는 상태 기계와 게이트를 정한다.
 
 ## 2. 역할
 
@@ -31,7 +31,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 | 전이 | 주체 | 기록하는 커밋 |
 |---|---|---|
-| `draft → approved` | 사람 | 이전 task의 `gate` 커밋 `Next:`, 또는 `plan` 커밋 `Approve:` |
+| `draft → approved` | 사람 | 이전 task의 `gate` 커밋 `Next:`, 또는 `plan` 커밋 `Approve:` (반영: `gate-apply`) |
 | `approved → in-progress` | 에이전트 | `task` |
 | `in-progress → blocked` | 에이전트 | `review` (에스컬레이션 제출) |
 | `blocked → in-progress` | 에이전트 | `task` (사람의 `respond` 커밋 이후에만) |
@@ -40,7 +40,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 | `revise → in-progress` | 에이전트 | `task` |
 
 - `redirected`는 끝 상태다. 대체 계획은 사람의 `plan` 커밋으로 반영한다.
-- 카드의 `status` 필드는 사람이 해당 커밋에서 직접 바꾸거나, 에이전트가 다음 커밋에서 반영한다.
+- 사람이 기록하는 전이는 사람이 해당 커밋에서 직접 바꾸거나, 에이전트가 `scripts/apply-human-commits`로 반영한다(절차 [gate-apply](procedures/gate-apply.md)). 반영 커밋은 `Applies:` trailer로 사람 커밋을 가리킨다.
 
 마일스톤 상태: `planned → active`는 그 마일스톤 T0의 게이트 승인 시(T0 동안에는 `planned`이므로 에이전트가 목표·기준 초안을 쓸 수 있다), `active → closed`는 마지막 task의 `gate` 커밋에 `Milestone-Verdict:`가 있을 때.
 
@@ -77,11 +77,11 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 ### 6.2 대화 경로 (사람이 대화로 판정)
 
-절차 [gate-conversation](procedures/gate-conversation.md). 에이전트가 사람의 발언을 문서에 반영하고 초안을 준비하면(`lg draft`), 사람이 `lg commit`으로 확인·확정한다. 같은 방식이 `decide`, `respond`에도 적용된다.
+절차 [gate-conversation](procedures/gate-conversation.md). 에이전트가 사람의 발언을 review의 `## 응답`에 옮기고 초안을 준비하면(`lg draft`), 사람이 `lg commit`으로 확인·확정한다. 상태 전이는 이 단계에서 하지 않고, 사람이 커밋한 뒤 §6.3으로 반영한다. 같은 방식이 `decide`, `respond`에도 적용된다.
 
 ### 6.3 판정 후 정리
 
-절차 [gate-apply](procedures/gate-apply.md). 사람의 커밋 이후 에이전트가 review 문서를 닫고 상태 필드를 커밋 trailer에 맞춘다.
+절차 [gate-apply](procedures/gate-apply.md). 사람의 커밋 이후 `scripts/apply-human-commits`가 review 문서를 닫고 상태 필드를 커밋 trailer에 맞추며, 에이전트가 그 결과를 커밋한다. 문서 경로와 대화 경로가 같은 반영 경로를 쓴다.
 
 ### 6.4 판정별 다음 단계
 

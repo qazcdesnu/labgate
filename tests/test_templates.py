@@ -213,7 +213,33 @@ def test_procedure_links_resolve(claude_code):
         fm = frontmatter(files[path])
         assert fm == {"id": path.rsplit("/", 1)[1][:-3], "type": "procedure", "spec_version": SPEC_VERSION}
         body = files[path]
-        assert "- 시작 조건:" in body and "- 푸는 일반 규칙:" in body and "- 끝나는 상태:" in body
+        assert "- 시작 조건:" in body and "- 끝나는 상태:" in body and "\n## 특별 규칙\n" in body
+
+
+def _special_rules(body):
+    """절차 문서의 '특별 규칙' 절이 대신하는 일반 규칙 번호들 (없으면 빈 집합)."""
+    section = body.split("\n## 특별 규칙\n", 1)[1].split("\n## ", 1)[0]
+    if section.strip().startswith("없음"):
+        return set()
+    rows = [l for l in section.splitlines() if l.startswith("| G")]
+    assert rows, "특별 규칙 절은 '없음'이거나 일반 규칙 표여야 한다"
+    return {re.match(r"\| (G\d+)", l).group(1) for l in rows}
+
+
+@pytest.mark.parametrize("claude_code", [True, False])
+def test_special_rules_match_agents_table(claude_code):
+    """§16: 특별 규칙은 실제 일반 규칙을 가리키고, AGENTS.md 절차 표의 '특별 규칙' 열과 같다."""
+    files = {str(f.path): f.content for f in build_plan(make_config(claude_code=claude_code), "2026-10-01")}
+    agents = files["AGENTS.md"]
+    general = set(re.findall(r"^- \*\*(G\d+)\.\*\*", agents, re.M))
+    assert general == {f"G{i}" for i in range(1, 11)}
+    assert set(re.findall(r"^- \*\*(P\d+)\.\*\*", agents, re.M)) == {f"P{i}" for i in range(1, 7)}
+    table = dict(re.findall(r"\]\(specs/procedures/([\w-]+)\.md\) \| ([^|]+) \|", agents))
+    for name, column in table.items():
+        rules = _special_rules(files[f"specs/procedures/{name}.md"])
+        assert rules <= general, name
+        expected = set() if column.strip() == "없음" else set(re.findall(r"G\d+", column))
+        assert rules == expected, name
 
 
 def test_gitignore_excludes_claude_worktrees():

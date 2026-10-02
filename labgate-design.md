@@ -598,6 +598,7 @@ Key: value                        ← trailer 블록 = 메시지의 마지막 �
 | `Next` | 선택 (`gate`) | `M<n>-T<n>` 또는 `none` |
 | `Milestone-Verdict` | 선택 (`gate`) | `go` \| `nogo` \| `conditional` |
 | `Approve` | 선택 (`plan`) | `M<n>-T<n>` 쉼표 목록 |
+| `Applies` | 선택 (반영 커밋) | 커밋 해시(16진수 7–40자) 쉼표 목록. 이 커밋이 상태 필드에 반영한 사람 커밋 (§21) |
 | `Refs`, `Review` | 선택 | 자유 형식 (검사 안 함) |
 
 같은 Key가 두 번 나오면 오류.
@@ -723,28 +724,45 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 
 ---
 
-## 16. 규칙 구조: 일반 규칙과 절차
+## 16. 규칙 구조: 불변 원칙, 일반 규칙, 특별 규칙, task 카드
 
-### 16.1 원칙
+근거가 된 작업 목록은 [docs/operations.md](docs/operations.md)에 있다.
 
-- **일반 규칙**(`AGENTS.md`의 "반드시 지킬 규칙"): 어떤 작업 중이든 지켜야 하는 것만 둔다. 위반하면 기록이 틀어지는 것(신원, 타입, 사람의 변경, 금지 목록)과 멈춰야 하는 조건이다.
-- **절차**(`specs/procedures/<name>.md`): 시작 조건이 있는 단계 목록. 시작 조건은 세션 시작·종료, 사람의 요청, 슬래시 명령, `session-check`의 감지 결과 중 하나다.
-- 절차는 일반 규칙을 **좁게** 풀 수 있지만 넓힐 수 없다. 예: `commit-prep`은 "사람의 변경을 stage하지 않는다"를 `lg draft`를 통한 경우에만 풀고, 사람 신원 커밋 금지는 풀지 못한다.
-- 예외는 양쪽에 적는다. 일반 규칙에 "예외: 절차 X", 절차에 "푸는 일반 규칙: N번".
-- `specs/workflow.md`에는 원칙, 역할, 상태 기계, 판정별 다음 단계, 마일스톤·계획 변경 원칙만 둔다. 단계 목록은 절차 문서에 둔다.
+### 16.1 층과 우선순위
 
-### 16.2 절차 목록
+규칙의 층은 두 축으로 본다. 법령에 빗대면 일반 규칙은 헌법이다. 작업 중에는 고칠 수 없고 사람만 개정한다. 그러나 **적용할 때는** 더 구체적인 규범이 먼저다: task 카드(특별법), 절차의 특별 규칙(법률), 일반 규칙(헌법) 순이다.
 
-| 절차 | 시작 조건 | 짝 `lg` 명령 (사람) | Claude Code 명령 |
+| 층 | 위치 | 고치는 사람 | 적용 순서 |
 |---|---|---|---|
-| `session-start` | 세션 시작 (첫 단계: `scripts/session-check`) | — | `/session-start` |
-| `session-close` | 세션 종료 | — | `/session-close` |
-| `commit-prep` | 사람의 변경 감지, 사람이 자기 변경을 알리거나 커밋 준비를 요청 | `lg commit` | `/commit-prep` |
-| `task-start` | 승인된 task 착수 | — | `/task-start` |
-| `task-gate` | task 완료, 게이트 요청 | (`lg gate`, 이후) | `/task-gate` |
-| `escalate` | 멈춤 조건 충족 | `lg commit` (`respond`) | `/escalate` |
-| `gate-conversation` | 사람이 대화로 판정·결정·응답 | `lg commit` | — |
-| `gate-apply` | 반영되지 않은 사람의 `gate`·`respond` 커밋이 있음 | — | — |
+| 불변 원칙 (P1–P6) | `AGENTS.md` 1절 | 사람, `spec` 커밋 | 예외 없음. task 카드로도 풀 수 없다 |
+| task 카드 "범위 › 포함" | task 카드 | 사람이 task 승인 때 확정 | 1 (그 task 수행 중) |
+| 절차의 특별 규칙 | `specs/procedures/*.md`의 "특별 규칙" 절 | 사람, `spec` 커밋 | 2 (그 절차 수행 중) |
+| 일반 규칙 (G1–G10) | `AGENTS.md` 2절 | 사람, `spec` 커밋 | 3 (그 밖의 모든 경우) |
+
+불변 원칙은 어기면 기록 자체가 거짓이 되는 것(사람 신원 커밋, 이력 재작성, 사람 변경의 폐기, 지어낸 판정)이라 적용에서도 예외가 없다. 규칙끼리 충돌하거나 어느 규칙에도 없는 상황이면 불변 원칙에 맞는 쪽을 택하고, 그래도 정할 수 없으면 멈추고 묻는다. 이 선언은 `AGENTS.md` 0절에 있다(A.3).
+
+### 16.2 코드 우선 원칙
+
+정확하게 검증·실행할 수 있는 일은 문서 규칙이 아니라 도구(스크립트)로 만든다. 도구가 하는 일은 도구의 명세와 테스트로 정하고, 특별 규칙으로 허용하지 않는다. 특별 규칙은 도구가 할 수 없는 에이전트의 판단 작업(사람의 말을 문서로 옮기기, 변경을 보고 타입 고르기)에만 둔다.
+
+| 일 | 맡는 것 |
+|---|---|
+| 사람의 변경 감지·기록, 이미 커밋된 초안 정리, 반영되지 않은 사람 커밋 감지 | `scripts/session-check` (§17.2) |
+| 사람 커밋의 결과를 상태 필드에 반영 | `scripts/apply-human-commits` (§21) |
+| 사람 커밋의 초안 쓰기 | `lg draft` (§19) |
+
+### 16.3 절차 목록
+
+| 절차 | 시작 조건 | 특별 규칙 | 쓰는 도구 | Claude Code 명령 |
+|---|---|---|---|---|
+| `session-start` | 세션 시작 | 없음 | `session-check` | `/session-start` |
+| `session-close` | 세션 종료 | 없음 | | `/session-close` |
+| `commit-prep` | 사람의 변경 감지, 사람이 자기 변경을 알리거나 커밋 준비를 요청 | G2 | `lg draft` | `/commit-prep` |
+| `task-start` | 승인된 task 착수 | 없음 | | `/task-start` |
+| `task-gate` | task 완료, 게이트 요청 | 없음 | | `/task-gate` |
+| `escalate` | 멈춤 조건 (workflow §7.1) | 없음 | | `/escalate` |
+| `gate-conversation` | 사람이 대화로 판정·결정·응답 | G5 | `lg draft` | — |
+| `gate-apply` | 반영되지 않은 사람 커밋이 있음 | G4 | `apply-human-commits` | — |
 
 원문은 부록 B.10. 형식:
 
@@ -752,13 +770,21 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 ---
 id: <name>
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # <제목>
 
 - 시작 조건: <언제 이 문서를 읽는가>
-- 푸는 일반 규칙: <AGENTS.md 규칙 번호와 허용 범위, 없으면 "없음">
 - 끝나는 상태: <절차가 끝났을 때의 작업 트리·문서 상태>
+
+## 특별 규칙
+
+<"없음. 일반 규칙을 따른다." 또는 아래 표>
+
+이 절차를 수행하는 동안 아래가 일반 규칙보다 우선한다. 불변 원칙은 그대로다.
+
+| 대신하는 일반 규칙 | 이 절차에서는 |
+|---|---|
 
 ## 단계
 ## 멈추는 경우 (있을 때)
@@ -784,10 +810,16 @@ B·C에서 사람이 "버린다"를 고르면 사람이 직접 되돌린다. 에
 
 원문은 부록 C.3. Python 표준 라이브러리만 쓰고 `lg` 없이 동작한다. 저장소 루트는 스크립트 위치(`scripts/`의 부모)로 정한다.
 
+순서대로 확인한다. 출력은 여러 항목이 함께 나올 수 있다.
+
+1. **Git 저장소가 아니면** 아무것도 출력하지 않고 끝낸다.
+2. **이미 커밋된 초안 정리.** `.lg/pending/COMMIT_MSG`가 있고, 최근 20개 커밋 중 사람이 작성한 커밋의 메시지가 초안과 같으면(양끝 공백 무시) 초안을 지우고 알린다. 사람이 `lg commit` 대신 `git commit -F`로 확정한 경우다.
+3. **사람 커밋 대기 상태.** 초안이 남아 있으면 대기 상태를 알리고 4, 5단계는 하지 않는다(`HUMAN_FILES`도 건드리지 않는다).
+4. **반영되지 않은 사람 커밋.** `scripts/apply-human-commits --check`의 결과가 있으면 커밋 목록과 함께 절차 `gate-apply`를 안내한다. 이 스크립트가 없으면(spec_version 2 프로젝트) 건너뛴다.
+5. **사람의 변경.**
+
 | 상태 | 표준 출력 | `.lg/pending/HUMAN_FILES` |
 |---|---|---|
-| Git 저장소가 아님 | 없음 | 건드리지 않음 |
-| `.lg/pending/COMMIT_MSG` 있음 | 사람 커밋 대기 상태 안내 | 건드리지 않음 |
 | 커밋되지 않은 변경 있음 | 사람의 변경 안내와 파일 목록(최대 20개, 넘으면 "외 N개") | 전체 목록을 한 줄에 하나씩 기록 |
 | 깨끗함 | 없음 | 있으면 지움 |
 
@@ -907,6 +939,82 @@ lg draft --type T --summary TEXT [--scope S] [--body TEXT] [--trailer KEY=VALUE 
 4. **다른 에이전트 도구에는 자동 실행이 없다.** `session-start` 절차의 첫 단계에서 에이전트가 `scripts/session-check`를 직접 실행한다.
 5. **세션 시작 때 남은 에이전트의 변경.** 이전 세션이 비정상 종료해 에이전트의 변경이 남았다면 사람의 변경으로 분류된다. 보수적인 쪽(에이전트가 건드리지 않음)으로 틀리므로 허용하고, 사람이 `commit-prep`의 선택지에서 정리한다.
 
+
+## 21. `scripts/apply-human-commits` (사람 커밋의 반영)
+
+사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 불변 원칙 P1("사실의 원본은 커밋, 반영은 에이전트의 책임")을 코드로 수행한다. 원문은 부록 C.4.
+
+### 21.1 형식
+
+```
+scripts/apply-human-commits            # 가장 오래된 반영되지 않은 사람 커밋 하나를 반영
+scripts/apply-human-commits --check    # 바꾸지 않고 반영되지 않은 사람 커밋을 나열
+```
+
+Python 표준 라이브러리만 쓰고 `lg` 없이 동작한다. 저장소 루트는 스크립트 위치로 정한다. **커밋하지 않는다.** 커밋은 에이전트가 `scripts/agent-commit`으로 한다(작성자는 항상 에이전트).
+
+### 21.2 반영 대상
+
+- **사람 커밋:** 작성자 이메일이 `.lg/identities.json`의 사람 중 하나.
+- **반영 대상 커밋:** 헤더 타입이 `gate`, `respond`, `decide`이거나, `plan`이면서 `Approve` trailer가 있는 사람 커밋. `gate`·`decide`의 `Decisions` trailer도 반영한다.
+- **반영됨:** 그 뒤의 어떤 커밋의 `Applies` trailer에 그 커밋 해시(앞 7자 이상)가 있으면 반영된 것이다.
+- 반영되지 않은 커밋이 여럿이면 **오래된 것부터 하나씩** 반영한다. 반영 커밋 하나가 사람 커밋 하나에 대응한다.
+
+### 21.3 전이
+
+| 사람 커밋 | 대상 | 출발 상태 | 목표 상태 | 이미 만족 (건너뜀) |
+|---|---|---|---|---|
+| `plan` + `Approve: T` | 카드 T | `draft` | `approved` | `draft`가 아닌 모든 상태 |
+| `gate` + `Verdict: approve` | 카드 Task | `in-review` | `closed` | `closed` |
+| `gate` + `Verdict: revise` | 카드 Task | `in-review` | `revise` | `revise`, `in-progress`, `blocked` |
+| `gate` + `Verdict: redirect` | 카드 Task | `in-review` | `redirected` | `redirected` |
+| `gate` + `Next: T` | 카드 T | `draft` | `approved` | `draft`가 아닌 모든 상태 |
+| `gate` + `Verdict: approve`, Task가 `<M>-T0` | 마일스톤 M | `planned` | `active` | `active`, `closed` |
+| `gate` + `Milestone-Verdict` | 마일스톤 M | `active` | `closed` | `closed` |
+| `respond` | 카드 Task | `blocked` | `in-progress` | `blocked`가 아닌 모든 상태 |
+| `decide` 또는 `gate` + `Decisions: D…` | 결정 D | `proposed`, `discussing` | `confirmed` | `confirmed` |
+
+- 상태가 출발 상태도 아니고 이미 만족도 아니면 **반영할 수 없다.** 이때 아무것도 바꾸지 않고 이유를 출력한 뒤 코드 1로 끝낸다. 에이전트는 멈추고 사람에게 묻는다.
+- "이미 만족"은 `Applies`가 없던 v0.2 프로젝트에서 에이전트가 판단으로 반영해 둔 경우를 받아들이기 위한 것이다. 이때도 반영 커밋은 만들어 `Applies`로 기록을 남긴다.
+- 한 사람 커밋의 전이는 모두 반영하거나 하나도 반영하지 않는다. 바꾸기 전에 전부 계산한다.
+
+### 21.4 함께 바꾸는 것
+
+| 파일 | 바꾸는 것 |
+|---|---|
+| 카드 `plan/milestones/<M>/tasks/<T>.md` | frontmatter `status`, `updated`(오늘). `gate`·`respond`면 "## 게이트 이력"에 `- <날짜> <타입> <Verdict> \`<짧은 해시>\`` 한 줄 |
+| `plan/milestones/<M>/milestone.md` | 마일스톤이면 frontmatter `status`. 카드 상태가 바뀌면 "Task 목록" 표에서 그 task 행의 상태 칸 |
+| `decisions/<D>_*.md` | frontmatter `status`, `updated` |
+| `decisions/index.md` | 그 결정 행의 상태 칸과 "확정 커밋" 칸 |
+| review 문서 (`gate`·`respond`) | `Review` trailer의 문서, 없으면 `reviews/open/<Task>_gate-NN.md`(respond면 `esc`) 중 번호가 가장 큰 것을 `reviews/closed/`로 옮기고(`git mv`) frontmatter `status: closed`. 이미 `closed/`에 있으면 건너뛴다 |
+
+`STATUS.md`는 바꾸지 않는다. 다음 할 일을 쓰는 것은 에이전트의 판단이다(절차 `gate-apply`).
+
+### 21.5 출력
+
+반영했으면 바뀐 내용, 커밋할 경로, 커밋 메시지를 출력하고 메시지를 `.lg/pending/APPLY_MSG`에 쓴다.
+
+```
+반영: 70ea21b plan(M0-T0): approve initial task
+  plan/milestones/M0/tasks/M0-T0.md: status draft → approved
+  plan/milestones/M0/milestone.md: M0-T0 draft → approved
+커밋: scripts/agent-commit -F .lg/pending/APPLY_MSG -- <경로…> (STATUS.md를 고쳤으면 함께)
+```
+
+| 사람 커밋 | 반영 커밋 메시지 |
+|---|---|
+| `respond` | `task(<Task>): resume after response <짧은 해시>` + `Actor: agent`, `Task: <Task>`, `Applies: <해시>` |
+| 그 밖 | `log(<scope>): apply <타입> <짧은 해시>` + `Actor: agent`, `Applies: <해시>`. scope는 Task, Approve의 첫 task, 또는 결정 ID |
+
+`--check`는 반영되지 않은 커밋을 한 줄에 하나씩 `<짧은 해시> <헤더>`로 출력한다.
+
+### 21.6 종료 코드
+
+| 코드 | 의미 |
+|---|---|
+| 0 | 반영함, 또는 반영할 것이 없음 (`--check`는 항상 0) |
+| 1 | 반영할 수 없음 (카드·결정 문서 없음, 출발 상태가 아님). 아무것도 바꾸지 않았다 |
+| 2 | Git 저장소가 아님, 사람 커밋 대기 상태(G3), 커밋되지 않은 변경이 반영 대상 파일에 있음 |
 
 ---
 
@@ -1030,49 +1138,60 @@ updated: {{ today }}
 
 ## 역할
 
-에이전트는 **승인된 task의 범위 안에서** 자율적으로 일한다. 판정·확정·계획 변경은 사람의 몫이다. 원칙과 상태 기계는 [specs/workflow.md](specs/workflow.md)에, 상황별 단계는 아래 "절차"의 문서에 있다.
+에이전트는 **승인된 task의 범위 안에서** 자율적으로 일한다. 판정·확정·계획 변경은 사람의 몫이다. 상태 기계는 [specs/workflow.md](specs/workflow.md)에, 상황별 단계는 아래 3절의 절차 문서에 있다.
 
-## 반드시 지킬 규칙
+## 0. 규칙의 우선순위
 
-언제나 지킨다. 절차 문서는 아래에 "예외"로 적힌 범위에서만 이 규칙을 푼다.
+규칙은 사람만 고친다(`spec` 커밋). 작업 중에는 고치지 않는다. 적용할 때는 더 구체적인 규범이 먼저다.
 
-1. 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
-2. 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit`을 실행하지 않는다. `--no-verify`, `--author`, `-a`를 쓰지 않는다. trailer(`Actor` 등)는 메시지의 **마지막 한 문단**에 모두 쓰고, 그 뒤에 다른 문단(서명, `Co-Authored-By` 등)을 붙이지 않는다 ([specs/git-commit.md](specs/git-commit.md) §2).
-3. 사람 전용 커밋 타입(`gate`, `decide`, `plan`, `spec`, `respond`)을 쓰지 않는다.
-4. 자기가 바꾼 파일만 경로를 지정해 stage한다(`git add -A`, `git add .`, `git add -u` 금지). 사람의 변경은 stage·커밋·되돌리기(`git restore`, `git checkout --`, `git stash`)를 하지 않고, 사람의 변경이 있는 파일은 고치지 않는다. 예외: 절차 `commit-prep`(`lg draft`로 사람 커밋의 초안을 준비할 때).
-5. 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)에서는 어떤 커밋도 하지 않는다.
-6. 다음은 하지 않는다. 예외: 현재 task 카드의 "범위 › 포함"에 명시된 경우와 괄호 안의 절차.
-   - task 상태를 `draft → approved`, `in-review → closed | revise | redirected`로 바꾸기 (절차 `gate-conversation`, `gate-apply`)
-   - 결정의 상태를 `confirmed`로 바꾸기 (절차 `gate-conversation`, `gate-apply`)
-   - review 문서의 `## 응답` 섹션 작성 (절차 `gate-conversation`)
-   - `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준 변경 (변경 제안은 `propose` 커밋)
-   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). `.lg/pending/`은 예외 (절차 `session-start`, `commit-prep`, `gate-conversation`)
-   - tag 생성, 이력 재작성(rebase, 사람 커밋 amend, force push)
-   - 브랜치 병합(`git merge`)과 `git cherry-pick`
-7. 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 **실험 격리용**으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 `main`에 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
-8. [specs/workflow.md](specs/workflow.md) §7.1의 경우에는 멈추고 에스컬레이션한다 (절차 `escalate`).
-9. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
-10. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
-11. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
+1. 불변 원칙(1절)은 무엇으로도 바뀌지 않는다. task 카드에 적혀 있어도 마찬가지다.
+2. 현재 task 카드의 "범위 › 포함"에 명시된 것은 그 task를 수행하는 동안 특별 규칙과 일반 규칙보다 우선한다.
+3. 절차를 수행하는 동안에는 그 절차 문서의 "특별 규칙"이 일반 규칙보다 우선한다. 특별 규칙은 그 절차 안에서만 유효하다.
+4. 그 밖에는 일반 규칙(2절)을 따른다.
+5. 규칙끼리 충돌하거나 어느 규칙에도 없는 상황이면 불변 원칙에 맞는 쪽을 택한다. 그래도 정할 수 없으면 멈추고 사람에게 묻는다.
 
-## 절차
+도구(`scripts/session-check`, `scripts/apply-human-commits`, `lg draft`)가 하는 일은 그 도구가 정한다. 도구가 하는 일을 손으로 하지 않는다.
 
-아래 상황이 되면 해당 문서를 읽고 그 단계를 따른다.
+## 1. 불변 원칙
 
-| 상황 | 절차 |
-|---|---|
-| 세션 시작 | [session-start](specs/procedures/session-start.md) |
-| 세션 종료 | [session-close](specs/procedures/session-close.md) |
-| 커밋되지 않은 사람의 변경이 있음, 사람이 자기 변경을 알리거나 커밋 준비를 요청 | [commit-prep](specs/procedures/commit-prep.md) |
-| 승인된 task 착수 | [task-start](specs/procedures/task-start.md) |
-| task 완료, 게이트 요청 | [task-gate](specs/procedures/task-gate.md) |
-| 규칙 8의 멈춤 조건 | [escalate](specs/procedures/escalate.md) |
-| 사람이 대화로 판정·결정·응답 | [gate-conversation](specs/procedures/gate-conversation.md) |
-| 반영되지 않은 사람의 `gate`·`respond` 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) |
+- **P1.** 사실의 원본은 Git 커밋이다. 문서의 상태 필드는 커밋을 반영한 것이며, 둘이 다르면 커밋이 우선한다. 사람 커밋의 결과를 상태 필드에 반영하는 것은 에이전트의 책임이며, `scripts/apply-human-commits`로 한다(절차 `gate-apply`).
+- **P2.** 사람 신원으로 커밋하지 않는다. `git commit`, `lg commit`을 실행하지 않는다. 커밋은 `scripts/agent-commit`으로만 하고 `--no-verify`, `--author`, `-a`를 쓰지 않는다. trailer(`Actor` 등)는 메시지의 마지막 한 문단에 모두 쓰고, 그 뒤에 다른 문단(서명, `Co-Authored-By` 등)을 붙이지 않는다([specs/git-commit.md](specs/git-commit.md) §2).
+- **P3.** 사람 전용 커밋 타입(`gate`, `decide`, `plan`, `spec`, `respond`)을 쓰지 않는다.
+- **P4.** 이력을 다시 쓰지 않는다(rebase, 사람 커밋 amend, force push). 브랜치를 병합하거나 cherry-pick하지 않는다. tag를 만들지 않는다.
+- **P5.** 사람의 변경을 되돌리거나 치우지 않는다(`git restore`, `git checkout --`, `git stash`). 사람의 변경을 에이전트 커밋에 넣지 않는다.
+- **P6.** 사람이 말하지 않은 판정·결정을 만들어 내지 않는다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다. 사실과 추측을 구분해 쓴다.
+
+## 2. 일반 규칙
+
+- **G1.** 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
+- **G2.** 자기가 바꾼 파일만 경로를 지정해 stage한다(`git add -A`, `git add .`, `git add -u` 금지). 사람의 변경은 stage하지 않고, 사람의 변경이 있는 파일은 고치지 않는다. 그런 파일을 고쳐야 하면 먼저 사람에게 커밋을 요청한다.
+- **G3.** 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)에서는 커밋하지 않는다.
+- **G4.** 사람 몫의 상태 전이를 하지 않는다: task `draft → approved`, `in-review → closed | revise | redirected`, 결정 `→ confirmed`, 마일스톤 `planned → active → closed`.
+- **G5.** review 문서의 `## 응답` 섹션을 쓰지 않는다.
+- **G6.** `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준을 바꾸지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
+- **G7.** `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/`를 고치지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
+- **G8.** 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 실험 격리용으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
+- **G9.** 승인된 task의 범위와 자원 예산 안에서만 일한다. [specs/workflow.md](specs/workflow.md) §7.1의 경우에는 멈추고 에스컬레이션한다(절차 `escalate`).
+- **G10.** 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
+
+## 3. 절차
+
+아래 상황이 되면 해당 문서를 읽고 그 단계를 따른다. 특별 규칙은 각 문서의 "특별 규칙" 절에 있다.
+
+| 상황 | 절차 | 특별 규칙 |
+|---|---|---|
+| 세션 시작 | [session-start](specs/procedures/session-start.md) | 없음 |
+| 세션 종료 | [session-close](specs/procedures/session-close.md) | 없음 |
+| 커밋되지 않은 사람의 변경이 있음, 사람이 자기 변경을 알리거나 커밋 준비를 요청 | [commit-prep](specs/procedures/commit-prep.md) | G2 |
+| 승인된 task 착수 | [task-start](specs/procedures/task-start.md) | 없음 |
+| task 완료, 게이트 요청 | [task-gate](specs/procedures/task-gate.md) | 없음 |
+| G9의 멈춤 조건 | [escalate](specs/procedures/escalate.md) | 없음 |
+| 사람이 대화로 판정·결정·응답 | [gate-conversation](specs/procedures/gate-conversation.md) | G5 |
+| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4 |
 
 ## 참고
 
-- 원칙과 상태 기계: [specs/workflow.md](specs/workflow.md)
+- 상태 기계와 게이트: [specs/workflow.md](specs/workflow.md)
 - 커밋 규약: [specs/git-commit.md](specs/git-commit.md)
 - 공통 규칙: [specs/conventions.md](specs/conventions.md)
 ~~~~
@@ -1666,9 +1785,9 @@ status: complete
 ## 1. 원칙
 
 1. **Task는 승인 게이트 사이의 작업 단위다.** 에이전트는 승인된 task 범위 안에서 자율적으로 일하고, 경계에서 사람이 판정한다.
-2. **사실의 원본은 Git 커밋이다.** 특히 사람의 판정·확정은 사람 신원의 커밋(trailer 포함)이 원본이다. 문서의 상태 필드는 이를 반영한 것이며, 둘이 다르면 커밋이 우선한다.
+2. **사실의 원본은 Git 커밋이다.** 사람의 판정·확정은 사람 신원의 커밋(trailer 포함)이 원본이고, 문서의 상태 필드는 그것을 반영한다([AGENTS.md](../AGENTS.md) P1).
 3. **이력은 `main` 하나로 선형이다.** 게이트 지점은 tag로 표시한다. 워크트리 브랜치는 실험 격리용 임시 브랜치이며 `main`에 병합·cherry-pick하지 않는다 ([AGENTS.md](../AGENTS.md)).
-4. **규칙은 두 층이다.** 언제나 지키는 일반 규칙은 [AGENTS.md](../AGENTS.md)에, 시작 조건이 있는 단계 목록은 [procedures/](procedures/)에 있다. 이 문서는 원칙과 상태 기계를 정한다.
+4. **규칙의 층과 우선순위는 [AGENTS.md](../AGENTS.md) 0절에 있다.** 불변 원칙은 예외가 없고, 적용할 때는 task 카드, 절차의 특별 규칙([procedures/](procedures/)), 일반 규칙 순으로 구체적인 것이 먼저다. 이 문서는 상태 기계와 게이트를 정한다.
 
 ## 2. 역할
 
@@ -1688,7 +1807,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 | 전이 | 주체 | 기록하는 커밋 |
 |---|---|---|
-| `draft → approved` | 사람 | 이전 task의 `gate` 커밋 `Next:`, 또는 `plan` 커밋 `Approve:` |
+| `draft → approved` | 사람 | 이전 task의 `gate` 커밋 `Next:`, 또는 `plan` 커밋 `Approve:` (반영: `gate-apply`) |
 | `approved → in-progress` | 에이전트 | `task` |
 | `in-progress → blocked` | 에이전트 | `review` (에스컬레이션 제출) |
 | `blocked → in-progress` | 에이전트 | `task` (사람의 `respond` 커밋 이후에만) |
@@ -1697,7 +1816,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 | `revise → in-progress` | 에이전트 | `task` |
 
 - `redirected`는 끝 상태다. 대체 계획은 사람의 `plan` 커밋으로 반영한다.
-- 카드의 `status` 필드는 사람이 해당 커밋에서 직접 바꾸거나, 에이전트가 다음 커밋에서 반영한다.
+- 사람이 기록하는 전이는 사람이 해당 커밋에서 직접 바꾸거나, 에이전트가 `scripts/apply-human-commits`로 반영한다(절차 [gate-apply](procedures/gate-apply.md)). 반영 커밋은 `Applies:` trailer로 사람 커밋을 가리킨다.
 
 마일스톤 상태: `planned → active`는 그 마일스톤 T0의 게이트 승인 시(T0 동안에는 `planned`이므로 에이전트가 목표·기준 초안을 쓸 수 있다), `active → closed`는 마지막 task의 `gate` 커밋에 `Milestone-Verdict:`가 있을 때.
 
@@ -1734,11 +1853,11 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 ### 6.2 대화 경로 (사람이 대화로 판정)
 
-절차 [gate-conversation](procedures/gate-conversation.md). 에이전트가 사람의 발언을 문서에 반영하고 초안을 준비하면(`lg draft`), 사람이 `lg commit`으로 확인·확정한다. 같은 방식이 `decide`, `respond`에도 적용된다.
+절차 [gate-conversation](procedures/gate-conversation.md). 에이전트가 사람의 발언을 review의 `## 응답`에 옮기고 초안을 준비하면(`lg draft`), 사람이 `lg commit`으로 확인·확정한다. 상태 전이는 이 단계에서 하지 않고, 사람이 커밋한 뒤 §6.3으로 반영한다. 같은 방식이 `decide`, `respond`에도 적용된다.
 
 ### 6.3 판정 후 정리
 
-절차 [gate-apply](procedures/gate-apply.md). 사람의 커밋 이후 에이전트가 review 문서를 닫고 상태 필드를 커밋 trailer에 맞춘다.
+절차 [gate-apply](procedures/gate-apply.md). 사람의 커밋 이후 `scripts/apply-human-commits`가 review 문서를 닫고 상태 필드를 커밋 trailer에 맞추며, 에이전트가 그 결과를 커밋한다. 문서 경로와 대화 경로가 같은 반영 경로를 쓴다.
 
 ### 6.4 판정별 다음 단계
 
@@ -1853,6 +1972,7 @@ Actor: human | agent
 | `Next` | 선택 (`gate`) | `M<n>-T<n>` 또는 `none` |
 | `Milestone-Verdict` | 선택 (`gate`) | `go` \| `nogo` \| `conditional` |
 | `Approve` | 선택 (`plan`) | `M<n>-T<n>` 쉼표 목록 |
+| `Applies` | 선택 (반영 커밋) | 이 커밋이 상태 필드에 반영한 사람 커밋의 해시(7–40자) 쉼표 목록. `scripts/apply-human-commits`가 쓴다 |
 | `Refs` | 선택 | 관련 ID 목록 |
 | `Review` | 선택 | review 문서 ID |
 
@@ -1912,6 +2032,15 @@ exp(M1-T2): fix off-by-one in window mask
 
 Actor: human
 Task: M1-T2
+```
+
+사람 커밋의 반영 (에이전트):
+
+```
+log(M0-T0): apply plan 70ea21b
+
+Actor: agent
+Applies: 70ea21b
 ```
 
 첫 task 승인:
@@ -2304,7 +2433,7 @@ updated: <YYYY-MM-DD>
 
 ## B.10 `specs/procedures/*.md` (S)
 
-절차 문서 8종. 형식과 목록은 §16. 일반 규칙의 번호는 A.3 `AGENTS.md`의 "반드시 지킬 규칙"이다.
+절차 문서 8종. 형식과 목록은 §16.3. 일반 규칙(G1–G10)과 불변 원칙(P1–P6)의 번호는 A.3 `AGENTS.md`의 것이다.
 
 `session-start.md`
 
@@ -2317,21 +2446,25 @@ spec_version: 2
 # 세션 시작
 
 - 시작 조건: 세션을 시작할 때 (Claude Code: `/session-start`).
-- 푸는 일반 규칙: 6번 중 `.lg/` 수정 금지 — 사람이 이미 커밋한 초안 파일(`.lg/pending/COMMIT_MSG`)을 지우는 것 (2단계).
 - 끝나는 상태: 이번 세션에 할 일이 정해지고 사람에게 보고되었다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 
-1. `scripts/session-check`를 실행한다. Claude Code에서는 세션 시작 hook이 이미 실행해 출력이 맥락에 있으므로 그 출력을 쓴다.
-2. 출력이 "사람 커밋 대기 상태"이면: `git log`에 초안 첫 줄과 같은 헤더의 사람 커밋이 있는지 확인한다. 있으면(사람이 `git commit`으로 직접 커밋한 경우) 초안 파일을 지우고 계속한다. 없으면 사람에게 터미널에서 `lg commit` 실행을 요청하고, 아래 읽기 단계(4, 5, 7–9)만 한 뒤 보고하고 멈춘다.
-3. 출력이 "커밋되지 않은 사람의 변경"이면 절차 [commit-prep](commit-prep.md)의 1단계(선택지 제시)를 한다. 사람이 답할 때까지는 아래 읽기 단계(4, 5, 7–9)만 하고 보고한다.
-4. `STATUS.md`를 읽는다.
-5. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다. 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 절차 [session-close](session-close.md)로 간다.
-6. 반영되지 않은 사람의 `gate`·`respond` 커밋이 있으면(review 문서가 `reviews/open/`에 남아 있거나, 카드·결정 상태가 커밋 trailer와 다르면) 절차 [gate-apply](gate-apply.md)를 먼저 한다.
-7. 카드에 연결된 결정(`decisions/`)과 `references/<M>/task-map.md`를 읽는다.
-8. `logs/`의 최근 일지 1–2개를 읽는다.
-9. 이번 세션에 쓸 문서 유형의 사양(`specs/doc-types/`)을 읽는다.
-10. 3–5줄로 보고한다: 사람 커밋 대기 상태나 사람의 변경(있으면 먼저), 현재 task와 상태, 반영한 사람 응답, 이번 세션에 할 일.
+1. `scripts/session-check`의 출력을 확인한다. Claude Code에서는 세션 시작 hook이 이미 실행해 출력이 맥락에 있다. 다른 도구에서는 직접 실행한다.
+2. "사람 커밋 대기 상태"가 있으면: 사람에게 터미널에서 `lg commit` 실행을 요청하고, 아래 읽기 단계(5, 6, 8–10)만 한 뒤 보고하고 멈춘다.
+3. "커밋되지 않은 사람의 변경"이 있으면: 절차 [commit-prep](commit-prep.md)의 1단계(선택지 제시)를 한다. 사람이 답할 때까지는 아래 읽기 단계(5, 6, 8–10)만 한다.
+4. "반영되지 않은 사람 커밋"이 있으면: 절차 [gate-apply](gate-apply.md)를 먼저 한다. 카드 상태는 반영한 뒤에 판단한다.
+5. `STATUS.md`를 읽는다.
+6. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다.
+7. 카드 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 절차 [session-close](session-close.md)로 간다.
+8. 카드에 연결된 결정(`decisions/`)과 `references/<M>/task-map.md`를 읽는다.
+9. `logs/`의 최근 일지 1–2개를 읽는다.
+10. 이번 세션에 쓸 문서 유형의 사양(`specs/doc-types/`)을 읽는다.
+11. 3–5줄로 보고한다: 사람 커밋 대기 상태나 사람의 변경(있으면 먼저), 반영한 사람 커밋, 현재 task와 상태, 이번 세션에 할 일.
 ~~~~
 
 `session-close.md`
@@ -2345,8 +2478,11 @@ spec_version: 2
 # 세션 종료
 
 - 시작 조건: 세션을 마칠 때 (Claude Code: `/session-close`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 작업 트리에 남은 것은 사람의 변경과 사람 커밋 대기 상태의 stage된 변경뿐이다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 
@@ -2371,8 +2507,15 @@ spec_version: 2
 # 사람 커밋 준비
 
 - 시작 조건: `scripts/session-check`가 커밋되지 않은 사람의 변경을 알렸을 때, 사람이 세션 도중 직접 고친 파일을 알렸을 때, 사람이 자기 변경의 커밋 준비를 요청했을 때 (Claude Code: `/commit-prep`).
-- 푸는 일반 규칙: 4번 — 사람의 변경을 `lg draft`로 stage할 수 있다(3단계에서만). 6번 — `lg draft`가 `.lg/pending/`에 초안을 쓴다.
 - 끝나는 상태: 사람의 변경이 사람 신원으로 커밋되었거나, 사람 커밋 대기 상태이거나, 사람이 직접 정리하기로 했다.
+
+## 특별 규칙
+
+이 절차를 수행하는 동안 아래가 일반 규칙보다 우선한다. 불변 원칙은 그대로다.
+
+| 대신하는 일반 규칙 | 이 절차에서는 |
+|---|---|
+| G2 (사람의 변경을 stage하지 않는다) | 사람의 변경을 stage할 수 있다. 단, `lg draft`를 통해서만 하고 3단계에서만 한다 |
 
 ## 단계
 
@@ -2405,12 +2548,15 @@ spec_version: 2
 # Task 착수
 
 - 시작 조건: 승인된 task를 착수할 때 (Claude Code: `/task-start <Task>`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 카드가 `in-progress`이고 `task(<Task>): start` 커밋이 있다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 
-1. 카드 상태가 `approved` 또는 `revise`인지 확인한다. 아니면 중단하고 이유를 보고한다.
+1. 카드 상태가 `approved` 또는 `revise`인지 확인한다. `draft`이고 `scripts/apply-human-commits --check`에 이 task의 승인이 있으면 절차 [gate-apply](gate-apply.md)를 먼저 한다. 그 밖에는 중단하고 이유를 보고한다.
 2. `revise`에서 시작하면 해당 gate review의 `## 응답`을 먼저 읽고 반영 계획을 세운다.
 3. 카드 `status`를 `in-progress`로 바꾸고 `updated`를 갱신한다.
 4. `STATUS.md`를 갱신한다.
@@ -2429,8 +2575,11 @@ spec_version: 2
 # 게이트 요청
 
 - 시작 조건: task의 완료 기준을 모두 충족했다고 판단할 때 (Claude Code: `/task-gate <Task>`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 카드가 `in-review`이고 게이트 요청 문서와 `review` 커밋이 있다. 이 task에서는 더 작업하지 않는다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 
@@ -2453,8 +2602,11 @@ spec_version: 2
 # 에스컬레이션
 
 - 시작 조건: [workflow.md](../workflow.md) §7.1의 경우 (Claude Code: `/escalate <Task>`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 카드가 `blocked`이고 에스컬레이션 문서와 `review` 커밋이 있다. 사람의 응답을 기다린다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 
@@ -2476,25 +2628,31 @@ spec_version: 2
 # 대화 경로 판정
 
 - 시작 조건: 사람이 게이트 판정, 결정 확정, 에스컬레이션 응답을 대화로 전했을 때.
-- 푸는 일반 규칙: 6번 — review 문서의 `## 응답` 작성, 사람이 말한 범위의 카드·결정 상태 변경(사람 커밋에 들어갈 변경으로만), `lg draft`가 `.lg/pending/`에 초안을 쓰는 것.
-- 끝나는 상태: 사람 커밋 대기 상태 (변경이 stage되고 초안이 있다).
+- 끝나는 상태: 사람 커밋 대기 상태 (review 문서가 stage되고 초안이 있다).
+
+## 특별 규칙
+
+이 절차를 수행하는 동안 아래가 일반 규칙보다 우선한다. 불변 원칙은 그대로다.
+
+| 대신하는 일반 규칙 | 이 절차에서는 |
+|---|---|
+| G5 (review의 `## 응답`을 쓰지 않는다) | 사람의 발언을 그대로 `## 응답`에 옮기고 frontmatter `verdict`, `source: conversation`, `status: answered`, `answered`를 채운다. 사람이 말하지 않은 내용을 더하지 않는다 |
 
 ## 단계
 
 1. 이번 세션에 자기가 바꾼 파일이 있으면 먼저 `scripts/agent-commit`으로 커밋한다(경로 지정).
-2. 사람의 발언을 그대로 반영해 review 문서의 `## 응답`을 쓰고 frontmatter `verdict`, `source: conversation`, `status: answered`, `answered`를 채운다. 사람이 말하지 않은 내용을 더하지 않는다.
-3. 사람이 말한 범위에서 카드·결정 상태를 바꾼다 ([workflow.md](../workflow.md) §6.4).
-4. 바꾼 파일 경로를 붙여 초안을 만든다.
-   - 게이트: `lg draft --type gate --summary "<verdict>, next <Next>" --trailer Task=<Task> --trailer Verdict=<verdict> --trailer Source=conversation [--trailer Next=<Task|none>] [--trailer Milestone-Verdict=<go|nogo|conditional>] <경로…>`
-   - 결정 확정: `lg draft --type decide --summary "<요약>" --trailer Decisions=<D-ID,…> --trailer Source=conversation <경로…>`
-   - 에스컬레이션 응답: `lg draft --type respond --summary "<요약>" --trailer Task=<Task> --trailer Source=conversation <경로…>`
-5. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 내용이 다르면 사람이 `lg commit`의 편집 단계에서 고친다. 게이트 승인이면 `lg commit`이 tag를 만든다.
-6. 사람이 커밋했다고 알리면 절차 [gate-apply](gate-apply.md).
+2. review 문서의 `## 응답`을 쓴다(특별 규칙). 카드·결정·마일스톤의 상태는 바꾸지 않는다. 사람이 커밋한 뒤 절차 [gate-apply](gate-apply.md)가 반영한다.
+3. review 문서 경로를 붙여 초안을 만든다. 사람이 말한 판정을 trailer로 옮긴다.
+   - 게이트: `lg draft --type gate --summary "<verdict>, next <Next>" --trailer Task=<Task> --trailer Verdict=<verdict> --trailer Source=conversation [--trailer Next=<Task|none>] [--trailer Milestone-Verdict=<go|nogo|conditional>] [--trailer Decisions=<D-ID,…>] <review 경로>`
+   - 결정 확정: `lg draft --type decide --summary "<요약>" --trailer Decisions=<D-ID,…> --trailer Source=conversation <review 경로 또는 결정 문서 경로>`
+   - 에스컬레이션 응답: `lg draft --type respond --summary "<요약>" --trailer Task=<Task> --trailer Source=conversation <review 경로>`
+4. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 내용이 다르면 사람이 `lg commit`의 편집 단계에서 고친다. 게이트 승인이면 `lg commit`이 tag를 만든다.
+5. 사람이 커밋했다고 알리면 절차 [gate-apply](gate-apply.md).
 
 ## 멈추는 경우
 
-- 판정이 모호하면(verdict나 다음 task가 분명하지 않으면) 초안을 만들기 전에 묻는다.
-- `lg`가 설치되어 있지 않으면 4단계 대신 바꾼 파일을 경로로 stage하고, 같은 내용의 메시지를 `.lg/pending/COMMIT_MSG`에 직접 쓴다(`Actor: human` 포함). 사람에게 `git commit -F .lg/pending/COMMIT_MSG && rm .lg/pending/COMMIT_MSG` 실행과, 승인이면 `git tag gate/<Task>`를 요청한다.
+- 판정이 모호하면(verdict, 다음 task, 확정할 결정이 분명하지 않으면) 초안을 만들기 전에 묻는다.
+- `lg`가 설치되어 있지 않으면 3단계 대신 review 문서를 경로로 stage하고, 같은 내용의 메시지를 `.lg/pending/COMMIT_MSG`에 직접 쓴다(`Actor: human` 포함). 사람에게 `git commit -F .lg/pending/COMMIT_MSG && rm .lg/pending/COMMIT_MSG` 실행과, 승인이면 `git tag gate/<Task>`를 요청한다.
 ~~~~
 
 `gate-apply.md`
@@ -2505,20 +2663,37 @@ id: gate-apply
 type: procedure
 spec_version: 2
 ---
-# 판정 후 정리
+# 사람 커밋의 반영
 
-- 시작 조건: 사람의 `gate`·`respond` 커밋이 있는데 문서가 아직 반영하지 않았을 때 (세션 시작 시 확인, 절차 `gate-conversation` 이후).
-- 푸는 일반 규칙: 6번 — 카드·결정·마일스톤 문서의 상태 필드를 사람 커밋의 trailer에 맞추는 것.
-- 끝나는 상태: review 문서가 `reviews/closed/`에 있고, 상태 필드가 커밋과 같으며, 반영 커밋이 있다.
+- 시작 조건: `scripts/session-check`가 반영되지 않은 사람 커밋을 알렸을 때, 사람이 판정·결정·응답·승인을 커밋했다고 알렸을 때.
+- 끝나는 상태: 반영되지 않은 사람 커밋이 없고(`scripts/apply-human-commits --check`가 빈 결과), 반영 커밋들이 있다.
+
+## 특별 규칙
+
+이 절차를 수행하는 동안 아래가 일반 규칙보다 우선한다. 불변 원칙은 그대로다.
+
+| 대신하는 일반 규칙 | 이 절차에서는 |
+|---|---|
+| G4 (사람 몫의 상태 전이를 하지 않는다) | 사람 커밋이 정한 상태 전이를 커밋한다. 전이는 `scripts/apply-human-commits`가 만든 것만 쓰고, 상태 필드를 직접 편집하지 않는다 |
 
 ## 단계
 
-1. review 문서를 `reviews/closed/`로 옮기고(`git mv`) `status: closed`로 바꾼다.
-2. 카드·결정·마일스톤 문서의 상태 필드가 커밋 trailer와 다르면 맞춘다 ([workflow.md](../workflow.md) §6.4, §8).
-3. 카드의 "게이트 이력"에 판정과 커밋 해시를 추가한다.
-4. `STATUS.md`를 갱신하고 커밋한다.
-   - `gate`: `log(<Task>): apply gate <해시>`
-   - `respond`: 카드를 `in-progress`로 바꾸고 `task(<Task>): resume after response <해시>`
+1. 사람 커밋 대기 상태가 아닌지 확인한다(대기 상태면 커밋할 수 없다, G3). 이번 세션에 자기가 바꾼 파일이 있으면 먼저 커밋한다.
+2. `scripts/apply-human-commits`를 실행한다. 가장 오래된 반영되지 않은 사람 커밋 하나를 반영하고, 바뀐 파일과 커밋 명령을 출력한다.
+3. "반영할 수 없음"(종료 코드 1)이면 아무것도 바뀌지 않았다. 출력된 이유를 사람에게 보고하고 멈춘다.
+4. 바뀐 내용을 `git diff`로 확인하고, `STATUS.md`에 다음 할 일을 반영한다(아래 표).
+5. 출력된 명령대로 커밋한다: `scripts/agent-commit -F .lg/pending/APPLY_MSG -- <출력된 경로…> STATUS.md`
+6. `scripts/apply-human-commits --check`가 빈 결과를 낼 때까지 2–5를 반복한다.
+7. 반영한 결과와 다음 할 일을 보고한다.
+
+| 반영한 것 | 다음 할 일 |
+|---|---|
+| 승인 (`Approve`, `Next`) | 승인된 task 착수 (절차 [task-start](task-start.md)) |
+| `approve` (`Next: none`) | 사람의 다음 지시를 기다린다 |
+| `revise` | 같은 task 재개. review의 `## 응답`을 읽고 반영 계획을 세운다 |
+| `redirect` | 사람의 `plan` 커밋을 기다린다 |
+| `respond` | 막혔던 task로 돌아간다 |
+| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다 |
 ~~~~
 
 ---

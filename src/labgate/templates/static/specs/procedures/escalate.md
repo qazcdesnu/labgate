@@ -6,8 +6,11 @@ spec_version: 2
 # 에스컬레이션
 
 - 시작 조건: [workflow.md](../workflow.md) §7.1의 경우 (Claude Code: `/escalate <Task>`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 카드가 `blocked`이고 에스컬레이션 문서와 `review` 커밋이 있다. 사람의 응답을 기다린다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 
