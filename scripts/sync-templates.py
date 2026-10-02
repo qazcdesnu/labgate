@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOC = ROOT / "labgate-design.md"
 TEMPLATES = ROOT / "src" / "labgate" / "templates"
 
-# 부록 절 번호 → 템플릿 경로 (templates/ 기준). A.6은 블록마다 앞 줄의 파일명을 쓴다.
+# 부록 절 번호 → 템플릿 경로 (templates/ 기준). A.6, B.10은 블록마다 앞 줄의 파일명을 쓴다.
 SECTIONS = {
     "A.1": "jinja/README.md.j2",
     "A.2": "jinja/FILEMAP.md.j2",
@@ -42,8 +42,10 @@ SECTIONS = {
     "B.7": "jinja/specs/doc-types/_stub.spec.md.j2",
     "B.8": "static/specs/templates/task-card.md",
     "B.9": "static/specs/templates/review.md",
+    "B.10": "static/specs/procedures/{label}",
     "C.1": "static/dot-lg/hooks/commit-msg",
     "C.2": "static/scripts/agent-commit",
+    "C.3": "static/scripts/session-check",
 }
 
 HEADING_RE = re.compile(r"^## ([ABC]\.\d+) ")

@@ -67,7 +67,7 @@ def test_acceptance(tmp_path, milestones, claude_code):
 
     # 생성 성공 (마일스톤 1개, 20개)
     assert p.result.returncode == 0, p.result.stderr
-    count = (49 if claude_code else 42) + 6 * milestones
+    count = (59 if claude_code else 51) + 6 * milestones
     assert f"파일 {count}개" in p.result.stdout
     assert len(p.git("ls-files").splitlines()) == count
 

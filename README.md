@@ -1,6 +1,6 @@
 # labgate
 
-사람이 task 경계의 승인 게이트마다 판정하고 에이전트가 그 사이를 수행하는 연구 프로젝트의 작업 공간을 한 번에 초기화하는 CLI. 명령은 `lg`.
+사람이 task 경계의 승인 게이트마다 판정하고 에이전트가 그 사이를 수행하는 연구 프로젝트의 작업 공간을 한 번에 초기화하고, 그 안에서 사람의 커밋을 돕는 CLI. 명령은 `lg`.
 
 설계: [labgate-design.md](labgate-design.md)
 
@@ -27,6 +27,18 @@ lg --version
 - uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.1.0`도 같다.
 - 업데이트: `pipx install --force git+https://github.com/qazcdesnu/labgate.git@<새 태그>` / 삭제: `pipx uninstall labgate`
 
+## 사용
+
+| 명령 | 누가 | 하는 일 |
+|---|---|---|
+| `lg init [PATH]` | 사람 | 연구 프로젝트 작업 공간을 만든다 (대화형, 또는 `--config`) |
+| `lg commit` | 사람 (터미널에서만) | 사람 신원으로 커밋한다. 타입과 필수 trailer를 묻거나, 에이전트가 준비한 초안을 확인해 확정한다. 게이트 승인이면 tag도 만든다 |
+| `lg draft` | 에이전트·사람 | 사람 커밋의 초안을 준비한다 (stage와 `.lg/pending/COMMIT_MSG`). 커밋하지 않는다 |
+
+생성된 프로젝트에서 사람이 코드·문서를 직접 고쳤다면, 에이전트 세션이 시작될 때 `scripts/session-check`가 이를 알리고 에이전트는 작업 전에 정리를 요청한다. 사람은 직접 `lg commit`을 하거나, 에이전트에게 초안을 부탁한 뒤 `lg commit`으로 확정한다. 자세한 흐름은 설계 문서 §16–§20.
+
+`lg commit`, `lg draft`는 labgate 0.2 이상으로 만든 프로젝트(spec_version 2)에서 동작한다.
+
 ## 개발
 
 개발은 `dev` 브랜치에서 하고, 릴리즈할 때 `main`에 병합해 태그를 단다.
@@ -46,6 +58,6 @@ scripts/test-matrix.sh          # 전체
 scripts/test-matrix.sh 3.13     # 특정 버전만
 ```
 
-전체 실행에는 생성되는 commit-msg hook을 Python 3.9로 돌리는 검사도 포함된다 (hook은 Python ≥ 3.9 지원).
+전체 실행에는 생성되는 commit-msg hook과 session-check를 Python 3.9로 돌리는 검사도 포함된다 (둘 다 Python ≥ 3.9 지원).
 
 GitHub Actions가 push마다 같은 조합을 Linux와 macOS에서 돌린다 (`.github/workflows/test.yml`).

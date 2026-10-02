@@ -1,7 +1,7 @@
 ---
 id: review
 type: spec
-spec_version: 1
+spec_version: 2
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -24,7 +24,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `1` |
+| `spec_version` | ✓ | `2` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -85,15 +85,15 @@ status: complete
 | 부분 | 에이전트 | 사람 |
 |---|---|---|
 | `## 응답` 위의 모든 섹션 | 작성 (제출 후 수정 금지) | 읽기 |
-| `## 응답` | 대화 경로에서 사람 발언 그대로 기록만 (workflow §6.2) | 작성 |
+| `## 응답` | 대화 경로에서 사람 발언 그대로 기록만 (procedures/gate-conversation.md) | 작성 |
 | `verdict`, `source`, `answered`, `status: answered` | 대화 경로에서만 기록 | 작성 |
 | `status: closed`, 폴더 이동 | 사람 커밋 이후 수행 | 가능 |
 
 ## 6. 생성·갱신 시점
 
-- 생성: 게이트 요청(workflow §5.4), 에스컬레이션(§7.2).
+- 생성: 게이트 요청(procedures/task-gate.md), 에스컬레이션(procedures/escalate.md).
 - 응답: 사람의 `gate` / `respond` 커밋과 같은 커밋.
-- 종료: 다음 세션에서 에이전트가 `closed/`로 이동(§6.3).
+- 종료: 다음 세션에서 에이전트가 `closed/`로 이동(procedures/gate-apply.md).
 
 ## 7. 검증 규칙
 

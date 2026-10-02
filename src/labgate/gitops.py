@@ -31,6 +31,11 @@ def _run(args: list[str], cwd: Optional[Path] = None) -> subprocess.CompletedPro
     return subprocess.run(["git", *args], cwd=cwd, env=_env(), capture_output=True, text=True)
 
 
+def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
+    """lg commit·lg draft용 git 실행. 사용자 환경의 GIT_AUTHOR_* 등은 지운다 (작성자 = 저장소 설정)."""
+    return _run(args, cwd=cwd)
+
+
 def check_available() -> None:
     try:
         ok = _run(["--version"]).returncode == 0

@@ -24,11 +24,11 @@ updated: {{ today }}
 
 | 폴더 | 내용 | 명명 규칙 |
 |---|---|---|
-| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 대기 중인 메시지 초안, Git 제외) |
+| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 초안 `COMMIT_MSG`, 사람의 변경 목록 `HUMAN_FILES`, Git 제외) |
 {% if claude_code %}
 | `.claude/` | Claude Code 설정과 슬래시 커맨드 | |
 {% endif %}
-| `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식 | `doc-types/<유형>.spec.md` |
+| `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식, 에이전트 절차 | `doc-types/<유형>.spec.md`, `procedures/<절차>.md` |
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
@@ -40,7 +40,7 @@ updated: {{ today }}
 | `data/` | 데이터 생성 설정, 데이터 설명서 | |
 | `paper/` | 원고, 그림, 참고문헌 bib | |
 | `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |
-| `scripts/` | 프로젝트 도구 (`agent-commit` 등) | |
+| `scripts/` | 프로젝트 도구 (`agent-commit`, `session-check`) | |
 | `env/` | 환경 설정 | |
 
 ## 마일스톤

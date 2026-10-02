@@ -12,7 +12,9 @@ import pytest
 import yaml
 
 from conftest import BASE, ROOT, make_config
+from labgate import SPEC_VERSION
 from labgate.config import parse_config
+from labgate.plan import build_plan
 from labgate.render import base_context, milestone_context, read_static, render, stub_context
 from labgate.stubs import STUBS
 
@@ -115,7 +117,7 @@ def test_frontmatter_parses_and_has_common_fields(rendered):
             continue
         assert isinstance(fm, dict), (name, variant)
         assert {"id", "type", "spec_version"} <= fm.keys(), (name, variant)
-        assert fm["spec_version"] == 1
+        assert fm["spec_version"] == SPEC_VERSION
 
 
 def test_frontmatter_preserves_user_strings(rendered):
@@ -129,7 +131,7 @@ def test_frontmatter_preserves_user_strings(rendered):
 def test_stub_frontmatter(rendered):
     for stub in STUBS:
         fm = frontmatter(rendered[0][(STUB_TEMPLATE, stub.name)])
-        assert fm == {"id": stub.name, "type": "spec", "spec_version": 1, "status": "stub"}
+        assert fm == {"id": stub.name, "type": "spec", "spec_version": SPEC_VERSION, "status": "stub"}
 
 
 def test_tables_are_not_broken_by_conditionals(rendered):
@@ -171,7 +173,7 @@ def test_milestone_tables_list_every_milestone(rendered):
 
 
 def test_static_files_readable():
-    assert len(STATIC) == 16
+    assert len(STATIC) == 26
     for path in STATIC:
         text = read_static(path)
         assert text.endswith("\n") and not text.endswith("\n\n"), path
@@ -191,6 +193,27 @@ def test_settings_json_valid():
     # 공동 작성자 줄 끄기: 빈 문자열(하위 호환). `false`는 v2.1.281 미만에서 파일 전체를 무시하게 한다
     assert data["attribution"] == {"commit": "", "pr": "", "sessionUrl": False}
     assert "includeCoAuthoredBy" not in data
+    # §17.3: 에이전트는 lg commit을 실행하지 못하고, 세션 시작마다 session-check가 돈다
+    assert "Bash(lg commit *)" in deny
+    (group,) = data["hooks"]["SessionStart"]
+    assert "matcher" not in group  # 시작·재개·/clear·compact 모두
+    assert group["hooks"] == [{"type": "command", "command": '"$CLAUDE_PROJECT_DIR"/scripts/session-check'}]
+
+
+@pytest.mark.parametrize("claude_code", [True, False])
+def test_procedure_links_resolve(claude_code):
+    """§16: AGENTS.md와 specs/README.md의 절차 링크가 모두 생성되는 절차 문서를 가리킨다."""
+    files = {str(f.path): f.content for f in build_plan(make_config(claude_code=claude_code), "2026-10-01")}
+    procedures = {p for p in files if p.startswith("specs/procedures/")}
+    assert len(procedures) == 8
+    agents = set(re.findall(r"\]\((specs/procedures/[\w-]+\.md)\)", files["AGENTS.md"]))
+    index = {"specs/" + p for p in re.findall(r"\]\((procedures/[\w-]+\.md)\)", files["specs/README.md"])}
+    assert agents == index == procedures
+    for path in procedures:
+        fm = frontmatter(files[path])
+        assert fm == {"id": path.rsplit("/", 1)[1][:-3], "type": "procedure", "spec_version": SPEC_VERSION}
+        body = files[path]
+        assert "- 시작 조건:" in body and "- 푸는 일반 규칙:" in body and "- 끝나는 상태:" in body
 
 
 def test_gitignore_excludes_claude_worktrees():

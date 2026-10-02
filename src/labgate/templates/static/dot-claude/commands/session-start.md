@@ -1,1 +1,1 @@
-AGENTS.md의 "세션 시작 절차"를 순서대로 수행하라. 끝나면 다음을 3–5줄로 보고하라: 현재 task와 상태, 반영할 사람 응답 유무, 이번 세션에 할 일.
+specs/procedures/session-start.md 를 따르라.

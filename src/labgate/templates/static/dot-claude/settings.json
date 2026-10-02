@@ -14,7 +14,17 @@
       "Bash(git add -u *)",
       "Bash(git add --update *)",
       "Bash(git add . *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(lg commit *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/session-check" }
+        ]
+      }
     ]
   },
   "attribution": {

@@ -139,3 +139,22 @@ def summarize(target: Path, config: Config, git: bool) -> str:
 
 def confirm_create() -> bool:
     return _confirm("이대로 만들까요?", default=True)
+
+
+# ---------------------------------------------------------------- lg commit (§18.4)
+
+
+def select(message: str, choices: list[str]) -> str:
+    return _answer(questionary.select(message, choices=choices, **IO))
+
+
+def checkbox(message: str, choices: list[str]) -> list[str]:
+    return list(_answer(questionary.checkbox(message, choices=choices, **IO)))
+
+
+def text(message: str, validate: Optional[Callable[[str], Optional[str]]] = None) -> str:
+    """한 줄 입력. `validate`는 오류 문구 또는 None을 돌려준다."""
+    def check(raw: str) -> Any:
+        return (validate(raw) if validate else None) or True
+
+    return _answer(questionary.text(message, validate=check, **IO)).strip()
