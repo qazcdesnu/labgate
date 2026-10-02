@@ -216,7 +216,7 @@ milestones:
 - 생성되는 `.lg/project.yaml`에는 위 내용에 다음이 추가된다:
   ```yaml
   generated:
-    labgate_version: "0.1.0"
+    labgate_version: "0.2.0"
     spec_version: 2
     created: "2026-10-01"
   ```
@@ -445,7 +445,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "labgate"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.10"
 dependencies = [
   "typer>=0.15.4",
