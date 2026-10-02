@@ -90,3 +90,38 @@ def test_agent_commit_rejected_options_documented():
     assert long_opts == {"--no-verify", "--author", "--all"} and short_opts == {"-a", "-n"}
     for opt in long_opts | short_opts:
         assert f"`{opt}`" in text, opt
+
+
+# ---------------------------------------------------------------- 사용자 작업 설명서 (docs/guide/)
+
+GUIDE = ROOT / "docs" / "guide"
+LINK_RE = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")
+
+
+def test_guide_index_lists_every_page():
+    index = (GUIDE / "README.md").read_text(encoding="utf-8")
+    for page in GUIDE.glob("*.md"):
+        if page.name != "README.md":
+            assert f"]({page.name})" in index, page.name
+
+
+@pytest.mark.parametrize("page", sorted(p.name for p in (ROOT / "docs").rglob("*.md")
+                                        if p.parent.name in ("guide", "cli")))
+def test_relative_links_resolve(page):
+    """docs/cli·docs/guide 안의 상대 링크가 실제 파일을 가리킨다."""
+    path = next(p for p in (ROOT / "docs").rglob(page) if p.parent.name in ("guide", "cli"))
+    for target in LINK_RE.findall(path.read_text(encoding="utf-8")):
+        if target.startswith(("http://", "https://")):
+            continue
+        assert (path.parent / target).exists(), f"{path.name}: {target}"
+
+
+def test_guide_pages_follow_format():
+    """작업 문서마다 같은 형식 (v0.3 초안 §4)."""
+    for page in GUIDE.glob("*.md"):
+        if page.name == "README.md":
+            continue
+        text = page.read_text(encoding="utf-8")
+        assert "- 언제:" in text and "- 결과:" in text, page.name
+        for heading in ("## 순서", "## 확인", "## 잘 안 될 때"):
+            assert heading in text, (page.name, heading)

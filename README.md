@@ -4,6 +4,8 @@
 
 설계: [labgate-design.md](labgate-design.md)
 
+사용자 작업 설명서: [docs/guide/](docs/guide/README.md) — 설치, 하루 작업, task 승인, 게이트 판정, 직접 고친 것 커밋 등 사람이 하는 일
+
 명령 설명서: [docs/cli/](docs/cli/README.md) — `lg init`, `lg commit`, `lg draft`와 생성된 프로젝트의 스크립트
 
 사용 시나리오: [Coconut을 읽고 CODI를 시작하는 연구자](docs/scenarios/codi.md) — 전통 방식과의 비교, Claude Code와의 시너지·충돌 점검
