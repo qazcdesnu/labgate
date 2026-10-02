@@ -176,6 +176,7 @@ Typer는 명령이 하나뿐인 앱에서 하위 명령을 생략해 버리므�
        git commit --allow-empty -m "plan(M0-T0): approve initial task" -m "Actor: human
      Approve: M0-T0"
      (M0-T0 카드의 status 를 approved 로 바꿔 함께 커밋해도 됩니다)
+     또는 터미널에서 lg commit --allow-empty (타입 plan, Approve M0-T0)
   3. 에이전트 세션을 시작하세요 (Claude Code: /session-start)
 ```
 
@@ -683,7 +684,7 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 |---|---|
 | 프로젝트 확인 | Git 저장소 밖 → 2, `.lg/project.yaml` 없음 → 2, spec_version 1 → 2, hook에 계약 이름 없음 → 2, hook의 타입 상수를 바꾸면 `lg`의 판단도 바뀜 |
 | `lg draft` | 경로 지정 stage(다른 변경은 stage 안 됨), 현재 폴더 기준 경로, Task로 scope 결정, 만든 초안이 `git commit -F`로 hook 통과, 경로 생략 시 `HUMAN_FILES`의 경로만 stage(세션 도중 변경 제외), `HUMAN_FILES` 없이 경로 생략 → 2, 검사 실패(에이전트 전용 타입, `Actor` trailer, 형식, 필수 trailer, 헤더 길이) → 2이고 아무것도 바뀌지 않음, 오류를 모아 출력, 대기 상태 → 3, 대상 밖 stage → 2, stage할 것 없음 → 3 |
-| `lg commit` | TTY 아님 → 2, 미등록 신원 → 2, `--pending`인데 초안 없음 → 3, 초안 모드 성공(작성자 사람, 초안 삭제, `HUMAN_FILES` 갱신), `gate` 승인 → `gate/<Task>`·`milestone/<M>-<v>` tag, `--no-tag`, 취소 → 130(초안·stage 유지), 편집 후 재검사, `core.editor` 사용, Git 거부 → 4(초안 유지), 작성 모드(파일 선택·타입·요약), 변경 없음 → 3 |
+| `lg commit` | TTY 아님 → 2, 미등록 신원 → 2, `--pending`인데 초안 없음 → 3, `plan` 작성 시 `Approve` 선택(하나면 scope도 그 Task), `--allow-empty`로 빈 승인 커밋, 초안 모드 성공(작성자 사람, 초안 삭제, `HUMAN_FILES` 갱신), `gate` 승인 → `gate/<Task>`·`milestone/<M>-<v>` tag, `--no-tag`, 취소 → 130(초안·stage 유지), 편집 후 재검사, `core.editor` 사용, Git 거부 → 4(초안 유지), 작성 모드(파일 선택·타입·요약), 변경 없음 → 3 |
 | `session-check` | 깨끗하면 출력 없음·`HUMAN_FILES` 삭제, 목록 출력과 기록(이름 바꾸기는 두 경로), 20개 초과 생략 표시, 대기 상태에서는 기록하지 않음, Git 저장소 밖에서 조용히 0. 매트릭스에서 Python 3.9로도 실행 |
 
 ### 14.2 통합 테스트
@@ -806,7 +807,7 @@ B·C에서 사람이 "버린다"를 고르면 사람이 직접 되돌린다. 에
 ### 18.1 형식
 
 ```
-lg commit [--pending | --no-pending] [--no-tag]
+lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 ```
 
 | 옵션 | 설명 |
@@ -815,6 +816,7 @@ lg commit [--pending | --no-pending] [--no-tag]
 | `--pending` | 초안 모드를 강제한다. 초안이 없으면 코드 3 |
 | `--no-pending` | 초안이 있어도 작성 모드로 간다 (초안 파일은 그대로 둔다) |
 | `--no-tag` | `gate` + `Verdict: approve`여도 tag를 만들지 않는다 |
+| `--allow-empty` | 바뀐 파일 없이 커밋한다. 첫 task 승인(`plan` + `Approve`)처럼 기록만 남기는 커밋에 쓴다 |
 
 ### 18.2 동작 순서
 
@@ -840,9 +842,9 @@ lg commit [--pending | --no-pending] [--no-tag]
 
 ### 18.4 작성 모드
 
-1. stage된 변경이 없으면 커밋되지 않은 파일 목록을 체크박스로 보여 주고, 고른 경로를 `git add -A -- <경로>`로 stage한다. 아무것도 고르지 않으면 코드 3. 커밋되지 않은 변경도 없으면 코드 3.
+1. stage된 변경이 없으면 커밋되지 않은 파일 목록을 체크박스로 보여 주고, 고른 경로를 `git add -A -- <경로>`로 stage한다. 아무것도 고르지 않으면 코드 3. 커밋되지 않은 변경도 없으면 코드 3. `--allow-empty`면 이 단계를 건너뛰고 stage된 것만(없으면 빈 커밋) 커밋한다.
 2. 타입: 사람이 쓸 수 있는 타입 (사람 전용을 먼저).
-3. Task: 타입이 `TASK_REQUIRED`면 `plan/milestones/*/tasks/*.md`의 파일 이름 중 Task ID 형식인 것에서 고른다(없으면 입력). scope는 Task와 같게 정한다. 그 밖의 타입은 scope를 선택 입력으로 묻는다.
+3. Task: 타입이 `TASK_REQUIRED`면 `plan/milestones/*/tasks/*.md`의 파일 이름 중 Task ID 형식인 것에서 고른다(없으면 입력). scope는 Task와 같게 정한다. `plan`이면 `Approve`(승인할 task)를 같은 목록에서 여러 개 고르게 하고(고르지 않으면 생략), 하나만 골랐으면 scope도 그 Task ID로 정한다. 그 밖의 경우 scope를 선택 입력으로 묻는다.
 4. 타입별 trailer: `SOURCE_REQUIRED`면 `Source`, `gate`면 `Verdict`, 선택 `Next`(Task ID 또는 `none`)와 `Milestone-Verdict`, `decide`면 `Decisions`.
 5. 요약 한 줄. 헤더가 `MAX_HEADER`를 넘으면 다시 묻는다.
 6. `Actor: human`을 넣어 메시지를 만든다. 본문은 5단계(확인)의 편집기에서 쓴다.

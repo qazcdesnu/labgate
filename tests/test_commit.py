@@ -317,6 +317,40 @@ def test_commit_compose_mode(proj, keys):
     assert git(proj, "status", "--porcelain") == ""
 
 
+def trailers(root):
+    return git(root, "log", "-1", "--format=%(trailers:only,unfold)")
+
+
+def test_commit_plan_approve_empty(proj, keys):
+    """첫 task 승인: 바뀐 파일 없이 plan + Approve. 하나만 고르면 scope도 그 Task."""
+    # 타입 plan(목록의 3번째) → Approve M0-T0 선택 → 요약 → 커밋
+    keys(DOWN * 2, ENTER, SPACE, ENTER, "approve initial task\r", ENTER)
+    result = lg("commit", "--allow-empty")
+    assert result.exit_code == 0, result.output
+    assert last_commit(proj) == f"{HUMAN}|plan(M0-T0): approve initial task"
+    assert trailers(proj) == "Actor: human\nApprove: M0-T0"
+    assert git(proj, "show", "--name-only", "--format=") == ""
+
+
+def test_commit_plan_approve_several(proj, keys):
+    # 두 task를 고르면 scope는 따로 묻는다 (빈 입력이면 생략)
+    keys(DOWN * 2, ENTER, SPACE, DOWN, SPACE, ENTER, ENTER, "approve tasks\r", ENTER)
+    result = lg("commit", "--allow-empty")
+    assert result.exit_code == 0, result.output
+    assert last_commit(proj) == f"{HUMAN}|plan: approve tasks"
+    assert trailers(proj) == "Actor: human\nApprove: M0-T0, M1-T0"
+
+
+def test_commit_plan_without_approve(proj, keys):
+    """로드맵만 바꾸는 plan 커밋은 Approve를 고르지 않는다."""
+    write(proj, "plan/roadmap.md", "changed\n")
+    keys(SPACE, ENTER, DOWN * 2, ENTER, ENTER, ENTER, "revise roadmap\r", ENTER)
+    result = lg("commit")
+    assert result.exit_code == 0, result.output
+    assert last_commit(proj) == f"{HUMAN}|plan: revise roadmap"
+    assert trailers(proj) == "Actor: human"
+
+
 def test_commit_nothing_to_commit(proj, tty):
     result = lg("commit")
     assert result.exit_code == 3 and "커밋할 변경이 없습니다" in result.output

@@ -23,7 +23,8 @@ def is_tty() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
-def run_commit(pending: Optional[bool], no_tag: bool, cwd: Optional[Path] = None) -> str:
+def run_commit(pending: Optional[bool], no_tag: bool, allow_empty: bool = False,
+               cwd: Optional[Path] = None) -> str:
     """§18.2. 성공하면 출력할 안내를 돌려준다."""
     project = find_project(cwd)
 
@@ -46,9 +47,9 @@ def run_commit(pending: Optional[bool], no_tag: bool, cwd: Optional[Path] = None
         raise Fail(EXIT_TARGET, "✗ 초안이 없습니다 (.lg/pending/COMMIT_MSG).")
     use_draft = has_draft if pending is None else pending
 
-    message = _from_draft(project) if use_draft else _compose(project)
+    message = _from_draft(project, allow_empty) if use_draft else _compose(project, allow_empty)
     message = _confirm(project, message)
-    sha = _commit(project, message)
+    sha = _commit(project, message, allow_empty)
 
     if use_draft:
         project.draft_path.unlink()
@@ -64,9 +65,9 @@ def run_commit(pending: Optional[bool], no_tag: bool, cwd: Optional[Path] = None
 # ---------------------------------------------------------------- 메시지 준비
 
 
-def _from_draft(project: Project) -> str:
+def _from_draft(project: Project, allow_empty: bool) -> str:
     """§18.5."""
-    if not project.staged_paths():
+    if not allow_empty and not project.staged_paths():
         raise Fail(EXIT_TARGET, "✗ 초안은 있는데 stage된 변경이 없습니다 (.lg/pending/COMMIT_MSG).")
     message = project.draft_path.read_text(encoding="utf-8")
     if project.trailers(message).get("Actor") != "human":
@@ -74,10 +75,10 @@ def _from_draft(project: Project) -> str:
     return message
 
 
-def _compose(project: Project) -> str:
+def _compose(project: Project, allow_empty: bool) -> str:
     """§18.4 작성 모드."""
     hook = project.hook
-    if not project.staged_paths():
+    if not allow_empty and not project.staged_paths():
         changed = project.changed_paths()
         if not changed:
             raise Fail(EXIT_TARGET, "✗ 커밋할 변경이 없습니다.")
@@ -93,10 +94,16 @@ def _compose(project: Project) -> str:
         scope: Optional[str] = task
         trailers.append(("Task", task))
     else:
-        scope = prompts.text(
-            "scope (선택, 빈 입력이면 생략)",
-            lambda v: "공백과 괄호는 쓸 수 없습니다" if any(c in v.strip() for c in " ()") else None,
-        ) or None
+        approve = _ask_approve(project) if ctype == "plan" else []
+        if approve:
+            trailers.append(("Approve", ", ".join(approve)))
+        if len(approve) == 1:
+            scope = approve[0]
+        else:
+            scope = prompts.text(
+                "scope (선택, 빈 입력이면 생략)",
+                lambda v: "공백과 괄호는 쓸 수 없습니다" if any(c in v.strip() for c in " ()") else None,
+            ) or None
 
     if ctype == "gate":
         trailers.append(("Verdict", prompts.select("Verdict", ["approve", "revise", "redirect"])))
@@ -128,6 +135,20 @@ def _compose(project: Project) -> str:
         else None,
     )
     return build_message(ctype, summary, scope, None, trailers)
+
+
+def _ask_approve(project: Project) -> list[str]:
+    """plan 커밋의 Approve: 승인할 task (여러 개, 없으면 빈 목록)."""
+    ids = project.task_ids()
+    if ids:
+        return prompts.checkbox("Approve (승인할 task, 스페이스로 선택, 없으면 그냥 엔터)", ids)
+    pattern = project.hook["TASK_ID_RE"]
+    raw = prompts.text(
+        "Approve (승인할 task ID, 쉼표로 구분, 빈 입력이면 생략)",
+        lambda v: None if not v.strip() or all(pattern.match(x.strip()) for x in v.split(","))
+        else "M<n>-T<n> 형식, 쉼표로 구분",
+    )
+    return [x.strip() for x in raw.split(",") if x.strip()]
 
 
 def _ask_task(project: Project) -> str:
@@ -181,12 +202,13 @@ def _edit(project: Project, message: str) -> Optional[str]:
         os.unlink(path)
 
 
-def _commit(project: Project, message: str) -> str:
+def _commit(project: Project, message: str, allow_empty: bool) -> str:
     fd, path = tempfile.mkstemp(prefix="lg-commit-", suffix=".txt")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(message)
-        result = gitops.run(["commit", "-q", "-F", path], cwd=project.root)
+        args = ["commit", "-q", "-F", path] + (["--allow-empty"] if allow_empty else [])
+        result = gitops.run(args, cwd=project.root)
     finally:
         os.unlink(path)
     if result.returncode != 0:
