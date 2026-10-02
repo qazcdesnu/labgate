@@ -34,11 +34,16 @@ COMMON = {
     "references/library/.gitkeep", "experiments/src/.gitkeep", "experiments/tests/.gitkeep",
     "runs/.gitkeep", "reviews/open/.gitkeep", "reviews/closed/.gitkeep", "logs/.gitkeep",
     "data/.gitkeep", "paper/.gitkeep", "notes/.gitkeep", "scripts/agent-commit", "env/.gitkeep",
+    "scripts/session-check",
+    *(f"specs/procedures/{n}.md" for n in (
+        "session-start", "session-close", "commit-prep", "task-start",
+        "task-gate", "escalate", "gate-conversation", "gate-apply",
+    )),
 }
 CLAUDE = {
     "CLAUDE.md", ".claude/settings.json",
     *(f".claude/commands/{n}.md" for n in (
-        "session-start", "task-start", "task-gate", "escalate", "session-close",
+        "session-start", "task-start", "task-gate", "escalate", "session-close", "commit-prep",
     )),
 }
 
@@ -69,10 +74,10 @@ def test_paths_match_design(n, claude_code):
     assert paths == expected_paths(n, claude_code)
 
 
-@pytest.mark.parametrize("n, claude_code, count", [(3, True, 67), (1, True, 55), (20, True, 169), (3, False, 60)])
+@pytest.mark.parametrize("n, claude_code, count", [(3, True, 77), (1, True, 65), (20, True, 179), (3, False, 69)])
 def test_file_count_formula(n, claude_code, count):
-    """§7.2: claude_code면 49 + 6N, 아니면 42 + 6N. 예시 N=3 → 67."""
-    assert len(plan_for(n, claude_code)) == count == (49 if claude_code else 42) + 6 * n
+    """§7.2: claude_code면 59 + 6N, 아니면 51 + 6N. 예시 N=3 → 77."""
+    assert len(plan_for(n, claude_code)) == count == (59 if claude_code else 51) + 6 * n
 
 
 def test_no_claude_files_without_claude_code():
@@ -82,7 +87,7 @@ def test_no_claude_files_without_claude_code():
 
 def test_modes():
     modes = {str(f.path): f.mode for f in plan_for()}
-    assert {p for p, m in modes.items() if m == 0o755} == {".lg/hooks/commit-msg", "scripts/agent-commit"}
+    assert {p for p, m in modes.items() if m == 0o755} == {".lg/hooks/commit-msg", "scripts/agent-commit", "scripts/session-check"}
     assert set(modes.values()) == {0o644, 0o755}
 
 

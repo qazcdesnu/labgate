@@ -21,7 +21,7 @@ jobs:
       - run: .venv/bin/python -m pytest -q
 
   hook-python39:
-    # 생성되는 commit-msg hook은 Python >= 3.9를 지원한다 (설계 문서 §4)
+    # 생성되는 commit-msg hook과 session-check는 Python >= 3.9를 지원한다 (설계 문서 §4)
     strategy:
       fail-fast: false
       matrix:
@@ -33,4 +33,4 @@ jobs:
       - run: uv python install 3.9
       - run: uv venv --python 3.12 .venv
       - run: uv pip install --python .venv/bin/python -e '.[dev]'
-      - run: HOOK_PYTHON="$(uv python find 3.9)" .venv/bin/python -m pytest -q tests/test_hook.py
+      - run: HOOK_PYTHON="$(uv python find 3.9)" .venv/bin/python -m pytest -q tests/test_hook.py tests/test_commit.py

@@ -2,14 +2,38 @@
 # 에이전트 신원으로 커밋한다.
 # 사용법: scripts/agent-commit -m "<헤더>" -m "<trailer 블록>"
 #         scripts/agent-commit -F <메시지 파일>
-# 나머지 인자는 git commit에 그대로 전달된다. --author, --no-verify는 쓰지 않는다.
+# 나머지 인자는 git commit에 그대로 전달된다. --author, --no-verify, -a는 쓰지 않는다.
 set -euo pipefail
 
+reject() {
+  echo "agent-commit: '$1' 옵션은 사용할 수 없습니다." >&2
+  exit 2
+}
+
+value_next=0
 for arg in "$@"; do
+  if [ "$value_next" = 1 ]; then
+    value_next=0
+    continue
+  fi
   case "$arg" in
-    --no-verify|-n|--author|--author=*)
-      echo "agent-commit: '$arg' 옵션은 사용할 수 없습니다." >&2
-      exit 2
+    --) break ;;
+    --no-verify|--author|--author=*|--all) reject "$arg" ;;
+    --message|--file|--reuse-message|--reedit-message|--template|--fixup|--squash|--cleanup|--trailer|--date)
+      value_next=1 ;;
+    --*) ;;
+    -?*)
+      rest="${arg#-}"
+      while [ -n "$rest" ]; do
+        c="${rest:0:1}"
+        rest="${rest:1}"
+        case "$c" in
+          a|n) reject "-$c" ;;
+          m|F|C|c|t)
+            [ -z "$rest" ] && value_next=1
+            break ;;
+        esac
+      done
       ;;
   esac
 done

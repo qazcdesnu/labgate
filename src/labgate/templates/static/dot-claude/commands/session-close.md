@@ -1,1 +1,1 @@
-AGENTS.md의 "세션 종료 절차"를 수행하라. 마지막에 `git status`가 깨끗한지 확인하라(사람 커밋 대기 상태이면 stage된 변경만 남아 있어야 한다). 이번 세션 요약을 3줄로 보고하라.
+specs/procedures/session-close.md 를 따르라.

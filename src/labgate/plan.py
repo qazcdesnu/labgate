@@ -29,9 +29,11 @@ STATIC_FILES: tuple[tuple[str, int, bool], ...] = (
     ("dot-claude/commands/task-gate.md", REGULAR, True),
     ("dot-claude/commands/escalate.md", REGULAR, True),
     ("dot-claude/commands/session-close.md", REGULAR, True),
+    ("dot-claude/commands/commit-prep.md", REGULAR, True),
     ("dot-gitignore", REGULAR, False),
     ("dot-lg/hooks/commit-msg", EXECUTABLE, False),
     ("scripts/agent-commit", EXECUTABLE, False),
+    ("scripts/session-check", EXECUTABLE, False),
     ("specs/conventions.md", REGULAR, False),
     ("specs/workflow.md", REGULAR, False),
     ("specs/git-commit.md", REGULAR, False),
@@ -39,6 +41,12 @@ STATIC_FILES: tuple[tuple[str, int, bool], ...] = (
     ("specs/doc-types/review.spec.md", REGULAR, False),
     ("specs/templates/task-card.md", REGULAR, False),
     ("specs/templates/review.md", REGULAR, False),
+) + tuple(
+    (f"specs/procedures/{name}.md", REGULAR, False)
+    for name in (
+        "session-start", "session-close", "commit-prep", "task-start",
+        "task-gate", "escalate", "gate-conversation", "gate-apply",
+    )
 )
 
 # §7.2의 J(Jinja) 파일 중 한 번만 렌더링하는 것: (templates/jinja 기준 경로, claude_code일 때만)

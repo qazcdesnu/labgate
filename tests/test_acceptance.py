@@ -50,7 +50,8 @@ class Project:
                               capture_output=True, text=True)
 
     def markdown(self):
-        return [p for p in self.root.rglob("*.md") if ".git" not in p.relative_to(self.root).parts]
+        # .git을 훑지 않는다: 커밋 직후 Git의 백그라운드 정리(auto maintenance)가 .git/objects를 바꾼다
+        return [self.root / p for p in self.git("ls-files", "*.md").splitlines()]
 
 
 def approve_command(output):
@@ -67,7 +68,7 @@ def test_acceptance(tmp_path, milestones, claude_code):
 
     # 생성 성공 (마일스톤 1개, 20개)
     assert p.result.returncode == 0, p.result.stderr
-    count = (49 if claude_code else 42) + 6 * milestones
+    count = (59 if claude_code else 51) + 6 * milestones
     assert f"파일 {count}개" in p.result.stdout
     assert len(p.git("ls-files").splitlines()) == count
 

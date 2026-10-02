@@ -1,4 +1,4 @@
-"""Typer 앱과 `lg init` (설계 문서 §5)."""
+"""Typer 앱: `lg init` (설계 문서 §5), `lg commit` (§18), `lg draft` (§19)."""
 from __future__ import annotations
 
 import os
@@ -6,26 +6,21 @@ import sys
 import traceback
 from datetime import date
 from pathlib import Path, PurePosixPath
-from typing import Optional
+from typing import Callable, List, Optional
 
 import typer
 
 from . import __version__, gitops, prompts
+from . import commit as commit_module  # 명령 함수 commit, draft와 이름이 겹치지 않게
+from . import draft as draft_module
 from .config import Config, ConfigError, load_config
+from .errors import EXIT_ABORT, EXIT_ERROR, EXIT_GIT, EXIT_OK, EXIT_TARGET, EXIT_USAGE, Fail
 from .gitops import GitError
 from .plan import EXECUTABLE, PlannedFile, build_plan
 from .render import RenderError
 from .writer import TargetError, check_target, find_conflicts, write_plan
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
-
-EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_TARGET, EXIT_GIT, EXIT_ABORT = 0, 1, 2, 3, 4, 130
-
-
-class Fail(Exception):
-    def __init__(self, code: int, message: str):
-        super().__init__(message)
-        self.code = code
 
 
 def _version(value: bool) -> None:
@@ -55,8 +50,52 @@ def init(
     yes: bool = typer.Option(False, "--yes", "-y", help="대화형 모드의 마지막 확인을 건너뛴다."),
 ) -> None:
     """연구 프로젝트 작업 공간을 만든다."""
+    _guard(
+        lambda: _init(path, config_file, force, dry_run, no_git, yes),
+        interrupted="\n중단했습니다. 아무것도 만들지 않았습니다.",  # 쓰기 중 중단은 writer가 이미 롤백했다
+    )
+
+
+@app.command()
+def commit(
+    pending: Optional[bool] = typer.Option(
+        None, "--pending/--no-pending",
+        help="초안(.lg/pending/COMMIT_MSG) 모드를 강제하거나 끈다. 생략하면 초안이 있을 때 초안 모드.",
+        show_default=False,
+    ),
+    no_tag: bool = typer.Option(False, "--no-tag", help="gate 승인이어도 tag를 만들지 않는다."),
+) -> None:
+    """사람 신원으로 커밋한다. 사람이 터미널에서 직접 실행한다."""
+    _guard(lambda: _echo(commit_module.run_commit(pending, no_tag)), interrupted="\n중단했습니다.")
+
+
+@app.command()
+def draft(
+    ctype: str = typer.Option(..., "--type", help="커밋 타입 (사람이 쓸 수 있는 타입).", show_default=False),
+    summary: str = typer.Option(..., "--summary", help="헤더의 요약 한 줄.", show_default=False),
+    scope: Optional[str] = typer.Option(None, "--scope", help="scope. 생략하면 Task trailer를 쓴다.", show_default=False),
+    body: Optional[str] = typer.Option(None, "--body", help="본문 (무엇을 왜).", show_default=False),
+    trailer: Optional[List[str]] = typer.Option(None, "--trailer", help="KEY=VALUE. 여러 번 쓸 수 있다.", show_default=False),
+    paths: Optional[List[str]] = typer.Argument(
+        None, help="stage할 경로. 생략하면 .lg/pending/HUMAN_FILES의 경로.", show_default=False
+    ),
+) -> None:
+    """사람 커밋의 초안을 준비한다 (stage와 .lg/pending/COMMIT_MSG). 커밋하지 않는다."""
+    _guard(
+        lambda: _echo(draft_module.run_draft(ctype, summary, scope, body, trailer or [], paths or [])),
+        interrupted="\n중단했습니다.",
+    )
+
+
+def _echo(message: str) -> int:
+    typer.echo(message)
+    return EXIT_OK
+
+
+def _guard(run: Callable[[], int], interrupted: str) -> None:
+    """명령 공통 오류 처리: 예외를 종료 코드와 한 줄 메시지로 바꾼다 (§5.2, §13)."""
     try:
-        code = _init(path, config_file, force, dry_run, no_git, yes)
+        code = run()
     except Fail as e:
         _err(str(e))
         code = e.code
@@ -73,7 +112,7 @@ def init(
         _err(f"✗ 템플릿 렌더링 오류 (labgate 버그입니다): {e}")
         code = EXIT_ERROR
     except KeyboardInterrupt:
-        _err("\n중단했습니다. 아무것도 만들지 않았습니다.")  # 쓰기 중 중단은 writer가 이미 롤백했다
+        _err(interrupted)
         code = EXIT_ABORT
     except Exception as e:  # noqa: BLE001 - §13: 예기치 못한 오류는 한 줄로, traceback은 LG_DEBUG=1일 때만
         if os.environ.get("LG_DEBUG") == "1":

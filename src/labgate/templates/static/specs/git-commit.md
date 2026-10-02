@@ -1,7 +1,7 @@
 ---
 id: git-commit
 type: spec
-spec_version: 1
+spec_version: 2
 status: complete
 ---
 # 커밋 규약
@@ -12,10 +12,12 @@ status: complete
 
 | 주체 | 커밋 방법 | 작성자 |
 |---|---|---|
-| 사람 | `git commit` (저장소 로컬 설정) | `.lg/identities.json`의 `humans` 중 하나 |
+| 사람 | 터미널에서 `lg commit`, 또는 `git commit` (저장소 로컬 설정) | `.lg/identities.json`의 `humans` 중 하나 |
 | 에이전트 | `scripts/agent-commit` | `.lg/identities.json`의 `agent` |
 
 작성자 이메일이 둘 중 어디에도 없으면 커밋이 거부된다.
+
+에이전트가 사람 커밋을 준비할 때는 `lg draft`로 stage와 초안(`.lg/pending/COMMIT_MSG`)까지만 하고, 확정은 사람이 `lg commit`으로 한다 ([procedures/commit-prep.md](procedures/commit-prep.md)).
 
 ## 2. 메시지 형식
 
@@ -42,16 +44,18 @@ Actor: human | agent
 | | `plan` | 로드맵·마일스톤 변경, 첫 task 승인 |
 | | `spec` | 사양·규칙 문서 변경 확정 |
 | | `respond` | 에스컬레이션 응답 |
-| 에이전트 | `task` | task 상태 전이, 카드 갱신 |
-| | `exp` | 실험 코드 |
+| 에이전트 전용 | `task` | task 상태 전이, 카드 갱신 |
+| | `propose` | 결정·계획·사양 변경 제안 |
+| | `review` | 게이트 요청, 에스컬레이션 제출 |
+| 공통 | `exp` | 실험 코드 |
 | | `run` | 실행 기록 |
 | | `result` | 결과 문서, 그림, 표 |
 | | `ref` | 참고문헌 추가, 매핑 문서 |
-| | `propose` | 결정·계획·사양 변경 제안 |
-| | `review` | 게이트 요청, 에스컬레이션 제출 |
 | | `log` | 작업 일지, STATUS, 사람 커밋 반영 |
-| 공통 | `init` | 초기화 |
+| | `init` | 초기화 |
 | | `chore` | 위에 속하지 않는 잡무 |
+
+사람 전용 타입은 판정·확정을, 에이전트 전용 타입은 에이전트가 사람에게 요청하는 흐름을 나타낸다. 공통 타입은 작업 내용을 나타내며, 누가 했는지는 작성자 신원과 `Actor`로 구분한다.
 
 ## 4. Trailer
 
@@ -117,6 +121,15 @@ Decisions: D1.3
 Source: document
 ```
 
+사람이 직접 고친 실험 코드:
+
+```
+exp(M1-T2): fix off-by-one in window mask
+
+Actor: human
+Task: M1-T2
+```
+
 첫 task 승인:
 
 ```
@@ -130,13 +143,13 @@ Approve: M0-T0
 
 | 시점 | tag | 만드는 사람 |
 |---|---|---|
-| task 게이트 `approve` | `gate/<Task>` | 사람 |
-| 마일스톤 판정 | `milestone/<M>-<go\|nogo\|conditional>` | 사람 |
+| task 게이트 `approve` | `gate/<Task>` | 사람 (`lg commit`이 자동) |
+| 마일스톤 판정 | `milestone/<M>-<go\|nogo\|conditional>` | 사람 (`lg commit`이 자동) |
 
 tag는 해당 `gate` 커밋에 붙인다.
 
 ## 7. 금지
 
-- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, 사람 전용 타입, tag, 이력 재작성, 브랜치 병합과 cherry-pick (워크트리는 실험 격리용, AGENTS.md).
+- 에이전트: `git commit`·`lg commit` 실행, `--no-verify`, `--author`, `-a`, 사람 전용 타입, tag, 이력 재작성, 브랜치 병합과 cherry-pick (워크트리는 실험 격리용, AGENTS.md). 일괄 stage(`git add -A`, `git add .`, `git add -u`)와 사람의 미커밋 변경을 커밋에 넣는 것 ([workflow.md](workflow.md) §4.1).
 - 사람: 이력 재작성 (실수는 `git revert`).
 - `--no-verify`는 사람이 긴급할 때만 쓰고, 다음 커밋 본문에 이유를 남긴다.

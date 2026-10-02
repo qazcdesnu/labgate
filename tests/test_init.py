@@ -60,9 +60,9 @@ def test_init_with_config(tmp_path, cfg, git_sandbox):
     assert git(target, "config", "core.hooksPath") == ".lg/hooks"
     assert git(target, "branch", "--show-current") == "main"
     assert git(target, "status", "--porcelain") == ""  # §14.3: 생성 직후 깨끗함
-    assert len(git(target, "ls-files").splitlines()) == 67
+    assert len(git(target, "ls-files").splitlines()) == 77
     short = git(target, "rev-parse", "--short", "HEAD")
-    assert f"파일 67개, 초기 커밋 {short} (init)" in result.output
+    assert f"파일 77개, 초기 커밋 {short} (init)" in result.output
     assert "/session-start" in result.output
 
 
@@ -86,7 +86,7 @@ def test_dry_run_writes_nothing(tmp_path, cfg, git_sandbox):
     result = lg("init", target, "--config", cfg, "--dry-run")
     assert result.exit_code == 0, result.output
     assert not (tmp_path / "a").exists()
-    assert "파일 67개" in result.output
+    assert "파일 77개" in result.output
     assert "│       └── commit-msg *" in result.output  # 트리, 실행 파일 표시
 
 
