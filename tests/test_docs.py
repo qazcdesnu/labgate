@@ -125,3 +125,21 @@ def test_guide_pages_follow_format():
         assert "- 언제:" in text and "- 결과:" in text, page.name
         for heading in ("## 순서", "## 확인", "## 잘 안 될 때"):
             assert heading in text, (page.name, heading)
+
+
+def test_every_project_script_documented():
+    """생성되는 scripts/ 의 모든 스크립트가 명령 개요와 project-scripts.md에 있다."""
+    overview = (DOCS / "README.md").read_text(encoding="utf-8")
+    scripts_doc = (DOCS / "project-scripts.md").read_text(encoding="utf-8")
+    for script in (STATIC / "scripts").iterdir():
+        assert f"`scripts/{script.name}`" in overview, script.name
+        assert f"\n## scripts/{script.name}\n" in scripts_doc, script.name
+
+
+def test_hook_trailers_documented():
+    """hook이 형식을 검사하는 trailer가 project-scripts.md의 Trailer 표에 모두 있다."""
+    hook = (STATIC / "dot-lg" / "hooks" / "commit-msg").read_text(encoding="utf-8")
+    checked = set(re.findall(r'check_list\(trailers, "([A-Za-z-]+)"', hook))
+    text = (DOCS / "project-scripts.md").read_text(encoding="utf-8")
+    for key in checked:
+        assert f"| `{key}` |" in text, key

@@ -1,11 +1,12 @@
 # 프로젝트 스크립트
 
-`lg init`이 생성된 프로젝트 안에 만드는 실행 파일 세 개. 모두 Python 표준 라이브러리(Python 3.9 이상)와 `bash`만 쓰므로 `lg`가 설치되어 있지 않아도 동작한다.
+`lg init`이 생성된 프로젝트 안에 만드는 실행 파일 네 개. 모두 Python 표준 라이브러리(Python 3.9 이상)와 `bash`만 쓰므로 `lg`가 설치되어 있지 않아도 동작한다.
 
 | 파일 | 누가 실행 | 하는 일 |
 |---|---|---|
 | `scripts/agent-commit` | 에이전트 | 에이전트 신원으로 커밋 |
-| `scripts/session-check` | 에이전트 (Claude Code는 hook이 자동) | 커밋되지 않은 사람의 변경을 알리고 기록 |
+| `scripts/session-check` | 에이전트 (Claude Code는 hook이 자동) | 세션 시작 점검: 이미 커밋된 초안 정리, 대기 상태·반영되지 않은 사람 커밋·사람의 변경 알림 |
+| `scripts/apply-human-commits` | 에이전트 | 사람 커밋의 결과를 상태 필드에 반영 (커밋하지 않음) |
 | `.lg/hooks/commit-msg` | Git (모든 커밋) | 커밋 규약과 작성자 신원 검사 |
 
 ## scripts/agent-commit
@@ -35,17 +36,60 @@ Task: M0-T0"
 scripts/session-check
 ```
 
-| 상태 | 출력 | `.lg/pending/HUMAN_FILES` |
-|---|---|---|
-| Git 저장소가 아님 | 없음 | 건드리지 않음 |
-| 사람 커밋 대기 상태 (`.lg/pending/COMMIT_MSG` 있음) | 대기 상태 안내 | 건드리지 않음 |
-| 커밋되지 않은 변경 있음 | 사람의 변경 안내와 파일 목록(20개까지, 넘으면 "외 N개") | 전체 목록을 한 줄에 하나씩 기록 |
-| 깨끗함 | 없음 | 있으면 지움 |
+순서대로 확인하고, 해당하는 것을 모두 출력한다.
+
+| # | 확인 | 출력 | 파일 |
+|---|---|---|---|
+| 1 | Git 저장소가 아님 | 없음 (끝) | — |
+| 2 | 초안(`.lg/pending/COMMIT_MSG`)과 같은 메시지의 사람 커밋이 최근 20개 안에 있음 (`lg commit` 대신 `git commit -F`로 확정한 경우) | 초안을 정리했다는 안내 | 초안 삭제 |
+| 3 | 초안이 남아 있음 (사람 커밋 대기 상태) | 대기 상태 안내 (4, 5는 하지 않음) | — |
+| 4 | 반영되지 않은 사람 커밋 (`scripts/apply-human-commits --check`) | 커밋 목록과 절차 `gate-apply` 안내 | — |
+| 5 | 커밋되지 않은 변경 | 사람의 변경 안내와 파일 목록(20개까지, 넘으면 "외 N개") | `.lg/pending/HUMAN_FILES`에 전체 목록. 깨끗하면 이 파일을 지움 |
 
 - 세션 시작 시점의 커밋되지 않은 변경은 사람의 변경으로 본다. 이전 세션은 깨끗한 작업 트리로 끝나기 때문이다.
 - 새 파일도 포함하고, 이름 바꾸기는 새 경로와 이전 경로를 모두 기록한다.
 - 종료 코드는 항상 0이다(알리기만 한다).
 - `lg draft`를 경로 없이 실행하면 이 목록의 경로만 stage한다.
+
+## scripts/apply-human-commits
+
+사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. **커밋하지 않는다.** 에이전트가 결과를 확인하고 `scripts/agent-commit`으로 커밋한다. 에이전트는 상태 필드를 손으로 고치지 않고 이 도구만 쓴다(절차 `gate-apply`).
+
+```
+scripts/apply-human-commits            # 가장 오래된 반영되지 않은 사람 커밋 하나를 반영
+scripts/apply-human-commits --check    # 바꾸지 않고 반영되지 않은 사람 커밋을 나열
+```
+
+**반영 대상:** 사람이 작성한 `gate`, `respond`, `decide` 커밋과 `Approve`가 있는 `plan` 커밋 중, 뒤의 어떤 커밋의 `Applies` trailer에도 그 해시가 없는 것. 오래된 것부터 하나씩 반영한다.
+
+| 사람 커밋 | 반영 |
+|---|---|
+| `plan` + `Approve: T` | 카드 T `draft → approved` |
+| `gate` + `Verdict` | 카드 `in-review → closed / revise / redirected`, 게이트 이력 한 줄, review를 `reviews/closed/`로 |
+| `gate` + `Next: T` | 카드 T `draft → approved` |
+| `gate` approve, Task가 `<M>-T0` | 마일스톤 `planned → active` |
+| `gate` + `Milestone-Verdict` | 마일스톤 `active → closed` |
+| `respond` | 카드 `blocked → in-progress`, esc review를 `reviews/closed/`로 |
+| `decide`, 또는 `gate` + `Decisions` | 결정 `proposed / discussing → confirmed`, 결정 목록의 상태와 확정 커밋 |
+
+- 카드가 바뀌면 마일스톤 문서의 "Task 목록" 표에서 그 행의 상태도 바꾼다.
+- 이미 목표 상태이거나 그 뒤의 상태면 건너뛴다(예: 승인됐는데 이미 `in-progress`). 이때도 반영 커밋은 만들어 `Applies`를 남긴다.
+- 한 커밋의 전이 중 하나라도 할 수 없으면(카드가 출발 상태가 아님, 문서 없음) **아무것도 바꾸지 않는다.**
+- 반영하면 바뀐 내용, 커밋 명령, 메시지(`.lg/pending/APPLY_MSG`)를 낸다. 메시지는 `log(<scope>): apply <타입> <해시>` + `Applies: <해시>`이고, `respond`면 `task(<Task>): resume after response <해시>`다.
+
+```bash
+scripts/apply-human-commits
+# 반영: 70ea21b plan(M0-T0): approve initial task
+#   plan/milestones/M0/tasks/M0-T0.md: status draft → approved
+#   plan/milestones/M0/milestone.md: M0-T0 행 → approved
+# 커밋: scripts/agent-commit -F .lg/pending/APPLY_MSG -- plan/milestones/M0/milestone.md plan/milestones/M0/tasks/M0-T0.md  (STATUS.md를 고쳤으면 함께)
+```
+
+| 종료 코드 | 의미 |
+|---|---|
+| 0 | 반영함, 또는 반영할 것이 없음 (`--check`는 항상 0) |
+| 1 | 반영할 수 없음. 아무것도 바꾸지 않았다. 에이전트는 멈추고 사람에게 묻는다 |
+| 2 | Git 저장소가 아님, 사람 커밋 대기 상태, 반영할 파일에 커밋되지 않은 변경 |
 
 ## .lg/hooks/commit-msg
 
@@ -84,6 +128,7 @@ trailer는 모두 마지막 한 문단에 쓴다. `Co-Authored-By` 같은 줄을
 | `Next` | 선택 (`gate`) | `M<n>-T<n>` 또는 `none` |
 | `Milestone-Verdict` | 선택 (`gate`) | `go` \| `nogo` \| `conditional` |
 | `Approve` | 선택 (`plan`) | `M<n>-T<n>` 쉼표 목록 |
+| `Applies` | 선택 (반영 커밋) | 상태 필드에 반영한 사람 커밋의 해시(16진수 7–40자) 쉼표 목록 |
 | `Refs`, `Review` | 선택 | 자유 형식 |
 
 ### 검사하지 않는 것

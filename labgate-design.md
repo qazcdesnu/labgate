@@ -1,6 +1,6 @@
-# `labgate` CLI 설계 문서 — v2 (`lg init`, `lg commit`, `lg draft`)
+# `labgate` CLI 설계 문서 — v3 (`lg init`, `lg commit`, `lg draft`, 프로젝트 도구)
 
-> 문서 버전: 2.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 3.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`, `lg commit`, `lg draft`를 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B·C에 있다.
 
 변경 이력은 `git log -- labgate-design.md`로 본다.
@@ -12,10 +12,10 @@
 - §1–3: 무엇을 왜 만드는가 (범위, 확정된 결정, 용어)
 - §4–13: `lg init`을 어떻게 만드는가 (명령, 설정, 생성 결과, 모듈, Git, hook, 오류)
 - §14–15: 무엇으로 완성을 판단하는가 (테스트, 수용 기준), 이후 확장
-- §16–20: v2 — 규칙 구조와 절차 문서, 사람의 변경, `lg commit`, `lg draft`, 한계
+- §16–21: v2·v3 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`
 - 부록 A: 프로젝트 루트·계획·참고문헌 등 생성 문서 템플릿 원문
 - 부록 B: `specs/` 문서 원문 (완성 사양 5종, stub 생성 규칙, 양식, 절차 문서 8종)
-- 부록 C: commit-msg hook, agent-commit, session-check 스크립트 원문
+- 부록 C: commit-msg hook, agent-commit, session-check, apply-human-commits 스크립트 원문
 
 표기: `<...>`는 값 자리, `{{ ... }}`/`{% ... %}`는 Jinja2 템플릿 문법이다.
 
@@ -168,7 +168,7 @@ Typer는 명령이 하나뿐인 앱에서 하위 명령을 생략해 버리므�
 
 ```
 ✓ 프로젝트를 만들었습니다: /home/me/research/cap-partition
-  파일 77개, 초기 커밋 3f2a1c9 (init)
+  파일 78개, 초기 커밋 3f2a1c9 (init)
 
 다음 단계:
   1. notes/ 에 기존 계획 자료를 넣으세요.
@@ -218,7 +218,7 @@ milestones:
   ```yaml
   generated:
     labgate_version: "0.2.1"
-    spec_version: 2
+    spec_version: 3
     created: "2026-10-01"
   ```
 
@@ -356,6 +356,7 @@ milestones:
 ├── notes/.gitkeep
 ├── scripts/
 │   ├── agent-commit                   # 실행 권한
+│   ├── apply-human-commits            # 실행 권한
 │   └── session-check                  # 실행 권한
 └── env/.gitkeep
 ```
@@ -379,6 +380,7 @@ milestones:
 | `.lg/hooks/commit-msg` | S | C.1 | | 755 |
 | `scripts/agent-commit` | S | C.2 | | 755 |
 | `scripts/session-check` | S | C.3 | | 755 |
+| `scripts/apply-human-commits` | S | C.4 | | 755 |
 | `plan/roadmap.md` | J | A.9 | | 644 |
 | `plan/milestones/<M>/milestone.md` | J | A.10 | 마일스톤마다 | 644 |
 | `plan/milestones/<M>/tasks/<M>-T0.md` | J | A.11 | 마일스톤마다 | 644 |
@@ -401,7 +403,7 @@ milestones:
 
 모든 텍스트 파일은 UTF-8, LF 줄바꿈, 파일 끝 개행 1개로 쓴다.
 
-생성 파일 수 (마일스톤 N개): `claude_code=true`이면 `59 + 6N`, `false`이면 `51 + 6N` (`CLAUDE.md`와 `.claude/` 8개 제외). 마일스톤 하나당 6개는 `milestone.md`, `<M>-T0.md`, `task-map.md`, `.gitkeep` 3개(`experiments/<M>/`, `results/<M>/figures/`, `results/<M>/tables/`)다. 예: N=3, Claude Code 사용 → 77개.
+생성 파일 수 (마일스톤 N개): `claude_code=true`이면 `60 + 6N`, `false`이면 `52 + 6N` (`CLAUDE.md`와 `.claude/` 8개 제외). 마일스톤 하나당 6개는 `milestone.md`, `<M>-T0.md`, `task-map.md`, `.gitkeep` 3개(`experiments/<M>/`, `results/<M>/figures/`, `results/<M>/tables/`)다. 예: N=3, Claude Code 사용 → 78개.
 
 ---
 
@@ -414,7 +416,7 @@ labgate/
 ├── pyproject.toml
 ├── README.md
 ├── src/labgate/
-│   ├── __init__.py          # __version__, SPEC_VERSION = 2
+│   ├── __init__.py          # __version__, SPEC_VERSION = 3
 │   ├── cli.py               # Typer 앱, init·commit·draft 명령, 종료 코드 처리
 │   ├── project.py           # 생성된 프로젝트 찾기, spec_version·신원 확인, hook 규칙 읽기 (§18.3)
 │   ├── errors.py            # 종료 코드, Fail 예외
@@ -685,8 +687,10 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 |---|---|
 | 프로젝트 확인 | Git 저장소 밖 → 2, `.lg/project.yaml` 없음 → 2, spec_version 1 → 2, hook에 계약 이름 없음 → 2, hook의 타입 상수를 바꾸면 `lg`의 판단도 바뀜 |
 | `lg draft` | 경로 지정 stage(다른 변경은 stage 안 됨), 현재 폴더 기준 경로, Task로 scope 결정, 만든 초안이 `git commit -F`로 hook 통과, 경로 생략 시 `HUMAN_FILES`의 경로만 stage(세션 도중 변경 제외), `HUMAN_FILES` 없이 경로 생략 → 2, 검사 실패(에이전트 전용 타입, `Actor` trailer, 형식, 필수 trailer, 헤더 길이) → 2이고 아무것도 바뀌지 않음, 오류를 모아 출력, 대기 상태 → 3, 대상 밖 stage → 2, stage할 것 없음 → 3 |
+| hook (v3) | `Applies` 형식(16진수 7–40자) 검사 |
 | `lg commit` | TTY 아님 → 2, 미등록 신원 → 2, `--pending`인데 초안 없음 → 3, `plan` 작성 시 `Approve` 선택(하나면 scope도 그 Task), `--allow-empty`로 빈 승인 커밋, 초안 모드 성공(작성자 사람, 초안 삭제, `HUMAN_FILES` 갱신), `gate` 승인 → `gate/<Task>`·`milestone/<M>-<v>` tag, `--no-tag`, 취소 → 130(초안·stage 유지), 편집 후 재검사, `core.editor` 사용, Git 거부 → 4(초안 유지), 작성 모드(파일 선택·타입·요약), 변경 없음 → 3 |
-| `session-check` | 깨끗하면 출력 없음·`HUMAN_FILES` 삭제, 목록 출력과 기록(이름 바꾸기는 두 경로), 20개 초과 생략 표시, 대기 상태에서는 기록하지 않음, Git 저장소 밖에서 조용히 0. 매트릭스에서 Python 3.9로도 실행 |
+| `apply-human-commits` | `plan`+`Approve` 반영(카드, 마일스톤 표), 이미 만족한 상태는 건너뛰고 빈 반영 커밋, `gate` approve+`Next`+`Milestone-Verdict`+`Decisions`(카드·다음 카드·마일스톤 착수와 종료·결정·결정 목록·review 이동·게이트 이력), revise, respond(`task` 메시지, esc review), 반영 불가 → 1이고 아무것도 바뀌지 않음, 대기 상태·반영 대상 파일의 미커밋 변경 → 2, 오래된 것부터 하나씩, `Applies` 접두어 판별, `--check`. Python 3.9로도 실행 |
+| `session-check` | 이미 커밋된 초안 정리, 반영되지 않은 사람 커밋 알림, 깨끗하면 출력 없음·`HUMAN_FILES` 삭제, 목록 출력과 기록(이름 바꾸기는 두 경로), 20개 초과 생략 표시, 대기 상태에서는 기록하지 않음, Git 저장소 밖에서 조용히 0. 매트릭스에서 Python 3.9로도 실행 |
 
 ### 14.2 통합 테스트
 
@@ -866,7 +870,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 
 1. 현재 폴더에서 `git rev-parse --show-toplevel`. 실패하면 "Git 저장소가 아닙니다".
 2. `<root>/.lg/project.yaml`이 없으면 "labgate 프로젝트가 아닙니다".
-3. `generated.spec_version`이 2가 아니면 오류. 1이면 "labgate 0.1로 만든 프로젝트입니다(spec_version 1). git commit을 직접 쓰세요."
+3. `generated.spec_version`이 지원 범위(2, 3)가 아니면 오류. spec_version 2와 3은 커밋 규약(타입·trailer)이 같으므로 둘 다 지원한다. 1이면 "labgate 0.1로 만든 프로젝트입니다(spec_version 1). git commit을 직접 쓰세요."
 4. `.lg/identities.json`을 읽는다.
 5. `.lg/hooks/commit-msg`를 `runpy.run_path(path, run_name="labgate_hook")`로 읽어 `HUMAN_TYPES`, `AGENT_TYPES`, `COMMON_TYPES`, `TASK_REQUIRED`, `SOURCE_REQUIRED`, `MAX_HEADER`, `HEADER_RE`, `TASK_ID_RE`, `DECISION_ID_RE`, `parse`, `check`를 가져온다. 하나라도 없으면 "hook이 spec_version 2 형식이 아닙니다".
 
@@ -1677,7 +1681,7 @@ updated: {{ today }}
 ---
 id: conventions
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # 공통 규칙
@@ -1723,7 +1727,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 2) |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 3) |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -1777,7 +1781,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ---
 id: workflow
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # 워크플로우
@@ -1904,7 +1908,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ---
 id: git-commit
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # 커밋 규약
@@ -2074,7 +2078,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 ---
 id: task-card
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # Task 카드 사양
@@ -2093,7 +2097,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `2` |
+| `spec_version` | ✓ | `3` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |
@@ -2151,7 +2155,7 @@ status: complete
 ---
 id: review
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -2174,7 +2178,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `2` |
+| `spec_version` | ✓ | `3` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -2320,7 +2324,7 @@ status: stub
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 2
+spec_version: 3
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft
@@ -2381,7 +2385,7 @@ updated: <YYYY-MM-DD>
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 2
+spec_version: 3
 kind: <gate|escalation>
 task: <Task>
 status: open
@@ -2441,7 +2445,7 @@ updated: <YYYY-MM-DD>
 ---
 id: session-start
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 세션 시작
 
@@ -2473,7 +2477,7 @@ spec_version: 2
 ---
 id: session-close
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 세션 종료
 
@@ -2502,7 +2506,7 @@ spec_version: 2
 ---
 id: commit-prep
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 사람 커밋 준비
 
@@ -2543,7 +2547,7 @@ spec_version: 2
 ---
 id: task-start
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # Task 착수
 
@@ -2570,7 +2574,7 @@ spec_version: 2
 ---
 id: task-gate
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 게이트 요청
 
@@ -2597,7 +2601,7 @@ spec_version: 2
 ---
 id: escalate
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 에스컬레이션
 
@@ -2623,7 +2627,7 @@ spec_version: 2
 ---
 id: gate-conversation
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 대화 경로 판정
 
@@ -2661,7 +2665,7 @@ spec_version: 2
 ---
 id: gate-apply
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 사람 커밋의 반영
 
@@ -2704,7 +2708,7 @@ spec_version: 2
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 2).
+"""labgate commit-msg hook (spec_version 3).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -2728,6 +2732,7 @@ HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summ
 TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
 TASK_ID_RE = re.compile(r"^M\d+-T\d+$")
 DECISION_ID_RE = re.compile(r"^D\d+\.\d+$")
+HASH_RE = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_HEADER = 72
 SCISSORS = "# ------------------------ >8 ------------------------"
 
@@ -2902,6 +2907,7 @@ def check(text, check_author=True):
         errors.append("decide 커밋에는 Decisions trailer가 필요합니다.")
     check_list(trailers, "Decisions", DECISION_ID_RE, errors)
     check_list(trailers, "Approve", TASK_ID_RE, errors)
+    check_list(trailers, "Applies", HASH_RE, errors)
     return errors
 
 
@@ -2978,27 +2984,33 @@ exec git commit "$@"
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 2).
+"""labgate 세션 시작 점검 (spec_version 3).
 
-커밋되지 않은 변경을 사람의 변경으로 알리고 .lg/pending/HUMAN_FILES에 기록한다.
+1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
+2. 사람 커밋 대기 상태를 알린다.
+3. 상태 필드에 반영되지 않은 사람 커밋을 알린다 (scripts/apply-human-commits --check).
+4. 커밋되지 않은 변경을 사람의 변경으로 알리고 .lg/pending/HUMAN_FILES에 기록한다.
 표준 라이브러리만 사용한다. 출력은 에이전트의 맥락에 들어간다. 종료 코드는 항상 0이다.
 """
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PENDING = ROOT / ".lg" / "pending"
+APPLY = ROOT / "scripts" / "apply-human-commits"
 MAX_LIST = 20
+RECENT = 20
+
+
+def git(*args):
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout
 
 
 def changed_paths():
     """커밋되지 않은 변경의 경로 (새 파일 포함, 이름 바꾸기는 이전 경로도)."""
-    out = subprocess.run(
-        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
-    ).stdout
-    entries = out.split("\0")
+    entries = git("status", "--porcelain=v1", "-z", "--untracked-files=all").split("\0")
     paths = set()
     i = 0
     while i < len(entries):
@@ -3015,35 +3027,439 @@ def changed_paths():
     return sorted(paths)
 
 
+def normalize(message):
+    return "\n".join(line.rstrip() for line in message.strip().splitlines())
+
+
+def committed_draft():
+    """초안과 같은 메시지의 최근 사람 커밋 해시 (없으면 None)."""
+    try:
+        ids = json.loads((ROOT / ".lg" / "identities.json").read_text(encoding="utf-8"))
+        humans = {h["email"].lower() for h in ids.get("humans", [])}
+        draft = normalize((PENDING / "COMMIT_MSG").read_text(encoding="utf-8"))
+        out = git("log", f"-{RECENT}", "--format=%H%x00%ae%x00%B%x1e")
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError):
+        return None
+    for record in out.split("\x1e"):
+        record = record.lstrip("\n")
+        if not record:
+            continue
+        sha, email, body = record.split("\x00", 2)
+        if email.strip().lower() in humans and normalize(body) == draft:
+            return sha
+    return None
+
+
+def unreflected():
+    if not APPLY.is_file():
+        return []
+    result = subprocess.run([sys.executable, str(APPLY), "--check"], cwd=ROOT, capture_output=True, text=True)
+    return [line for line in result.stdout.splitlines() if line.strip()] if result.returncode == 0 else []
+
+
 def main():
     try:
         paths = changed_paths()
     except (OSError, subprocess.CalledProcessError):
         return 0  # Git 저장소가 아니거나 git이 없다
-    if (PENDING / "COMMIT_MSG").exists():
-        print(
+    lines = []
+
+    draft = PENDING / "COMMIT_MSG"
+    if draft.exists():
+        sha = committed_draft()
+        if sha:
+            draft.unlink()
+            lines.append(f"[labgate] 사람이 이미 커밋한 초안을 정리했습니다 ({sha[:7]}).")
+    if draft.exists():
+        lines.append(
             "[labgate] 사람 커밋 대기 상태입니다 (.lg/pending/COMMIT_MSG). 커밋하지 말고 사람에게 "
             "터미널에서 lg commit 실행을 요청하세요 (specs/procedures/session-start.md 2단계)."
         )
+        print("\n".join(lines))
         return 0
+
+    pending = unreflected()
+    if pending:
+        lines.append(
+            "[labgate] 상태 필드에 반영되지 않은 사람 커밋이 있습니다. 작업 전에 "
+            "specs/procedures/gate-apply.md 를 따르세요."
+        )
+        lines += [f"  - {p}" for p in pending]
+
     record = PENDING / "HUMAN_FILES"
-    if not paths:
-        if record.exists():
-            record.unlink()
-        return 0
-    PENDING.mkdir(parents=True, exist_ok=True)
-    record.write_text("".join(p + "\n" for p in paths), encoding="utf-8")
-    lines = [
-        "[labgate] 커밋되지 않은 사람의 변경이 있습니다. 작업 전에 "
-        "specs/procedures/commit-prep.md 를 따르세요."
-    ]
-    lines += [f"  - {p}" for p in paths[:MAX_LIST]]
-    if len(paths) > MAX_LIST:
-        lines.append(f"  … 외 {len(paths) - MAX_LIST}개 (전체 목록: .lg/pending/HUMAN_FILES)")
-    print("\n".join(lines))
+    if paths:
+        PENDING.mkdir(parents=True, exist_ok=True)
+        record.write_text("".join(p + "\n" for p in paths), encoding="utf-8")
+        lines.append(
+            "[labgate] 커밋되지 않은 사람의 변경이 있습니다. 작업 전에 "
+            "specs/procedures/commit-prep.md 를 따르세요."
+        )
+        lines += [f"  - {p}" for p in paths[:MAX_LIST]]
+        if len(paths) > MAX_LIST:
+            lines.append(f"  … 외 {len(paths) - MAX_LIST}개 (전체 목록: .lg/pending/HUMAN_FILES)")
+    elif record.exists():
+        record.unlink()
+
+    if lines:
+        print("\n".join(lines))
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+~~~~
+
+## C.4 `scripts/apply-human-commits` (S, 755)
+
+사양은 §21.
+
+~~~~python
+#!/usr/bin/env python3
+"""labgate 사람 커밋 반영 도구 (spec_version 3).
+
+사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
+표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
+
+사용법:
+  scripts/apply-human-commits            가장 오래된 반영되지 않은 사람 커밋 하나를 반영
+  scripts/apply-human-commits --check    바꾸지 않고 반영되지 않은 사람 커밋을 나열
+"""
+import datetime
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PENDING = ROOT / ".lg" / "pending"
+APPLY_MSG = PENDING / "APPLY_MSG"
+
+HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summary>\S.*)$")
+TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
+TASK_ID_RE = re.compile(r"^M(\d+)-T\d+$")
+HASH_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+TASK_STATES = {"draft", "approved", "in-progress", "blocked", "in-review", "closed", "revise", "redirected"}
+NOT_DRAFT = TASK_STATES - {"draft"}
+NOT_BLOCKED = TASK_STATES - {"blocked"}
+VERDICT = {  # Verdict → (목표 상태, 이미 만족)
+    "approve": ("closed", {"closed"}),
+    "revise": ("revise", {"revise", "in-progress", "blocked"}),
+    "redirect": ("redirected", {"redirected"}),
+}
+
+
+class CannotApply(Exception):
+    """반영할 수 없음 (종료 코드 1). 아무것도 바꾸지 않는다."""
+
+
+class UsageError(Exception):
+    """환경 오류 (종료 코드 2)."""
+
+
+def git(*args):
+    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise UsageError(f"git {' '.join(args)} 실패: {(result.stderr or result.stdout).strip()}")
+    return result.stdout
+
+
+def parse(message):
+    """(타입, scope, 헤더, trailer dict)."""
+    lines = [l.rstrip() for l in message.strip().splitlines()]
+    header = lines[0] if lines else ""
+    block = []
+    for line in reversed(lines[1:]):
+        if not line:
+            break
+        block.append(line)
+    trailers = {}
+    if block and all(TRAILER_RE.match(l) for l in block):
+        for line in block:
+            m = TRAILER_RE.match(line)
+            trailers[m.group("key")] = m.group("value").strip()
+    m = HEADER_RE.match(header)
+    return (m.group("type") if m else None), (m.group("scope") if m else None), header, trailers
+
+
+def split_list(value):
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
+
+
+def human_emails():
+    try:
+        data = json.loads((ROOT / ".lg" / "identities.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise UsageError(f".lg/identities.json을 읽지 못했습니다: {e}")
+    return {h["email"].lower() for h in data.get("humans", [])}
+
+
+def commits():
+    """오래된 순서의 (해시, 작성자 이메일, 메시지)."""
+    out = git("log", "--reverse", "--format=%H%x00%ae%x00%B%x1e")
+    result = []
+    for record in out.split("\x1e"):
+        record = record.lstrip("\n")
+        if record:
+            sha, email, body = record.split("\x00", 2)
+            result.append((sha, email.strip().lower(), body))
+    return result
+
+
+def is_target(ctype, trailers):
+    return ctype in ("gate", "respond", "decide") or (ctype == "plan" and "Approve" in trailers)
+
+
+def unreflected():
+    """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer)] (오래된 순)."""
+    humans = human_emails()
+    history = commits()
+    applied = set()
+    for _, _, body in history:
+        applied.update(h.lower() for h in split_list(parse(body)[3].get("Applies")) if HASH_RE.match(h.lower()))
+    pending = []
+    for sha, email, body in history:
+        ctype, scope, header, trailers = parse(body)
+        if email in humans and is_target(ctype, trailers) and not any(sha.startswith(p) for p in applied):
+            pending.append((sha, ctype, scope, header, trailers))
+    return pending
+
+
+# ---------------------------------------------------------------- 문서 편집 계획
+
+
+class Plan:
+    """바꾸기 전에 모든 변경을 계산한다. 하나라도 반영할 수 없으면 아무것도 쓰지 않는다."""
+
+    def __init__(self, today):
+        self.today = today
+        self.texts = {}   # 최종 경로 → 새 내용
+        self.moves = []   # (원래 경로, 새 경로)
+        self.log = []
+
+    def read(self, rel):
+        if rel in self.texts:
+            return self.texts[rel]
+        path = ROOT / rel
+        if not path.is_file():
+            raise CannotApply(f"파일이 없습니다: {rel}")
+        return path.read_text(encoding="utf-8")
+
+    def status(self, rel):
+        return frontmatter_value(self.read(rel), "status", rel)
+
+    def transition(self, rel, label, sources, target, satisfied):
+        current = self.status(rel)
+        if current == target or current in satisfied:
+            self.log.append(f"  {rel}: status {current} (이미 반영됨)")
+            return False
+        if current not in sources:
+            raise CannotApply(
+                f"{rel}: status가 {current}라서 {label}을(를) {target}(으)로 반영할 수 없습니다 "
+                f"(출발 상태: {', '.join(sorted(sources))})"
+            )
+        text = set_frontmatter(self.read(rel), "status", target, rel)
+        if frontmatter_value(text, "updated", rel, required=False) is not None:
+            text = set_frontmatter(text, "updated", self.today, rel)
+        self.texts[rel] = text
+        self.log.append(f"  {rel}: status {current} → {target}")
+        return True
+
+    def task(self, task_id, label, sources, target, satisfied):
+        m = TASK_ID_RE.match(task_id or "")
+        if not m:
+            raise CannotApply(f"Task ID 형식이 아닙니다: {task_id}")
+        milestone = f"M{m.group(1)}"
+        card = f"plan/milestones/{milestone}/tasks/{task_id}.md"
+        if self.transition(card, label, sources, target, satisfied):
+            self.table_row(f"plan/milestones/{milestone}/milestone.md", task_id, 2, target)
+        return card
+
+    def table_row(self, rel, row_id, column, value, column2=None, value2=None):
+        """표에서 첫 칸이 row_id인 행의 칸을 바꾼다. 행이 없으면 그대로 둔다."""
+        if not (ROOT / rel).is_file() and rel not in self.texts:
+            return
+        lines = self.read(rel).split("\n")
+        for i, line in enumerate(lines):
+            cells = line.split("|")
+            if len(cells) > column + 1 and cells[1].strip().strip("`") == row_id:
+                cells[column + 1] = f" {value} "
+                if column2 is not None and len(cells) > column2 + 1:
+                    cells[column2 + 1] = f" {value2} "
+                lines[i] = "|".join(cells)
+                self.texts[rel] = "\n".join(lines)
+                self.log.append(f"  {rel}: {row_id} 행 → {value}")
+                return
+
+    def history(self, card, line, short):
+        text = self.read(card)
+        if short in text:
+            return
+        heading = "\n## 게이트 이력\n"
+        if heading not in text:
+            text = text.rstrip("\n") + "\n" + heading + "\n"
+        start = text.index(heading) + len(heading)
+        end = text.find("\n## ", start)
+        end = len(text) if end == -1 else end
+        body = text[start:end].rstrip("\n")
+        text = text[:start] + (body + "\n" if body.strip() else "\n") + line + "\n" + text[end:]
+        self.texts[card] = text
+        self.log.append(f"  {card}: 게이트 이력에 추가")
+
+    def close_review(self, task_id, kind, review_id):
+        if review_id:
+            name = f"{review_id}.md"
+        else:
+            found = sorted((ROOT / "reviews" / "open").glob(f"{task_id}_{kind}-*.md"))
+            if not found:
+                return
+            name = found[-1].name
+        src, dst = f"reviews/open/{name}", f"reviews/closed/{name}"
+        if (ROOT / dst).exists() or not (ROOT / src).exists():
+            return
+        self.texts[dst] = set_frontmatter(self.read(src), "status", "closed", src)
+        self.moves.append((src, dst))
+        self.log.append(f"  {src} → {dst} (status closed)")
+
+    def decision(self, decision_id, short):
+        found = sorted((ROOT / "decisions").glob(f"{decision_id}_*.md"))
+        if len(found) != 1:
+            raise CannotApply(f"결정 문서를 하나로 찾지 못했습니다: decisions/{decision_id}_*.md ({len(found)}개)")
+        rel = found[0].relative_to(ROOT).as_posix()
+        if self.transition(rel, f"결정 {decision_id}", {"proposed", "discussing"}, "confirmed", set()):
+            self.table_row("decisions/index.md", decision_id, 2, "confirmed", 4, f"`{short}`")
+
+    def paths(self):
+        return sorted({p for move in self.moves for p in move} | set(self.texts))
+
+    def write(self):
+        for src, dst in self.moves:
+            (ROOT / dst).parent.mkdir(parents=True, exist_ok=True)
+            git("mv", src, dst)
+        for rel, text in self.texts.items():
+            write_lf(ROOT / rel, text)
+
+
+def write_lf(path, text):
+    """LF 줄바꿈으로 쓴다. Path.write_text의 newline 인자는 Python 3.10부터라 open을 쓴다."""
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
+def frontmatter_bounds(text, rel):
+    if not text.startswith("---\n") or "\n---\n" not in text[3:]:
+        raise CannotApply(f"frontmatter가 없습니다: {rel}")
+    return 4, text.index("\n---\n", 3) + 1
+
+
+def frontmatter_value(text, key, rel, required=True):
+    start, end = frontmatter_bounds(text, rel)
+    m = re.search(rf"^{key}:[ \t]*(.*)$", text[start:end], re.M)
+    if not m:
+        if required:
+            raise CannotApply(f"frontmatter에 {key}가 없습니다: {rel}")
+        return None
+    return m.group(1).strip().strip('"')
+
+
+def set_frontmatter(text, key, value, rel):
+    start, end = frontmatter_bounds(text, rel)
+    head, n = re.subn(rf"^{key}:.*$", f"{key}: {value}", text[start:end], count=1, flags=re.M)
+    if not n:
+        raise CannotApply(f"frontmatter에 {key}가 없습니다: {rel}")
+    return text[:start] + head + text[end:]
+
+
+def plan_for(sha, ctype, scope, trailers, today):
+    """한 사람 커밋의 반영 계획과 커밋 메시지."""
+    plan = Plan(today)
+    short = sha[:7]
+    task = trailers.get("Task")
+    if ctype == "plan":
+        approve = split_list(trailers.get("Approve"))
+        for t in approve:
+            plan.task(t, f"승인 {t}", {"draft"}, "approved", NOT_DRAFT)
+        msg_scope = approve[0] if approve else scope
+    elif ctype == "gate":
+        verdict = trailers.get("Verdict")
+        if verdict not in VERDICT:
+            raise CannotApply(f"Verdict가 없거나 알 수 없습니다: {verdict}")
+        target, satisfied = VERDICT[verdict]
+        card = plan.task(task, f"판정 {verdict}", {"in-review"}, target, satisfied)
+        nxt = trailers.get("Next")
+        if nxt and nxt != "none":
+            plan.task(nxt, f"다음 task {nxt}", {"draft"}, "approved", NOT_DRAFT)
+        milestone = f"M{TASK_ID_RE.match(task).group(1)}"
+        mfile = f"plan/milestones/{milestone}/milestone.md"
+        if verdict == "approve" and task.endswith("-T0"):
+            plan.transition(mfile, f"마일스톤 {milestone} 착수", {"planned"}, "active", {"active", "closed"})
+        if trailers.get("Milestone-Verdict"):
+            plan.transition(mfile, f"마일스톤 {milestone} 판정", {"active"}, "closed", {"closed"})
+        for d in split_list(trailers.get("Decisions")):
+            plan.decision(d, short)
+        plan.history(card, f"- {today} gate {verdict} `{short}`", short)
+        plan.close_review(task, "gate", trailers.get("Review"))
+        msg_scope = task
+    elif ctype == "respond":
+        card = plan.task(task, "에스컬레이션 응답", {"blocked"}, "in-progress", NOT_BLOCKED)
+        plan.history(card, f"- {today} respond `{short}`", short)
+        plan.close_review(task, "esc", trailers.get("Review"))
+        msg_scope = task
+    else:  # decide
+        decisions = split_list(trailers.get("Decisions"))
+        for d in decisions:
+            plan.decision(d, short)
+        msg_scope = decisions[0] if decisions else scope
+
+    if ctype == "respond":
+        message = f"task({task}): resume after response {short}\n\nActor: agent\nTask: {task}\nApplies: {short}\n"
+    else:
+        head = f"log({msg_scope}): apply {ctype} {short}" if msg_scope else f"log: apply {ctype} {short}"
+        message = f"{head}\n\nActor: agent\nApplies: {short}\n"
+    return plan, message
+
+
+def main(argv):
+    try:
+        pending = unreflected()
+        if "--check" in argv:
+            for sha, _, _, header, _ in pending:
+                print(f"{sha[:7]} {header}")
+            return 0
+        if not pending:
+            print("반영할 사람 커밋이 없습니다.")
+            return 0
+        if (PENDING / "COMMIT_MSG").exists():
+            raise UsageError("사람 커밋 대기 상태입니다(.lg/pending/COMMIT_MSG). 사람이 lg commit 으로 확정한 뒤 실행하세요.")
+        sha, ctype, scope, header, trailers = pending[0]
+        plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat())
+        paths = plan.paths()
+        dirty = git("status", "--porcelain", "--", *paths).strip() if paths else ""
+        if dirty:
+            raise UsageError("반영할 파일에 커밋되지 않은 변경이 있습니다. 먼저 커밋하세요:\n" + dirty)
+        plan.write()
+        PENDING.mkdir(parents=True, exist_ok=True)
+        write_lf(APPLY_MSG, message)
+    except CannotApply as e:
+        print(f"✗ 반영할 수 없습니다: {e}\n  아무것도 바꾸지 않았습니다. 사람에게 보고하세요.", file=sys.stderr)
+        return 1
+    except UsageError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+
+    print(f"반영: {sha[:7]} {header}")
+    print("\n".join(plan.log) if plan.log else "  (바뀐 파일 없음)")
+    if paths:
+        print("커밋: scripts/agent-commit -F .lg/pending/APPLY_MSG -- " + " ".join(paths)
+              + "  (STATUS.md를 고쳤으면 함께)")
+    else:
+        print("커밋: scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG  (STATUS.md를 고쳤으면 -- STATUS.md)")
+    if len(pending) > 1:
+        print(f"남은 사람 커밋 {len(pending) - 1}개: 커밋한 뒤 다시 실행하세요.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
 ~~~~

@@ -46,11 +46,12 @@ Approve: M0-T0"
 git log -1 --format='%an | %s%n%(trailers:only,unfold)'   # 나 | plan(M0-T0): … / Actor: human / Approve: M0-T0
 ```
 
-에이전트가 착수한 뒤에는:
+에이전트가 반영하고 착수한 뒤에는:
 
 ```bash
 grep -m1 '^status:' plan/milestones/M0/tasks/M0-T0.md   # in-progress
-git log -1 --format='%an | %s%n%(trailers:only,unfold)'  # research-agent | task(M0-T0): start … / Refs: <승인 커밋>
+git log --format='%an | %s' -2                            # research-agent | task(M0-T0): start …
+                                                          # research-agent | log(M0-T0): apply plan <승인 커밋>
 ```
 
 ## 잘 안 될 때
@@ -63,10 +64,10 @@ git log -1 --format='%an | %s%n%(trailers:only,unfold)'  # research-agent | task
 
 ## 에이전트는 무엇을 하나
 
-에이전트는 승인 커밋을 보고 카드 상태를 `draft → approved`로 반영한 뒤, `task-start`에서 `in-progress`로 바꾸고 `task(<Task>): start` 커밋을 남긴다. 실사용에서는 승인 커밋의 해시를 `Refs:` trailer와 카드 진행 메모에 남겼다.
+세션이 시작되면 `scripts/session-check`가 반영되지 않은 승인 커밋을 알리고, 에이전트가 절차 `gate-apply`로 `scripts/apply-human-commits`를 실행해 카드를 `draft → approved`로 반영한다. 반영 커밋은 `log(M0-T0): apply plan <해시>` + `Applies: <해시>`다. 그 뒤 `task-start`에서 `in-progress`로 바꾸고 `task(<Task>): start` 커밋을 남긴다.
 
-**v0.2 기준 주의:** 이 반영은 에이전트 절차에 명시되어 있지 않고 원칙("사실의 원본은 커밋, 상태 필드는 에이전트가 반영")에 기대고 있다. 에이전트가 반영하지 않고 멈추면 이렇게 알린다.
+**spec_version 2 프로젝트:** 반영 도구가 없어서 이 반영은 에이전트의 판단에 기댄다. 에이전트가 반영하지 않고 멈추면 이렇게 알린다.
 
 > M0-T0은 `<승인 커밋 해시>`의 plan 커밋(Approve: M0-T0)으로 승인됐어. 커밋이 우선이니 카드 status를 반영하고 /task-start M0-T0 진행해.
 
-v0.3에서 이 반영을 도구(`apply-human-commits`)로 만든다. 또는 승인 커밋에서 카드의 `status`를 직접 `approved`로 바꿔 함께 커밋하면 이 문제가 생기지 않는다.
+또는 승인 커밋에서 카드의 `status`를 직접 `approved`로 바꿔 함께 커밋하면 이 문제가 생기지 않는다. 규칙 문서를 v0.3으로 갱신하는 법은 [upgrade.md](upgrade.md).

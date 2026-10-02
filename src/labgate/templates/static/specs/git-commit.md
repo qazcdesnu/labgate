@@ -1,7 +1,7 @@
 ---
 id: git-commit
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # 커밋 규약

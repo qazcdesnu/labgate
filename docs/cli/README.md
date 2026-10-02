@@ -11,7 +11,8 @@ labgate가 제공하는 명령과, 생성된 프로젝트에 들어 있는 스�
 | `lg draft` | 에이전트 (사람도 가능) | 사람 커밋의 초안을 준비할 때 | stage, `.lg/pending/COMMIT_MSG` | [lg-draft.md](lg-draft.md) |
 | `lg --version` | 누구나 | 설치된 버전 확인 | — | 아래 |
 | `scripts/agent-commit` | 에이전트 | 에이전트의 모든 커밋 | 에이전트 신원 커밋 | [project-scripts.md](project-scripts.md#scriptsagent-commit) |
-| `scripts/session-check` | 에이전트 (Claude Code는 hook이 자동 실행) | 세션 시작 | `.lg/pending/HUMAN_FILES` | [project-scripts.md](project-scripts.md#scriptssession-check) |
+| `scripts/session-check` | 에이전트 (Claude Code는 hook이 자동 실행) | 세션 시작 | `.lg/pending/HUMAN_FILES`, 이미 커밋된 초안 정리 | [project-scripts.md](project-scripts.md#scriptssession-check) |
+| `scripts/apply-human-commits` | 에이전트 | 사람 커밋(승인·판정·응답·결정)을 반영할 때 | 카드·결정·마일스톤 상태, review 닫기, `.lg/pending/APPLY_MSG` (커밋은 하지 않음) | [project-scripts.md](project-scripts.md#scriptsapply-human-commits) |
 | `.lg/hooks/commit-msg` | Git이 자동 실행 | 모든 커밋 | — (검사만) | [project-scripts.md](project-scripts.md#lghookscommit-msg) |
 
 `lg`는 labgate를 설치하면 생기는 명령이고, `scripts/`와 `.lg/hooks/`는 `lg init`이 프로젝트 안에 만드는 파일이다. 프로젝트 안의 스크립트는 Python 표준 라이브러리만 쓰므로 `lg` 없이도 동작한다.

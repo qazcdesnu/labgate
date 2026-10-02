@@ -13,7 +13,8 @@
 | 프로젝트 spec_version | 만든 버전 | `lg commit`, `lg draft` |
 |---|---|---|
 | 1 | labgate 0.1.x | 쓸 수 없다. `git commit`으로 커밋한다 |
-| 2 | labgate 0.2.x | 쓸 수 있다 |
+| 2 | labgate 0.2.x | 쓸 수 있다 (사람 커밋 반영 도구 없음) |
+| 3 | labgate 0.3.x | 쓸 수 있다. 규칙 우선순위, 특별 규칙, `scripts/apply-human-commits` |
 
 ## 순서
 
@@ -39,6 +40,8 @@ lg --version
    diff -r /tmp/fresh/specs specs; diff /tmp/fresh/AGENTS.md AGENTS.md   # 무엇이 바뀌었는지
    ```
    옮길 대상은 규칙과 도구다: `AGENTS.md`, `CLAUDE.md`, `.claude/`, `specs/`(사양·절차), `scripts/`, `.lg/hooks/`, 그리고 `.lg/project.yaml`의 `spec_version`. 연구 내용(`plan/`, `decisions/`, `references/`, `results/` 등)은 옮기지 않는다. 버전마다 필요한 작업은 릴리즈 노트에 적는다.
+
+   spec_version 2 → 3에서 바뀌는 파일: `AGENTS.md`, `specs/workflow.md`, `specs/git-commit.md`, `specs/procedures/*.md`, 사양 문서들의 `spec_version`, `scripts/session-check`, 새 `scripts/apply-human-commits`, `.lg/hooks/commit-msg`(`Applies` 검사). 갱신하기 전의 사람 커밋은 이미 반영된 상태면 도구가 건너뛰고 `Applies`만 남기므로 그대로 둬도 된다.
 
 ## 확인
 

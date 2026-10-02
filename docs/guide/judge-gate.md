@@ -56,7 +56,7 @@ git log -1 --format='%an | %s%n%(trailers:only,unfold)'   # 나 | gate(M0-T0): �
 git tag --points-at HEAD                                   # 승인이면 gate/M0-T0
 ```
 
-다음 세션에서 에이전트가 반영한 뒤에는 요청서가 `reviews/closed/`로 옮겨지고 카드가 `closed`, 다음 카드가 `approved`가 된다.
+다음 세션에서(또는 커밋했다고 알리면) 에이전트가 `scripts/apply-human-commits`로 반영한다. 요청서가 `reviews/closed/`로 옮겨지고, 카드가 `closed`, 다음 카드가 `approved`가 되며, 반영 커밋에 `Applies: <판정 커밋>`이 남는다. 대화로 판정한 경우도 같다.
 
 ## 잘 안 될 때
 

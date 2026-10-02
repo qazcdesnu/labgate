@@ -54,4 +54,4 @@ git log -1 --format='%an | %s%n%(trailers:only,unfold)'
 ## 에이전트는 무엇을 하나
 
 - 변경 제안: `notes/`에 쓰고 `propose` 커밋 (규칙: 생성된 `AGENTS.md`)
-- 결정 확정의 반영: 결정 문서 상태를 커밋에 맞춘다. **v0.2 기준 주의:** `decide` 커밋의 반영은 절차 `gate-apply`에 명시되어 있지 않다. 확정할 때 결정 문서의 `status`를 직접 `confirmed`로 바꿔 함께 커밋하면 확실하다. v0.3에서 도구로 고친다.
+- 결정 확정의 반영: `scripts/apply-human-commits`가 결정 문서를 `confirmed`로, 결정 목록의 상태와 확정 커밋 칸을 바꾼다(절차 `gate-apply`). spec_version 2 프로젝트에서는 확정할 때 결정 문서의 `status`를 직접 `confirmed`로 바꿔 함께 커밋하면 확실하다.

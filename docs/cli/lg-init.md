@@ -80,7 +80,7 @@ milestones:                                      # 1–20개. ID(M0, M1 …)는 
 
 ## 읽고 쓰는 것
 
-- 쓰는 것: 프로젝트 폴더 아래 파일 전부. 개수는 Claude Code를 쓰면 `59 + 6N`, 쓰지 않으면 `51 + 6N`이다(N = 마일스톤 수).
+- 쓰는 것: 프로젝트 폴더 아래 파일 전부. 개수는 Claude Code를 쓰면 `60 + 6N`, 쓰지 않으면 `52 + 6N`이다(N = 마일스톤 수).
 - Git: `.git/` 생성, 저장소 로컬 설정 3개(`user.name`, `user.email`, `core.hooksPath`), 커밋 1개.
 - 읽는 것: 설정 파일, (대화형이면) `git config --global user.name`, `user.email`.
 

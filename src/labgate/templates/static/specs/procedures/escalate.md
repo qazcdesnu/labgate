@@ -1,7 +1,7 @@
 ---
 id: escalate
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 에스컬레이션
 

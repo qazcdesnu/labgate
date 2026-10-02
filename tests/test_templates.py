@@ -173,7 +173,7 @@ def test_milestone_tables_list_every_milestone(rendered):
 
 
 def test_static_files_readable():
-    assert len(STATIC) == 26
+    assert len(STATIC) == 27
     for path in STATIC:
         text = read_static(path)
         assert text.endswith("\n") and not text.endswith("\n\n"), path
