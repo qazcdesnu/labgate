@@ -4,6 +4,8 @@
 
 설계: [labgate-design.md](labgate-design.md)
 
+명령 설명서: [docs/cli/](docs/cli/README.md) — `lg init`, `lg commit`, `lg draft`와 생성된 프로젝트의 스크립트
+
 사용 시나리오: [Coconut을 읽고 CODI를 시작하는 연구자](docs/scenarios/codi.md) — 전통 방식과의 비교, Claude Code와의 시너지·충돌 점검
 
 ## 설치

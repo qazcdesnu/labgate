@@ -895,7 +895,7 @@ lg draft --type T --summary TEXT [--scope S] [--body TEXT] [--trailer KEY=VALUE 
 
 ### 19.3 종료 코드
 
-0 성공, 1 예기치 못한 오류, 2 사용법·검사 오류, 3 대기 상태 또는 stage할 것 없음, 4 Git 오류.
+0 성공, 1 예기치 못한 오류, 2 사용법·검사 오류, 3 대기 상태 또는 stage할 것 없음, 4 Git 오류, 130 중단(Ctrl-C).
 
 ---
 
