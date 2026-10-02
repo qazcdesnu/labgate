@@ -50,7 +50,8 @@ class Project:
                               capture_output=True, text=True)
 
     def markdown(self):
-        return [p for p in self.root.rglob("*.md") if ".git" not in p.relative_to(self.root).parts]
+        # .git을 훑지 않는다: 커밋 직후 Git의 백그라운드 정리(auto maintenance)가 .git/objects를 바꾼다
+        return [self.root / p for p in self.git("ls-files", "*.md").splitlines()]
 
 
 def approve_command(output):
