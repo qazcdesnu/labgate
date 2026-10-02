@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 
 HUMAN_TYPES = {"gate", "decide", "plan", "spec", "respond"}
-AGENT_TYPES = {"task", "exp", "run", "result", "ref", "propose", "review", "log"}
-COMMON_TYPES = {"init", "chore"}
+AGENT_TYPES = {"task", "propose", "review"}
+COMMON_TYPES = {"exp", "run", "result", "ref", "log", "init", "chore"}
 ALL_TYPES = HUMAN_TYPES | AGENT_TYPES | COMMON_TYPES
 
 TASK_REQUIRED = {"gate", "respond", "task", "run", "result", "review"}
@@ -164,7 +164,7 @@ def main():
         if ctype in HUMAN_TYPES and actor != "human":
             errors.append(f"'{ctype}'는 사람 전용 타입입니다.")
         if ctype in AGENT_TYPES and actor != "agent":
-            errors.append(f"'{ctype}'는 에이전트 타입입니다.")
+            errors.append(f"'{ctype}'는 에이전트 전용 타입입니다.")
         check_identity(actor, errors)
 
     task = trailers.get("Task")

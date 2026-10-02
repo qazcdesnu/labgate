@@ -46,6 +46,8 @@
 | 브랜치 | `main` 하나의 선형 이력. task 브랜치 없음. 게이트 지점은 tag(`gate/<Task>`, `milestone/<M>-<verdict>`)로 표시. Claude Code 워크트리(`worktree-<name>` 브랜치)는 **실험 격리용**으로만 쓰고 `main`에 병합·cherry-pick하지 않는다. 채택할 결과는 `main`에서 다시 커밋한다 |
 | 승인 단위 | task = 승인 게이트 사이의 작업 단위. 게이트 1회가 "현재 task 판정 + 다음 task 승인"을 함께 처리 |
 | 사람/에이전트 구분 | (1) 커밋 작성자 신원 분리, (2) 사람 전용 커밋 타입. hook으로 둘의 일치를 강제 |
+| 커밋 타입 분류 | 판정·확정은 사람 전용(`gate`, `decide`, `plan`, `spec`, `respond`), 에이전트가 사람에게 요청하는 흐름은 에이전트 전용(`task`, `review`, `propose`). 작업 내용(`exp`, `run`, `result`, `ref`, `log`)은 공통이다. 사람도 코드·문서를 직접 고치므로, 누가 했는지는 타입이 아니라 작성자 신원과 `Actor`로 구분한다 |
+| 사람의 미커밋 변경 | 에이전트는 자기가 바꾼 파일만 경로를 지정해 stage한다. 세션 시작 때 이미 있던 변경은 사람의 것으로 보고 stage·커밋·되돌리기를 하지 않는다. 사람이 요청하면 stage와 메시지 초안(`.lg/pending/COMMIT_MSG`)까지 준비하고, 커밋은 사람이 한다 |
 | 대화로 전달된 판정 | 에이전트는 변경을 stage하고 커밋 메시지 초안만 작성. 커밋은 사람이 실행 |
 | 참고문헌 원본 | 전부 Git에 포함 (비공개 저장소 전제). `references/library/`에 ID 파일명으로 한 번만 저장 |
 | 사양 작성 순서 | `conventions`, `workflow`, `git-commit`, `task-card`, `review` 5종은 완성본으로 생성. 나머지 11종은 stub으로 생성 후 M0 진행 중 보완 |
@@ -545,8 +547,8 @@ Key: value                        ← trailer 블록 = 메시지의 마지막 �
 | 분류 | 타입 | 허용 Actor |
 |---|---|---|
 | 사람 전용 | `gate`, `decide`, `plan`, `spec`, `respond` | `human` |
-| 에이전트 | `task`, `exp`, `run`, `result`, `ref`, `propose`, `review`, `log` | `agent` |
-| 공통 | `init`, `chore` | 둘 다 |
+| 에이전트 전용 | `task`, `review`, `propose` | `agent` |
+| 공통 | `exp`, `run`, `result`, `ref`, `log`, `init`, `chore` | 둘 다 |
 
 ### 11.3 Trailer
 
@@ -588,7 +590,7 @@ Key: value                        ← trailer 블록 = 메시지의 마지막 �
 
 ## 12. `scripts/agent-commit`
 
-원문은 부록 C.2. `identities.json`의 에이전트 이름·이메일을 `GIT_AUTHOR_*`, `GIT_COMMITTER_*` 환경 변수로 설정하고 `git commit "$@"`을 실행한다. 에이전트는 `git commit` 대신 이것만 사용한다. Claude Code에서는 `.claude/settings.json`이 `git commit` 직접 실행을 막는다. `--author` 옵션은 막는다. hook은 `--author`로 지정한 작성자도 그대로 인식하므로(Git이 hook 실행 시 `GIT_AUTHOR_*`를 내보냄) 판별 자체는 문제가 없다. 막는 이유는 에이전트가 `--author`로 사람 이메일을 넣으면 사람 전용 타입 커밋을 만들 수 있기 때문이다. 이 스크립트는 작성자를 항상 에이전트로 고정한다.
+원문은 부록 C.2. `identities.json`의 에이전트 이름·이메일을 `GIT_AUTHOR_*`, `GIT_COMMITTER_*` 환경 변수로 설정하고 `git commit "$@"`을 실행한다. 에이전트는 `git commit` 대신 이것만 사용한다. Claude Code에서는 `.claude/settings.json`이 `git commit` 직접 실행을 막는다. `--author` 옵션은 막는다. hook은 `--author`로 지정한 작성자도 그대로 인식하므로(Git이 hook 실행 시 `GIT_AUTHOR_*`를 내보냄) 판별 자체는 문제가 없다. 막는 이유는 에이전트가 `--author`로 사람 이메일을 넣으면 사람 전용 타입 커밋을 만들 수 있기 때문이다. 이 스크립트는 작성자를 항상 에이전트로 고정한다. `-a`(`--all`)도 막는다. 추적 중인 모든 변경을 커밋하므로 사람의 미커밋 변경이 에이전트 커밋에 섞이기 때문이다. 묶인 짧은 옵션(`-am`, `-nm`)도 한 글자씩 검사하되, 값을 받는 옵션(`-m`, `-F`, `-C`, `-c`, `-t`) 뒤의 글자와 그 값은 검사하지 않는다.
 
 ---
 
@@ -620,6 +622,9 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 | a | `task(M1-T2): start signal validation` + `Actor: agent`, `Task: M1-T2` | 통과 |
 | a | `gate(M1-T2): approve` + `Actor: agent` … | 실패 (사람 전용 타입) |
 | a | `task(M1-T2): x` + `Actor: human`, `Task: M1-T2` | 실패 (Actor 불일치) |
+| h | `review(M1-T2): request gate` + `Actor: human`, `Task: M1-T2` | 실패 (에이전트 전용 타입) |
+| h | `exp: fix data loader` + `Actor: human` | 통과 (공통 타입) |
+| h | `result(M1-T2): add table` + `Actor: human`, `Task: M1-T2` | 통과 (공통 타입) |
 | h | `gate(M1-T2): approve, next M1-T3` + `Actor: human`, `Task: M1-T2`, `Verdict: approve`, `Source: document`, `Next: M1-T3` | 통과 |
 | h | 위에서 `Source` 누락 | 실패 |
 | h | 위에서 `Verdict: ok` | 실패 |
@@ -699,6 +704,7 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 - `STATUS.md`의 "사람 판단 대기"를 확인하고 `reviews/open/`의 요청에 응답한다.
 - 판정과 확정은 사람 신원의 커밋으로 남긴다. 사람 전용 커밋 타입: `gate`, `decide`, `plan`, `spec`, `respond` ([specs/git-commit.md](specs/git-commit.md)).
 - 게이트를 통과시키면 tag를 남긴다: `git tag gate/<Task>`.
+- 코드·문서를 직접 고쳤다면 사람 신원으로 커밋한다(`exp`, `result` 등 공통 타입 사용 가능). 에이전트에게 메시지 초안을 부탁할 수 있지만 커밋은 직접 한다 ([specs/workflow.md](specs/workflow.md) §4.1).
 
 ## 저장소를 새로 클론했을 때
 
@@ -793,38 +799,41 @@ updated: {{ today }}
 ## 세션 시작 절차
 
 1. `.lg/pending/COMMIT_MSG`가 있으면 사람 커밋 대기 상태다. workflow.md §6.2의 "사람 커밋 대기 상태"를 따른다.
-2. `STATUS.md`를 읽는다.
-3. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다. 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 종료한다.
-4. `reviews/`에서 이 task와 관련해 사람이 응답한 문서(`status: answered`)가 있는지 확인하고, 있으면 먼저 반영한다.
-5. 카드에 연결된 결정(`decisions/`)과 `references/<M>/task-map.md`를 읽는다.
-6. `logs/`의 최근 일지 1–2개를 읽는다.
-7. 이번 세션에 쓸 문서 유형의 사양(`specs/doc-types/`)을 읽는다.
+2. `git status`로 커밋되지 않은 변경을 확인한다. 있으면 사람의 변경으로 보고 파일 목록을 기억해 둔다 (workflow.md §4.1).
+3. `STATUS.md`를 읽는다.
+4. 현재 task 카드(`plan/milestones/<M>/tasks/<Task>.md`)를 읽는다. 상태가 `approved`, `in-progress`, `revise` 중 하나가 아니면 작업하지 않고 STATUS에 이유를 적은 뒤 종료한다.
+5. `reviews/`에서 이 task와 관련해 사람이 응답한 문서(`status: answered`)가 있는지 확인하고, 있으면 먼저 반영한다.
+6. 카드에 연결된 결정(`decisions/`)과 `references/<M>/task-map.md`를 읽는다.
+7. `logs/`의 최근 일지 1–2개를 읽는다.
+8. 이번 세션에 쓸 문서 유형의 사양(`specs/doc-types/`)을 읽는다.
 
 ## 반드시 지킬 규칙
 
 1. 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
 2. 커밋은 `scripts/agent-commit`으로만 한다. `git commit`을 직접 실행하지 않는다. `--no-verify`, `--author`를 쓰지 않는다. trailer(`Actor` 등)는 메시지의 **마지막 한 문단**에 모두 쓰고, 그 뒤에 다른 문단(서명, `Co-Authored-By` 등)을 붙이지 않는다 ([specs/git-commit.md](specs/git-commit.md) §2).
 3. 사람 전용 커밋 타입(`gate`, `decide`, `plan`, `spec`, `respond`)을 쓰지 않는다.
-4. 다음은 하지 않는다. 단, 현재 task 카드의 "범위 › 포함"에 명시된 경우는 예외다.
+4. stage는 이번 세션에서 직접 바꾼 파일만 경로를 지정해서 한다. `git add -A`, `git add .`, `git add -u`, `scripts/agent-commit -a`를 쓰지 않는다. 사람의 변경(세션 시작 때 이미 있던 변경)은 stage·커밋·되돌리기(`git restore`, `git checkout --`, `git stash`)를 하지 않는다. 사람의 변경이 있는 파일을 고쳐야 하면 먼저 사람에게 커밋을 요청한다 (workflow.md §4.1).
+5. 다음은 하지 않는다. 단, 현재 task 카드의 "범위 › 포함"에 명시된 경우는 예외다.
    - task 상태를 `draft → approved`, `in-review → closed | revise | redirected`로 바꾸기 (사람 커밋을 반영하는 경우 제외, workflow.md §6.3)
    - 결정의 상태를 `confirmed`로 바꾸기
    - review 문서의 `## 응답` 섹션 작성 (대화 경로 예외: workflow.md §6.2)
    - `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준 변경 (변경 제안은 `propose` 커밋)
-   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 대화 경로의 커밋 메시지 초안 `.lg/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §6.2)
+   - `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/` 수정 (변경 제안은 `notes/`에 쓰고 `propose` 커밋). 단, 사람 커밋의 메시지 초안 `.lg/pending/COMMIT_MSG`는 쓸 수 있다 (workflow.md §4.1, §6.2)
    - tag 생성, 이력 재작성(rebase, 사람 커밋 amend, force push)
    - 브랜치 병합(`git merge`)과 `git cherry-pick`
-5. 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 **실험 격리용**으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 `main`에 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
-6. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
-7. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
-8. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
-9. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
+6. 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 **실험 격리용**으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 `main`에 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
+7. task 범위 밖의 작업이 필요하거나, 결과가 미확정 결정에 크게 좌우되거나, 자원 예산을 넘어야 하면 멈추고 에스컬레이션한다 (workflow.md §7).
+8. 실험 실행은 task 카드의 자원 예산 안에서만 한다.
+9. 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
+10. 사실과 추측을 구분해 쓴다. 확인하지 않은 서지 정보나 수치를 지어내지 않는다.
 
 ## 세션 종료 절차
 
 1. 작업 일지 `logs/YYYY-MM-DD_sNN.md`를 쓴다.
 2. task 카드의 "진행 메모"와 `updated`를 갱신한다.
 3. `STATUS.md`를 갱신한다.
-4. `log` 타입으로 커밋해 작업 트리를 깨끗하게 남긴다. 단, 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)이면 커밋하지 않고, 사람이 실행할 명령을 다시 알린 뒤 끝낸다 (workflow.md §6.2).
+4. 이번 세션에서 바꾼 파일만 stage해 `log` 타입으로 커밋하고, 작업 트리를 깨끗하게 남긴다. 단, 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)이면 커밋하지 않고, 사람이 실행할 명령을 다시 알린 뒤 끝낸다 (workflow.md §6.2).
+5. 사람의 변경이 남아 있으면 그대로 두고, 남은 파일 목록을 보고한다 (workflow.md §4.1).
 
 ## 참고
 
@@ -855,7 +864,7 @@ updated: {{ today }}
 
 ## A.5 `.claude/settings.json` (S, claude_code)
 
-규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다.
+규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다.
 
 `attribution`은 Claude Code가 커밋 메시지 끝에 붙이는 공동 작성자 줄(기본 `Co-Authored-By: <모델> <noreply@anthropic.com>`)과 PR 문구를 끈다. 이 줄이 별도 문단으로 붙으면 hook이 마지막 문단에서 `Actor`를 찾지 못해 커밋이 거부된다. 빈 문자열이 문서상 끄는 방법이다. `"attribution": false`는 v2.1.281 미만에서 설정 파일 전체를 건너뛰게 해 deny 규칙까지 사라지므로 쓰지 않는다. 사용 중단된 `includeCoAuthoredBy`도 쓰지 않는다.
 
@@ -870,7 +879,13 @@ updated: {{ today }}
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
       "Bash(git merge *)",
-      "Bash(git cherry-pick *)"
+      "Bash(git cherry-pick *)",
+      "Bash(git add -A *)",
+      "Bash(git add --all *)",
+      "Bash(git add -u *)",
+      "Bash(git add --update *)",
+      "Bash(git add . *)",
+      "Bash(git stash *)"
     ]
   },
   "attribution": {
@@ -1400,7 +1415,7 @@ status: complete
 
 | 주체 | 하는 일 |
 |---|---|
-| 사람 | task 승인, 게이트 판정, 에스컬레이션 응답, 결정 확정, 계획·사양 변경, tag 생성 |
+| 사람 | task 승인, 게이트 판정, 에스컬레이션 응답, 결정 확정, 계획·사양 변경, tag 생성. 필요하면 코드·문서를 직접 고치고 사람 신원으로 커밋 (§4.1) |
 | 에이전트 | 승인된 task 수행, 문서·코드·실행 기록 작성, 결정·계획·사양 변경 제안, 게이트 요청, 에스컬레이션, 사람 커밋의 결과를 문서에 반영 |
 
 ## 3. Task 상태 기계
@@ -1429,7 +1444,21 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 ## 4. 세션 절차
 
-시작·종료 절차는 [AGENTS.md](../AGENTS.md)에 있다. 모든 세션은 깨끗한 작업 트리로 끝난다. 예외는 사람 커밋 대기 상태(§6.2)뿐이다.
+시작·종료 절차는 [AGENTS.md](../AGENTS.md)에 있다. 모든 세션은 깨끗한 작업 트리로 끝난다. 예외는 둘이다: 사람 커밋 대기 상태(§6.2)와 커밋되지 않은 사람의 변경(§4.1).
+
+### 4.1 사람의 변경
+
+사람도 코드·문서를 직접 고칠 수 있다. 사람의 변경은 사람 신원으로 커밋하며, 공통 타입(`exp`, `run`, `result`, `ref`, `log`, `chore`)을 쓸 수 있다 ([git-commit.md](git-commit.md) §3).
+
+에이전트는 사람의 변경을 다음처럼 다룬다.
+
+1. 세션 시작 때 `git status`에 나오는 커밋되지 않은 변경은 사람의 변경으로 본다. 이전 세션은 깨끗하게 끝나기 때문이다. 단, 사람 커밋 대기 상태의 stage된 변경은 §6.2를 따른다. 출처가 불확실하면 사람에게 묻는다.
+2. 사람의 변경은 stage·커밋·되돌리기(`git restore`, `git checkout --`, `git stash`)를 하지 않는다. 자기 변경은 파일 경로를 지정해 stage한다(`git add -A`, `git add .`, `git add -u`, `scripts/agent-commit -a` 금지).
+3. 사람의 변경이 있는 파일을 고쳐야 하면 고치기 전에 사람에게 커밋을 요청한다. 한 파일에 두 주체의 변경이 섞이면 어느 신원으로도 정확히 커밋할 수 없다.
+4. 세션 종료 시 사람의 변경은 그대로 두고, 남은 파일 목록을 보고한다.
+5. 사람이 요청하면 사람 변경의 커밋을 준비한다. 자기 변경을 먼저 커밋해 둔 뒤, 사람의 변경을 stage하고 `Actor: human` 메시지 초안을 `.lg/pending/COMMIT_MSG`에 쓴다. 사람에게 `git diff --cached` 확인과 다음 명령 실행을 요청하고 멈춘다:
+   `git commit -F .lg/pending/COMMIT_MSG && rm .lg/pending/COMMIT_MSG`
+   이후는 §6.2의 "사람 커밋 대기 상태"와 같다.
 
 ## 5. Task 실행
 
@@ -1579,16 +1608,18 @@ Actor: human | agent
 | | `plan` | 로드맵·마일스톤 변경, 첫 task 승인 |
 | | `spec` | 사양·규칙 문서 변경 확정 |
 | | `respond` | 에스컬레이션 응답 |
-| 에이전트 | `task` | task 상태 전이, 카드 갱신 |
-| | `exp` | 실험 코드 |
+| 에이전트 전용 | `task` | task 상태 전이, 카드 갱신 |
+| | `propose` | 결정·계획·사양 변경 제안 |
+| | `review` | 게이트 요청, 에스컬레이션 제출 |
+| 공통 | `exp` | 실험 코드 |
 | | `run` | 실행 기록 |
 | | `result` | 결과 문서, 그림, 표 |
 | | `ref` | 참고문헌 추가, 매핑 문서 |
-| | `propose` | 결정·계획·사양 변경 제안 |
-| | `review` | 게이트 요청, 에스컬레이션 제출 |
 | | `log` | 작업 일지, STATUS, 사람 커밋 반영 |
-| 공통 | `init` | 초기화 |
+| | `init` | 초기화 |
 | | `chore` | 위에 속하지 않는 잡무 |
+
+사람 전용 타입은 판정·확정을, 에이전트 전용 타입은 에이전트가 사람에게 요청하는 흐름을 나타낸다. 공통 타입은 작업 내용을 나타내며, 누가 했는지는 작성자 신원과 `Actor`로 구분한다.
 
 ## 4. Trailer
 
@@ -1654,6 +1685,15 @@ Decisions: D1.3
 Source: document
 ```
 
+사람이 직접 고친 실험 코드:
+
+```
+exp(M1-T2): fix off-by-one in window mask
+
+Actor: human
+Task: M1-T2
+```
+
 첫 task 승인:
 
 ```
@@ -1674,7 +1714,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 
 ## 7. 금지
 
-- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, 사람 전용 타입, tag, 이력 재작성, 브랜치 병합과 cherry-pick (워크트리는 실험 격리용, AGENTS.md).
+- 에이전트: `git commit` 직접 실행, `--no-verify`, `--author`, `-a`, 사람 전용 타입, tag, 이력 재작성, 브랜치 병합과 cherry-pick (워크트리는 실험 격리용, AGENTS.md). 일괄 stage(`git add -A`, `git add .`, `git add -u`)와 사람의 미커밋 변경을 커밋에 넣는 것 ([workflow.md](workflow.md) §4.1).
 - 사람: 이력 재작성 (실수는 `git revert`).
 - `--no-verify`는 사람이 긴급할 때만 쓰고, 다음 커밋 본문에 이유를 남긴다.
 ~~~~
@@ -2061,8 +2101,8 @@ import sys
 from pathlib import Path
 
 HUMAN_TYPES = {"gate", "decide", "plan", "spec", "respond"}
-AGENT_TYPES = {"task", "exp", "run", "result", "ref", "propose", "review", "log"}
-COMMON_TYPES = {"init", "chore"}
+AGENT_TYPES = {"task", "propose", "review"}
+COMMON_TYPES = {"exp", "run", "result", "ref", "log", "init", "chore"}
 ALL_TYPES = HUMAN_TYPES | AGENT_TYPES | COMMON_TYPES
 
 TASK_REQUIRED = {"gate", "respond", "task", "run", "result", "review"}
@@ -2215,7 +2255,7 @@ def main():
         if ctype in HUMAN_TYPES and actor != "human":
             errors.append(f"'{ctype}'는 사람 전용 타입입니다.")
         if ctype in AGENT_TYPES and actor != "agent":
-            errors.append(f"'{ctype}'는 에이전트 타입입니다.")
+            errors.append(f"'{ctype}'는 에이전트 전용 타입입니다.")
         check_identity(actor, errors)
 
     task = trailers.get("Task")
@@ -2259,14 +2299,38 @@ if __name__ == "__main__":
 # 에이전트 신원으로 커밋한다.
 # 사용법: scripts/agent-commit -m "<헤더>" -m "<trailer 블록>"
 #         scripts/agent-commit -F <메시지 파일>
-# 나머지 인자는 git commit에 그대로 전달된다. --author, --no-verify는 쓰지 않는다.
+# 나머지 인자는 git commit에 그대로 전달된다. --author, --no-verify, -a는 쓰지 않는다.
 set -euo pipefail
 
+reject() {
+  echo "agent-commit: '$1' 옵션은 사용할 수 없습니다." >&2
+  exit 2
+}
+
+value_next=0
 for arg in "$@"; do
+  if [ "$value_next" = 1 ]; then
+    value_next=0
+    continue
+  fi
   case "$arg" in
-    --no-verify|-n|--author|--author=*)
-      echo "agent-commit: '$arg' 옵션은 사용할 수 없습니다." >&2
-      exit 2
+    --) break ;;
+    --no-verify|--author|--author=*|--all) reject "$arg" ;;
+    --message|--file|--reuse-message|--reedit-message|--template|--fixup|--squash|--cleanup|--trailer|--date)
+      value_next=1 ;;
+    --*) ;;
+    -?*)
+      rest="${arg#-}"
+      while [ -n "$rest" ]; do
+        c="${rest:0:1}"
+        rest="${rest:1}"
+        case "$c" in
+          a|n) reject "-$c" ;;
+          m|F|C|c|t)
+            [ -z "$rest" ] && value_next=1
+            break ;;
+        esac
+      done
       ;;
   esac
 done
@@ -2286,4 +2350,4 @@ export GIT_COMMITTER_NAME="$NAME" GIT_COMMITTER_EMAIL="$EMAIL"
 exec git commit "$@"
 ~~~~
 
-> 참고: `-n`은 `git commit`에서 `--no-verify`의 짧은 형식이라 함께 막는다. 메시지를 여러 `-m`으로 줄 때 마지막 `-m`이 trailer 블록이 되도록 한다(각 `-m`은 빈 줄로 구분된 문단이 된다).
+> 참고: `-n`은 `git commit`에서 `--no-verify`의 짧은 형식이라 함께 막는다. `-a`는 사람의 미커밋 변경까지 커밋하므로 막는다. 묶인 짧은 옵션(`-am "..."`)도 검사하며, 값을 받는 옵션(`-m`, `-F`, `-C`, `-c`, `-t`)의 값은 검사하지 않는다(메시지가 `-a`로 시작해도 통과). 메시지를 여러 `-m`으로 줄 때 마지막 `-m`이 trailer 블록이 되도록 한다(각 `-m`은 빈 줄로 구분된 문단이 된다).

@@ -8,7 +8,13 @@
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
       "Bash(git merge *)",
-      "Bash(git cherry-pick *)"
+      "Bash(git cherry-pick *)",
+      "Bash(git add -A *)",
+      "Bash(git add --all *)",
+      "Bash(git add -u *)",
+      "Bash(git add --update *)",
+      "Bash(git add . *)",
+      "Bash(git stash *)"
     ]
   },
   "attribution": {

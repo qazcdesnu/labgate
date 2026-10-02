@@ -120,8 +120,23 @@ def test_agent_cannot_use_human_type(repo):
 
 def test_actor_mismatch(repo):
     msg = "task(M1-T2): x\n\nActor: human\nTask: M1-T2\n"
-    assert_fail(repo.commit(msg, AGENT), "'task'는 에이전트 타입입니다.",
+    assert_fail(repo.commit(msg, AGENT), "'task'는 에이전트 전용 타입입니다.",
                 "작성자 신원(agent)과 Actor(human)가 다릅니다.")
+
+
+def test_human_cannot_use_agent_only_type(repo):
+    msg = "review(M1-T2): request gate\n\nActor: human\nTask: M1-T2\n"
+    assert_fail(repo.commit(msg), "'review'는 에이전트 전용 타입입니다.")
+
+
+@pytest.mark.parametrize("msg", [
+    "exp: fix data loader\n\nActor: human\n",
+    "result(M1-T2): add table\n\nActor: human\nTask: M1-T2\n",
+    "ref: add hao2024-coconut\n\nActor: human\n",
+])
+def test_human_can_use_common_work_types(repo, msg):
+    """§11.2: 작업 내용 타입은 공통이다. 사람이 직접 고친 코드·문서도 맞는 타입으로 커밋한다."""
+    assert_pass(repo.commit(msg))
 
 
 def test_human_gate(repo):
@@ -301,3 +316,31 @@ def test_agent_commit_blocks_flags(repo, flag):
     assert result.returncode == 2
     assert f"'{flag}' 옵션은 사용할 수 없습니다" in result.stderr
     assert repo.count() == before
+
+
+@pytest.mark.parametrize("flag", ["-a", "--all", "-am", "-nm"])
+def test_agent_commit_blocks_all_and_bundled_flags(repo, flag):
+    """§12: -a는 사람의 미커밋 변경까지 커밋하므로 막는다. 묶인 짧은 옵션도 검사한다."""
+    (repo.root / "human.txt").write_text("v1\n", encoding="utf-8")
+    repo.git("add", "human.txt")
+    repo.commit("chore: add file\n\nActor: human\n")
+    (repo.root / "human.txt").write_text("v2\n", encoding="utf-8")
+    before = repo.count()
+    args = [flag, "log: x"] if flag.endswith("m") else [flag, "-m", "log: x"]
+    result = agent_commit(repo, *args, "-m", "Actor: agent")
+    assert result.returncode == 2
+    shown = flag[:2] if flag in ("-am", "-nm") else flag
+    assert f"'{shown}' 옵션은 사용할 수 없습니다" in result.stderr
+    assert repo.count() == before
+
+
+@pytest.mark.parametrize("args", [
+    ["-m", "-a is not a flag here", "-m", "Actor: agent"],
+    ["-m-n starts like a flag", "-m", "Actor: agent"],
+    ["--message", "-a value", "-m", "Actor: agent"],
+])
+def test_agent_commit_ignores_option_values(repo, args):
+    """§12: 값을 받는 옵션의 값은 검사하지 않는다."""
+    result = agent_commit(repo, "--allow-empty", *args)
+    # 헤더 형식 오류로 hook이 거부하는 것은 괜찮다. agent-commit이 옵션으로 막지 않았는지만 본다.
+    assert "옵션은 사용할 수 없습니다" not in result.stderr, result.stderr

@@ -19,6 +19,7 @@
 - `STATUS.md`의 "사람 판단 대기"를 확인하고 `reviews/open/`의 요청에 응답한다.
 - 판정과 확정은 사람 신원의 커밋으로 남긴다. 사람 전용 커밋 타입: `gate`, `decide`, `plan`, `spec`, `respond` ([specs/git-commit.md](specs/git-commit.md)).
 - 게이트를 통과시키면 tag를 남긴다: `git tag gate/<Task>`.
+- 코드·문서를 직접 고쳤다면 사람 신원으로 커밋한다(`exp`, `result` 등 공통 타입 사용 가능). 에이전트에게 메시지 초안을 부탁할 수 있지만 커밋은 직접 한다 ([specs/workflow.md](specs/workflow.md) §4.1).
 
 ## 저장소를 새로 클론했을 때
 
