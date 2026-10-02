@@ -64,9 +64,12 @@ def commit(
         show_default=False,
     ),
     no_tag: bool = typer.Option(False, "--no-tag", help="gate 승인이어도 tag를 만들지 않는다."),
+    allow_empty: bool = typer.Option(
+        False, "--allow-empty", help="바뀐 파일 없이 커밋한다 (예: 첫 task 승인 plan 커밋)."
+    ),
 ) -> None:
     """사람 신원으로 커밋한다. 사람이 터미널에서 직접 실행한다."""
-    _guard(lambda: _echo(commit_module.run_commit(pending, no_tag)), interrupted="\n중단했습니다.")
+    _guard(lambda: _echo(commit_module.run_commit(pending, no_tag, allow_empty)), interrupted="\n중단했습니다.")
 
 
 @app.command()
@@ -264,6 +267,7 @@ def success_message(target: Path, config: Config, count: int, commit: Optional[s
             f'       git commit --allow-empty -m "plan({first}): approve initial task" -m "Actor: human',
             f'     Approve: {first}"',
             f"     ({first} 카드의 status 를 approved 로 바꿔 함께 커밋해도 됩니다)",
+            f"     또는 터미널에서 lg commit --allow-empty (타입 plan, Approve {first})",
         ]
     else:
         lines += [
