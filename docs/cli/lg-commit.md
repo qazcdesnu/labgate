@@ -32,6 +32,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 5. 커밋한다. 커밋할 때 hook이 작성자 신원까지 다시 검사한다.
 6. 정리한다: 초안 모드였으면 초안을 지우고, `.lg/pending/HUMAN_FILES`에서 이번에 커밋된 경로를 뺀다.
 7. tag를 만든다: `gate` + `Verdict: approve`면 `gate/<Task>`, `Milestone-Verdict`가 있으면 `milestone/<M>-<verdict>`. `--no-tag`면 만들지 않는다.
+8. 다음 할 일을 안내한다. 에이전트는 세션을 시작할 때 사람 커밋을 자동으로 확인하므로, 알려야 하는 것은 열린 세션이 기다리고 있을 때뿐이다: 초안 모드면 "에이전트가 기다리고 있으면 알리세요", `gate`·`respond`·`decide`·`plan`+`Approve`면 "다음 세션 때 자동 반영, 바로 이어 가려면 알리세요", `spec`이면 "열린 세션이 있으면 새로 시작하세요", 그 밖에는 안내하지 않는다.
 
 자세한 사양: 설계 문서 §18.
 

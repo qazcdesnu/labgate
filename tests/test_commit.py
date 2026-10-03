@@ -400,3 +400,18 @@ def test_session_check_outside_git_is_silent(tmp_path, git_sandbox):
     shutil.copy(commit_module.__file__.replace("commit.py", "templates/static/scripts/session-check"), script)
     result = subprocess.run(["python3", str(script)], cwd=tmp_path, env=git_sandbox, capture_output=True, text=True)
     assert result.returncode == 0 and result.stdout == ""
+
+
+@pytest.mark.parametrize("message, from_draft, expected", [
+    ("exp: a\n\nActor: human\n", True, "에이전트가 기다리고 있으면"),
+    ("gate(M0-T0): approve\n\nActor: human\nTask: M0-T0\nVerdict: approve\nSource: document\n", False, "다음 세션 시작 때"),
+    ("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0\n", False, "다음 세션 시작 때"),
+    ("plan: revise roadmap\n\nActor: human\n", False, None),
+    ("spec: upgrade\n\nActor: human\n", False, "규칙 문서가 바뀌었습니다"),
+    ("exp: a\n\nActor: human\n", False, None),
+])
+def test_next_step_hint(proj, message, from_draft, expected):
+    """§18.2 9: 에이전트에게 알릴 필요는 열린 세션이 기다릴 때뿐이다."""
+    from labgate.project import find_project
+    hint = commit_module.next_step_hint(find_project(proj), message, from_draft)
+    assert (hint is None) if expected is None else (expected in hint)

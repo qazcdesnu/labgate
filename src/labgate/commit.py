@@ -59,8 +59,25 @@ def run_commit(pending: Optional[bool], no_tag: bool, allow_empty: bool = False,
 
     lines = [f"✓ 커밋했습니다: {sha} {message.split(chr(10), 1)[0]}"]
     lines += [f"  tag: {t}" for t in tags]
-    lines.append("  에이전트에게 커밋했다고 알리세요.")
+    hint = next_step_hint(project, message, use_draft)
+    if hint:
+        lines.append(f"  {hint}")
     return "\n".join(lines)
+
+
+REFLECTED_TYPES = ("gate", "respond", "decide")
+
+
+def next_step_hint(project: Project, message: str, from_draft: bool) -> Optional[str]:
+    """커밋 뒤 에이전트와 관련해 사람이 할 일 (설계 문서 §18.2 9). 할 일이 없으면 None."""
+    if from_draft:  # 에이전트가 초안을 만들고 멈춰 기다리는 경우
+        return "에이전트가 기다리고 있으면 '커밋했어'라고 알리세요. 새 세션에서는 자동으로 확인합니다."
+    ctype = project.header_type(message)
+    if ctype in REFLECTED_TYPES or (ctype == "plan" and "Approve" in project.trailers(message)):
+        return "다음 세션 시작 때 에이전트가 자동으로 반영합니다. 열린 세션에서 바로 이어 가려면 알리세요."
+    if ctype == "spec":
+        return "규칙 문서가 바뀌었습니다. 열린 에이전트 세션이 있으면 새로 시작하세요."
+    return None
 
 
 # ---------------------------------------------------------------- 메시지 준비
