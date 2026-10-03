@@ -47,7 +47,8 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 | 3 | scope | 위에서 정해지지 않았을 때. 빈 입력이면 생략 |
 | 4 | Verdict | `gate` |
 | 4 | Source | `gate`, `decide`, `respond` |
-| 4 | Next, Milestone-Verdict | `gate` (둘 다 선택) |
+| 4 | Next | `gate` (선택) |
+| 4 | Milestone-Verdict | `gate`이고 그 마일스톤의 마지막 task일 때만 (Next가 같은 마일스톤이거나, 닫히지 않은 다른 task가 있으면 묻지 않는다) |
 | 4 | Decisions | `decide` |
 | 5 | 요약 한 줄 | 항상. 헤더가 72자를 넘으면 다시 묻는다 |
 

@@ -902,7 +902,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 1. stage된 변경이 없으면 커밋되지 않은 파일 목록을 체크박스로 보여 주고, 고른 경로를 `git add -A -- <경로>`로 stage한다. 아무것도 고르지 않으면 코드 3. 커밋되지 않은 변경도 없으면 코드 3. `--allow-empty`면 이 단계를 건너뛰고 stage된 것만(없으면 빈 커밋) 커밋한다.
 2. 타입: 사람이 쓸 수 있는 타입 (사람 전용을 먼저).
 3. Task: 타입이 `TASK_REQUIRED`면 `plan/milestones/*/tasks/*.md`의 파일 이름 중 Task ID 형식인 것에서 고른다(없으면 입력). scope는 Task와 같게 정한다. `plan`이면 `Approve`(승인할 task)를 같은 목록에서 여러 개 고르게 하고(고르지 않으면 생략), 하나만 골랐으면 scope도 그 Task ID로 정한다. 그 밖의 경우 scope를 선택 입력으로 묻는다.
-4. 타입별 trailer: `SOURCE_REQUIRED`면 `Source`, `gate`면 `Verdict`, 선택 `Next`(Task ID 또는 `none`)와 `Milestone-Verdict`, `decide`면 `Decisions`.
+4. 타입별 trailer: `SOURCE_REQUIRED`면 `Source`, `gate`면 `Verdict`, 선택 `Next`(Task ID 또는 `none`), `decide`면 `Decisions`. `Milestone-Verdict`는 그 task가 마일스톤의 마지막일 때만 묻는다: `Next`가 같은 마일스톤이거나 닫히지(`closed`·`redirected`) 않은 다른 카드가 있으면 묻지 않는다(v0.5.0. 실사용에서 M0-T0 판정 중 `go`를 고를 뻔했다. 카드를 읽지 못하면 묻는다).
 5. 요약 한 줄. 헤더가 `MAX_HEADER`를 넘으면 다시 묻는다.
 6. `Actor: human`을 넣어 메시지를 만든다. 본문은 5단계(확인)의 편집기에서 쓴다.
 

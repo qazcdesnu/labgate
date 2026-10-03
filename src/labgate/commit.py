@@ -10,7 +10,7 @@ from typing import Optional
 
 import typer
 
-from . import gitops, prompts
+from . import gitops, prompts, state
 from .errors import EXIT_ABORT, EXIT_GIT, EXIT_TARGET, EXIT_USAGE, Fail
 from . import verify as verify_module
 from .project import Project, build_message, find_project
@@ -135,9 +135,10 @@ def _compose(project: Project, allow_empty: bool) -> str:
         )
         if nxt:
             trailers.append(("Next", nxt))
-        mv = prompts.select("Milestone-Verdict (마일스톤 마지막 task일 때)", [NONE, "go", "nogo", "conditional"])
-        if mv != NONE:
-            trailers.append(("Milestone-Verdict", mv))
+        if _milestone_may_end(project, task, nxt):
+            mv = prompts.select("Milestone-Verdict (마일스톤 마지막 task일 때)", [NONE, "go", "nogo", "conditional"])
+            if mv != NONE:
+                trailers.append(("Milestone-Verdict", mv))
     if ctype == "decide":
         trailers.append(("Decisions", prompts.text(
             "Decisions (결정 ID, 쉼표로 구분)",
@@ -153,6 +154,18 @@ def _compose(project: Project, allow_empty: bool) -> str:
         else None,
     )
     return build_message(ctype, summary, scope, None, trailers)
+
+
+def _milestone_may_end(project: Project, task: str, nxt: str) -> bool:
+    """§18.4: 마일스톤 판정은 그 마일스톤의 마지막 task일 때만 묻는다. 다음 task가 같은 마일스톤이거나,
+    닫히지(closed·redirected) 않은 다른 task가 있으면 묻지 않는다. 카드를 읽지 못하면 묻는다."""
+    milestone = task.split("-")[0]
+    if nxt and nxt.split("-")[0] == milestone:
+        return False
+    cards = state.cards(project, milestone)
+    if not cards:
+        return True
+    return all(c.id == task or c.status in ("closed", "redirected") for c in cards)
 
 
 def _ask_approve(project: Project) -> list[str]:

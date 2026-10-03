@@ -215,3 +215,24 @@ def test_commit_non_gate_does_not_verify(proj, keys):
     keys(ENTER)
     result = proj.lg("commit")
     assert result.exit_code == 0 and "lg verify" not in result.output
+
+
+def test_compose_gate_skips_milestone_verdict_mid_milestone(proj, keys):
+    """§18.4: 마일스톤의 마지막 task가 아니면 Milestone-Verdict를 묻지 않는다 (실사용: M0-T0에서 go를 고를 뻔함)."""
+    proj.add_card("M0-T1")
+    proj.agent("propose(M0-T0): add card\n\nActor: agent", "plan")
+    proj.write("reviews/open/M0-T0_gate-01.md")
+    # 파일 → gate → M0-T0 → approve → document → Next M0-T1 → (마일스톤 질문 없음) 요약 → 커밋
+    keys(SPACE, ENTER, ENTER, ENTER, ENTER, ENTER, "M0-T1\r", "approve, next M0-T1\r", ENTER)
+    result = lg("commit")
+    assert result.exit_code == 0, result.output
+    assert "Milestone-Verdict" not in proj.trailers() and "Next: M0-T1" in proj.trailers()
+
+
+def test_compose_gate_asks_milestone_verdict_for_last_task(proj, keys):
+    proj.write("reviews/open/M0-T0_gate-01.md")
+    # … Next none → 마일스톤 판정 go → 요약 → 커밋
+    keys(SPACE, ENTER, ENTER, ENTER, ENTER, ENTER, "none\r", DOWN, ENTER, "approve\r", ENTER)
+    result = lg("commit")
+    assert result.exit_code == 0, result.output
+    assert "Milestone-Verdict: go" in proj.trailers()
