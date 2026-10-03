@@ -13,6 +13,7 @@ import typer
 from . import __version__, gitops, prompts
 from . import commit as commit_module  # 명령 함수 commit, draft와 이름이 겹치지 않게
 from . import draft as draft_module
+from . import upgrade as upgrade_module
 from .config import Config, ConfigError, load_config
 from .errors import EXIT_ABORT, EXIT_ERROR, EXIT_GIT, EXIT_OK, EXIT_TARGET, EXIT_USAGE, Fail
 from .gitops import GitError
@@ -88,6 +89,15 @@ def draft(
         lambda: _echo(draft_module.run_draft(ctype, summary, scope, body, trailer or [], paths or [])),
         interrupted="\n중단했습니다.",
     )
+
+
+@app.command()
+def upgrade(
+    dry_run: bool = typer.Option(False, "--dry-run", help="바꿀 것만 보여 주고 아무것도 쓰지 않는다."),
+    force: bool = typer.Option(False, "--force", help="사람이 고친 관리 문서도 새 버전으로 덮어쓴다 (원래 내용은 .lg/pending/upgrade/)."),
+) -> None:
+    """프로젝트를 현재 spec_version으로 올린다. 커밋하지 않는다. 사람이 실행한다."""
+    _guard(lambda: _echo(upgrade_module.run_upgrade(dry_run, force)), interrupted="\n중단했습니다.")
 
 
 def _echo(message: str) -> int:

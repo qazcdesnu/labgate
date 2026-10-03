@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 3).
+"""labgate 세션 시작 점검 (spec_version 4).
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.

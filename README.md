@@ -64,4 +64,10 @@ scripts/test-matrix.sh 3.13     # 특정 버전만
 
 전체 실행에는 생성되는 commit-msg hook과 스크립트(session-check, apply-human-commits)를 Python 3.9로 돌리는 검사도 포함된다 (모두 Python ≥ 3.9 지원).
 
+릴리즈할 때 현재 spec_version이 처음 릴리즈되는 것이면, 그 템플릿의 해시표를 만들어 함께 커밋한다(`lg upgrade`가 쓴다, 설계 문서 §22.4.3). 그 뒤로 그 spec_version의 템플릿은 바꾸지 않는다(테스트가 막는다).
+
+```bash
+scripts/hash-templates.py WORKTREE <spec_version>
+```
+
 GitHub Actions가 push마다 같은 조합을 Linux와 macOS에서 돌린다 (`.github/workflows/test.yml`).

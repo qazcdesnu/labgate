@@ -41,4 +41,4 @@
 | H6 | 커밋하지 않은 사람의 변경 | 세션 시작 때 감지, 작업 전에 정리 요청 | [edit-yourself.md](edit-yourself.md) |
 | H7 | 대화로 전한 판정·결정·응답 | 문서에 반영하고 `lg draft`로 초안, 사람의 `lg commit` 대기 | [judge-gate.md](judge-gate.md) |
 
-H1–H4의 상태 반영은 `scripts/apply-human-commits`가 한다(spec_version 3). 에이전트는 결과를 확인하고 커밋하며, 반영 커밋은 `Applies: <사람 커밋 해시>`로 어떤 사람 커밋을 반영했는지 남긴다. spec_version 2 프로젝트에는 이 도구가 없어서, H1(`plan`의 `Approve`)과 H4(`decide`)의 반영은 에이전트의 판단에 기댄다.
+H1–H4의 상태 반영은 `scripts/apply-human-commits`가 한다(spec_version 3 이상). 에이전트는 결과를 확인하고 커밋하며, 반영 커밋은 `Applies: <사람 커밋 해시>`로 어떤 사람 커밋을 반영했는지 남긴다. spec_version 2 프로젝트에는 이 도구가 없어서, H1(`plan`의 `Approve`)과 H4(`decide`)의 반영은 에이전트의 판단에 기댄다. `lg upgrade`로 올리면 도구가 생긴다([upgrade.md](upgrade.md)).

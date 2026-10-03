@@ -1,6 +1,6 @@
-# `labgate` CLI 설계 문서 — v3 (`lg init`, `lg commit`, `lg draft`, 프로젝트 도구)
+# `labgate` CLI 설계 문서 — v4 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, 프로젝트 도구)
 
-> 문서 버전: 3.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 4.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`, `lg commit`, `lg draft`를 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B·C에 있다.
 
 변경 이력은 `git log -- labgate-design.md`로 본다.
@@ -12,7 +12,7 @@
 - §1–3: 무엇을 왜 만드는가 (범위, 확정된 결정, 용어)
 - §4–13: `lg init`을 어떻게 만드는가 (명령, 설정, 생성 결과, 모듈, Git, hook, 오류)
 - §14–15: 무엇으로 완성을 판단하는가 (테스트, 수용 기준), 이후 확장
-- §16–21: v2·v3 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`
+- §16–22: v2–v4 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`
 - 부록 A: 프로젝트 루트·계획·참고문헌 등 생성 문서 템플릿 원문
 - 부록 B: `specs/` 문서 원문 (완성 사양 5종, stub 생성 규칙, 양식, 절차 문서 8종)
 - 부록 C: commit-msg hook, agent-commit, session-check, apply-human-commits 스크립트 원문
@@ -35,6 +35,7 @@ v2는 초기화된 프로젝트 안에서 쓰는 명령을 더한다. 사람의 
 |---|---|
 | `lg init` (대화형 / 설정 파일) | `lg gate`, `lg status`, `lg validate`, `lg upgrade` |
 | `lg commit`, `lg draft` (§18, §19) | 세션 도중 사람 변경의 자동 감지 (§20) |
+| `lg upgrade` (§22) | spec_version 1 프로젝트의 갱신 |
 | 절차 문서 8종, `scripts/session-check` (§16, §17) | Claude Code 외 도구의 hook 연결 |
 | 폴더·문서 생성, 완성 사양 5종, stub 사양 11종 | 기존 계획서 자동 가져오기 |
 | `commit-msg` hook, `scripts/agent-commit` | 문서 내용 검증 도구 |
@@ -218,7 +219,7 @@ milestones:
   ```yaml
   generated:
     labgate_version: "0.3.0"
-    spec_version: 3
+    spec_version: 4
     created: "2026-10-01"
   ```
 
@@ -416,12 +417,15 @@ labgate/
 ├── pyproject.toml
 ├── README.md
 ├── src/labgate/
-│   ├── __init__.py          # __version__, SPEC_VERSION = 3
+│   ├── __init__.py          # __version__, SPEC_VERSION = 4
 │   ├── cli.py               # Typer 앱, init·commit·draft 명령, 종료 코드 처리
 │   ├── project.py           # 생성된 프로젝트 찾기, spec_version·신원 확인, hook 규칙 읽기 (§18.3)
 │   ├── errors.py            # 종료 코드, Fail 예외
 │   ├── commit.py            # lg commit (§18)
 │   ├── draft.py             # lg draft (§19)
+│   ├── kinds.py             # 생성 파일 분류, 정규화·해시 (§22.3, §22.4)
+│   ├── upgrade.py           # lg upgrade (§22)
+│   ├── hashes/<n>.json      # 릴리즈된 spec_version의 관리 문서 해시표 (§22.4)
 │   ├── config.py            # pydantic 모델, YAML 로드/저장, 정규화
 │   ├── prompts.py           # questionary 대화형 입력
 │   ├── plan.py              # 생성 계획(PlannedFile 목록) 작성
@@ -721,7 +725,6 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 | `lg gate <verdict> <Task>` | review 응답 기록, 카드 상태 변경, 사람 신원 `gate` 커밋, tag 생성을 한 번에. `lg commit`(§18) 위에 만들고, 생기면 `gate` 타입은 `lg gate`로만 받는다 | 상태값·trailer를 사양대로 고정 |
 | `lg status` | frontmatter와 커밋 이력으로 `STATUS.md` 재생성 | 모든 문서에 frontmatter |
 | `lg validate` | 문서를 사양의 검증 규칙으로 검사 | 사양마다 §7 검증 규칙 섹션 유지 |
-| `lg upgrade` | 사양 버전 갱신: 규칙·도구 파일 교체와 모든 문서의 `spec_version` 일괄 갱신(§16.4), v0.1 프로젝트의 1 → 2 포함 | `spec_version` 필드 |
 | `lg doctor` | hooksPath 등 로컬 설정 점검·복구 | `.lg/` 안에 필요한 정보 보관 |
 | 계획서 가져오기 | Markdown 계획서 → roadmap, milestone, decisions | — |
 | 세션 도중 사람 변경 감지 | 에이전트가 편집한 파일 목록을 기록해(PostToolUse hook 등) 그 밖의 변경을 사람의 변경으로 판별 | §20 |
@@ -774,7 +777,7 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 ---
 id: <name>
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # <제목>
 
@@ -801,7 +804,7 @@ spec_version: 3
 - 사양을 올릴 때(예: 2 → 3)는 사람이 규칙·도구 파일과 함께 **프로젝트의 모든 문서의 `spec_version`을 일괄로** 올리고 하나의 `spec` 커밋으로 확정한다. 연구 문서(`plan/`, `decisions/`, `references/`, `STATUS.md` 등)는 내용은 그대로 두고 이 값만 바꾼다. 절차는 [docs/guide/upgrade.md](docs/guide/upgrade.md).
 - 에이전트는 문서를 쓰거나 고칠 때 `spec_version`을 바꾸지 않는다. 생성되는 `specs/conventions.md`의 frontmatter 표에 이 규칙을 둔다(B.2).
 - 초기화 기록은 바꾸지 않는다: `.lg/project.yaml`의 `generated.labgate_version`, `generated.created`, 생성된 `README.md` 맨 아래 줄. `.lg/project.yaml`의 `generated.spec_version`만 올린다.
-- 이 일괄 갱신은 기계적인 일이므로, `lg upgrade`(§15)가 생기면 그 도구가 한다.
+- 이 일괄 갱신은 `lg upgrade`(§22)가 한다. `lg`가 없을 때의 수동 절차는 [docs/guide/upgrade.md](docs/guide/upgrade.md)에 있다.
 
 ---
 
@@ -880,7 +883,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 
 1. 현재 폴더에서 `git rev-parse --show-toplevel`. 실패하면 "Git 저장소가 아닙니다".
 2. `<root>/.lg/project.yaml`이 없으면 "labgate 프로젝트가 아닙니다".
-3. `generated.spec_version`이 지원 범위(2, 3)가 아니면 오류. spec_version 2와 3은 커밋 규약(타입·trailer)이 같으므로 둘 다 지원한다. 1이면 "labgate 0.1로 만든 프로젝트입니다(spec_version 1). git commit을 직접 쓰세요."
+3. `generated.spec_version`이 지원 범위(2–4)가 아니면 오류. spec_version 2–4는 커밋 규약(타입·trailer)이 같으므로 모두 지원한다. 1이면 "labgate 0.1로 만든 프로젝트입니다(spec_version 1). git commit을 직접 쓰세요."
 4. `.lg/identities.json`을 읽는다.
 5. `.lg/hooks/commit-msg`를 `runpy.run_path(path, run_name="labgate_hook")`로 읽어 `HUMAN_TYPES`, `AGENT_TYPES`, `COMMON_TYPES`, `TASK_REQUIRED`, `SOURCE_REQUIRED`, `MAX_HEADER`, `HEADER_RE`, `TASK_ID_RE`, `DECISION_ID_RE`, `parse`, `check`를 가져온다. 하나라도 없으면 "hook이 spec_version 2 형식이 아닙니다".
 
@@ -1029,6 +1032,237 @@ Python 표준 라이브러리만 쓰고 `lg` 없이 동작한다. 저장소 루�
 | 0 | 반영함, 또는 반영할 것이 없음 (`--check`는 항상 0) |
 | 1 | 반영할 수 없음 (카드·결정 문서 없음, 출발 상태가 아님). 아무것도 바꾸지 않았다 |
 | 2 | Git 저장소가 아님, 사람 커밋 대기 상태(G3), 지난 반영이 커밋되지 않음, 커밋되지 않은 변경이 반영 대상 파일에 있음 |
+
+## 22. `lg upgrade` (사양 버전 갱신)
+
+### 22.1 목적
+
+이전 spec_version으로 만든 프로젝트를 현재 labgate의 spec_version으로 올린다. 지금은 사람이 손으로 한다(`docs/guide/upgrade.md`의 수동 절차): 새 버전의 임시 프로젝트를 만들어 규칙·도구 파일을 복사하고, 모든 문서의 `spec_version`을 올리고, `spec` 커밋을 한다. 이 일은 규칙이 정해진 기계적인 일이므로 코드로 만든다([코드 우선 원칙](labgate-design.md) §22.16.2).
+
+손으로 할 때 실제로 생긴 문제가 이 설계의 요구사항이다.
+
+| 실사용에서 생긴 일 | 요구사항 |
+|---|---|
+| 연구 문서의 frontmatter `spec_version`을 갱신 절차가 다루지 않았다 | 모든 문서의 버전 표기를 규칙대로 처리한다 |
+| 템플릿을 직접 복사해 실행 권한이 빠졌다 | 생성 계획(`plan.py`)의 권한을 그대로 쓴다 |
+| 사람이 고쳤을 수 있는 파일을 덮어쓸 위험 | 사람이 고친 관리 문서는 덮어쓰지 않는다 |
+| `dev` 중간 상태를 복사해 같은 spec_version 안에서도 파일이 달랐다 | 같은 spec_version의 생성 파일은 하나로 고정한다 |
+
+### 22.2 버전 형식
+
+#### 22.2.1 정의
+
+| 항목 | 형식 | 의미 | 위치 |
+|---|---|---|---|
+| labgate 버전 | `MAJOR.MINOR.PATCH` (semver) | 도구의 버전 | `lg --version`, `.lg/project.yaml`의 `generated.labgate_version` |
+| spec_version | 양의 정수 | 생성되는 문서 형식과 규칙의 계약 | `.lg/project.yaml`의 `generated.spec_version`, 문서 frontmatter |
+| 문서 frontmatter | 정확히 한 줄 `spec_version: <정수>` (`^spec_version: (\d+)$`) | 그 문서가 따르는 사양 버전 | frontmatter가 있는 모든 `.md` |
+| 갱신 이력 | 목록 | 언제 무엇으로 올렸는지 | `.lg/project.yaml`의 `upgrades` (새 키) |
+
+```yaml
+generated:
+  labgate_version: "0.2.0"      # 만든 버전 (바뀌지 않는다)
+  spec_version: 4               # 현재 사양 버전 (upgrade가 바꾼다)
+  created: "2026-10-02"         # 만든 날 (바뀌지 않는다)
+upgrades:                       # upgrade가 추가한다. 오래된 순
+  - from: 3
+    to: 4
+    labgate_version: "0.4.0"
+    date: "2026-10-04"
+    forced: []                  # --force로 덮어쓴 관리 문서
+```
+
+#### 22.2.2 버전 규칙
+
+1. **spec_version은 마이너 버전에서만 바뀐다.** 패치 버전은 생성되는 파일을 바꾸지 않는다.
+2. **같은 spec_version의 생성 파일은 하나다.** 릴리즈된 spec_version의 템플릿은 다시 바꾸지 않는다. 바꿔야 하면 spec_version을 올린다. 버전별 해시표(§22.4)와 테스트로 강제한다.
+3. **labgate 버전마다 하나의 spec_version을 만든다**(`SPEC_VERSION`). `lg commit`·`lg draft`가 지원하는 범위는 따로 둔다(`SUPPORTED_SPEC_VERSIONS`).
+4. `lg upgrade`는 프로젝트를 `SPEC_VERSION`으로 올린다. 이동 규칙은 한 단계씩 이어 간다(2→3→4).
+
+| labgate | 만드는 spec_version | `lg upgrade`로 올릴 수 있는 출발 버전 |
+|---|---|---|
+| 0.2.x | 2 | — |
+| 0.3.x | 3 | — |
+| 0.4.x | 4 (`lg upgrade` deny, `.gitignore` 관리 구역) | 2, 3 |
+
+### 22.3 파일 분류
+
+생성 계획의 모든 파일에 분류를 붙인다(`PlannedFile.kind`, `plan.py` 한 곳). `lg upgrade`는 분류마다 정해진 일만 한다. 테스트가 모든 생성 파일에 분류가 있는지 확인한다.
+
+| 분류 | 파일 | 해시가 그 버전과 같음 | 다름 | `--force` |
+|---|---|---|---|---|
+| **관리 문서** | `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/*`, `specs/conventions.md`, `specs/workflow.md`, `specs/git-commit.md`, 완성 사양(`task-card`, `review`), `specs/templates/*`, `specs/procedures/*`, `scripts/*`, `.lg/hooks/commit-msg` | 새 버전으로 교체 | **갱신 실패** | 새 버전으로 덮어씀 |
+| **사람이 채우는 관리 문서** | stub 사양 11종, `specs/README.md` | 새 버전으로 교체 | 사람이 채운 것으로 보고 내용 유지, `spec_version`만 갱신 | 덮어쓰지 않음 |
+| **관리 구역** | `.gitignore` | `# labgate:begin` ~ `# labgate:end` 구역만 새 버전으로 바꾸고, 구역 밖의 줄은 그대로 (§22.5.2) | | |
+| **연구 문서** | 위에 없는, Git이 추적하는 모든 `.md` (`plan/`, `decisions/`, `references/`, `reviews/`, `results/`, `logs/`, `STATUS.md`, `FILEMAP.md`, `README.md`, …) | frontmatter `spec_version`만 갱신. 내용은 그대로 | | |
+| **초기화 기록** | `.lg/identities.json`, `.lg/project.yaml`의 `generated.labgate_version`·`created`, `README.md` 맨 아래 줄 | 그대로 | | |
+| **갱신 기록** | `.lg/project.yaml`의 `generated.spec_version`, `upgrades` | 갱신 | | |
+| **기타** | `.gitkeep`, Git이 추적하지 않는 파일 | 무시 | | |
+
+- 새 버전에 새로 생긴 관리 문서는 추가한다. 없어진 관리 문서는 해시가 같으면 지우고, 다르면 갱신 실패로 본다.
+- `FILEMAP.md`는 연구 문서지만, labgate가 만드는 부분(루트 문서 표, 폴더 표)이 두 버전 사이에 바뀌었으면 갱신 출력에 "FILEMAP.md에 반영할 변경"을 안내한다. 반영 여부는 사람이나 에이전트가 정한다.
+
+### 22.4 버전별 해시표
+
+#### 22.4.1 무엇을 두나
+
+릴리즈된 spec_version마다 관리 문서의 해시를 패키지에 둔다: `src/labgate/hashes/<spec_version>.json`. 프로젝트 안에는 아무것도 기록하지 않는다(manifest 없음). 어느 프로젝트든 자기 spec_version의 해시표와 비교해 판별한다. 그래서 manifest가 없던 v0.2·v0.3 프로젝트도 같은 방식으로 판별된다.
+
+```json
+{
+  "spec_version": 3,
+  "labgate_version": "0.3.0",
+  "files": {
+    "specs/procedures/gate-apply.md": {"claude_code": "sha256:…", "no_claude_code": "sha256:…"},
+    "AGENTS.md": {"claude_code": "sha256:…", "no_claude_code": "sha256:…"},
+    "CLAUDE.md": {"claude_code": "sha256:…"}
+  },
+  "gitignore": ["# 실행 산출물 원본", "runs/*", "…"],
+  "filemap": ["…"]
+}
+```
+
+#### 22.4.2 정규화
+
+프로젝트마다 내용이 달라지는 관리 문서는 정해진 규칙으로 정규화한 뒤 해시한다. 비교할 때도 같은 규칙을 쓴다.
+
+| 문서 | 프로젝트마다 다른 부분 | 정규화 |
+|---|---|---|
+| `AGENTS.md` | "## 프로젝트"의 이름·연구 질문·에이전트 신원 세 줄, Claude Code 사용 여부(G7의 파일 목록) | 세 줄의 값을 자리표시(`<name>`, `<research_question>`, `<agent>`)로 바꾼다. Claude Code 사용·미사용 두 변형의 해시를 둔다 |
+| `specs/README.md` | frontmatter `updated:` | 그 줄을 뺀다 |
+| 그 밖의 관리 문서 | 없음 | 그대로 |
+
+- 파일 끝 개행, 줄바꿈(LF)은 생성 규칙대로라 정규화하지 않는다. 사람이 줄바꿈만 바꿔도 "다름"이다.
+- 정규화 규칙은 `lg`의 코드 한 곳에 두고, 해시표를 만드는 스크립트와 `lg upgrade`가 같이 쓴다.
+
+#### 22.4.3 해시표를 만드는 방법
+
+- `scripts/hash-templates.py <tag> <spec_version>`: 그 tag의 템플릿으로 시험용 설정을 렌더링하고, 정규화해 해시표를 만든다. 2는 `v0.2.1`, 3은 `v0.3.0`에서 만든다.
+- 릴리즈할 때 새 spec_version의 해시표를 만들어 넣는다.
+- 테스트: 현재 `SPEC_VERSION`의 해시표가 있으면(릴리즈된 뒤) 현재 템플릿의 해시가 그와 같아야 한다(§22.2.2 규칙 2). 해시표가 없으면 아직 릴리즈 전인 dev 버전이다.
+- 해시표가 없는 spec_version은 릴리즈되지 않은 dev 버전으로 만든 프로젝트다. dev 버전은 개발자만 쓰고 실사용에 쓰지 않는 것이 원칙이므로, 이런 프로젝트의 갱신은 지원하지 않는다(코드 2, `--force`로도 하지 않는다).
+
+### 22.5 사람의 수정, 갱신 실패, `--force`
+
+**사람이 항상 우선이다.** `lg`가 사람의 수정을 발견하면 그 수정을 지우거나 되돌리지 않고, 터미널에 무엇을 발견했고 어떻게 했는지 알린다. 분류별로는 이렇다.
+
+| 발견한 사람의 수정 | 동작 | 터미널 안내 |
+|---|---|---|
+| 관리 문서를 고침 | 갱신을 멈춘다 (§22.5.1). `--force`일 때만 덮어쓴다 | 고친 문서 목록, 해결 방법 |
+| stub 사양·`specs/README.md`를 채움 | 내용 유지, `spec_version`만 갱신 | 유지한 문서 목록 |
+| `.gitignore` 관리 구역에서 줄을 지우거나 더함 | 사람의 선택을 따른다 (§22.5.2) | 지운 줄은 다시 넣지 않았다, 더한 줄은 구역 밖으로 옮겼다 |
+| `FILEMAP.md` 등 연구 문서 | 내용 유지 | labgate 구조가 바뀌었으면 반영할 내용 |
+
+
+#### 22.5.1 관리 문서가 다를 때
+
+- 관리 문서 중 하나라도 해시가 그 버전과 다르면 **아무것도 바꾸지 않는다.** 다른 문서 목록과 해결 방법을 출력하고 코드 3으로 끝낸다. 일부만 갱신하면 규칙 문서끼리 버전이 섞이므로(`AGENTS.md`는 v3, 절차는 v4) 전체를 멈춘다.
+- 해결:
+  - 사람이 의도해서 고친 것이 아니면(예: 중간 버전 복사) `lg upgrade --force`.
+  - 의도해서 고친 것이면 `--force`로 갱신한 뒤, 남겨 둔 원래 내용(아래)을 보고 다시 합친다.
+- `--force`는 다른 관리 문서를 모두 새 버전으로 덮어쓴다. 덮어쓰기 전 내용은 `.lg/pending/upgrade/<경로>`에 남기고(Git 제외), 덮어쓴 목록을 `upgrades[].forced`에 기록한다. 사람이 채우는 관리 문서(stub 사양, `specs/README.md`)는 `--force`로도 덮어쓰지 않는다.
+- `lg upgrade`는 커밋하지 않으므로, 결과가 마음에 들지 않으면 `git restore`로 되돌릴 수 있다.
+
+#### 22.5.2 `.gitignore` 관리 구역
+
+```
+# labgate:begin  (labgate가 관리한다. 이 구역 밖에 자유롭게 추가한다)
+.lg/pending/
+runs/
+…
+# labgate:end
+
+# 사람이 추가한 줄
+checkpoints/
+```
+
+줄 단위로 비교한다(빈 줄과 주석 제외). 기준은 출발 버전이 만든 줄(해시표에 줄 목록도 둔다)이다.
+
+| 경우 | 동작 | 안내 |
+|---|---|---|
+| 출발 버전의 줄이 있음 | 새 버전의 줄로 바꾼다 | — |
+| 출발 버전의 줄을 사람이 지움 | **다시 넣지 않는다.** 새 버전에서도 그 줄은 빼고 구역을 만든다 | "사람이 지운 labgate 줄: … (그대로 둡니다)" |
+| 새 버전에 새로 생긴 줄 | 넣는다 | — |
+| 구역 안에 사람이 더한 줄 | 구역 밖(바로 아래)으로 옮겨 보존한다 | "구역 안에 추가된 줄을 구역 밖으로 옮겼습니다: …" |
+| 구역 밖의 줄 | 그대로 | — |
+
+- 구역 표시가 없는 기존 프로젝트(spec_version 2·3)는 파일 전체를 "구역"으로 보고 같은 규칙을 적용한 뒤, 새 구역을 맨 앞에 넣고 사람이 더한 줄을 그 뒤에 원래 순서대로 둔다.
+- `.gitignore` 때문에 갱신이 실패하는 일은 없다.
+
+### 22.6 버전별 이동 규칙
+
+기본 갱신(관리 문서 교체, 문서의 `spec_version` 갱신)으로 충분하지 않은 변화는 단계마다 규칙으로 등록한다(`MIGRATIONS[n]`: n → n+1).
+
+| 단계 | 추가 규칙 |
+|---|---|
+| 2 → 3 | 없음 (기본 갱신) |
+| 3 → 4 | `.gitignore`에 관리 구역 도입 (§22.5.2) |
+
+2→4는 2→3, 3→4를 차례로 적용한 결과를 한 번에 쓴다. 판별은 출발 버전의 해시표로 한다.
+
+문서 frontmatter의 `spec_version`:
+- 목표보다 작으면 목표로 올린다. 출발 값별 개수를 보고한다(예: 연구 프로젝트는 `generated`가 3인데 문서는 2).
+- 목표보다 크면 오류(코드 2).
+- `spec_version` 줄이 정확한 형식이 아니면(따옴표, 공백) 바꾸지 않고 보고한다.
+
+### 22.7 명령
+
+```
+lg upgrade [--dry-run] [--force]
+```
+
+1. 프로젝트 확인: Git 저장소, `.lg/project.yaml`, spec_version이 출발 가능 범위인지, 그 버전의 해시표가 있는지. 이미 최신이면 "이미 spec_version N입니다"로 끝낸다.
+2. 전제: 작업 트리가 깨끗하고, `.lg/pending/COMMIT_MSG`·`APPLY_MSG`가 없다(코드 2).
+3. 계획: §22.3–§22.6에 따라 모든 변경을 메모리에서 계산한다.
+4. `--dry-run`이면 표만 출력하고 끝낸다(코드 0, 갱신 실패 대상이 있어도 표에 보인다).
+5. 관리 문서가 다르고 `--force`가 아니면 §22.5.1 (코드 3).
+6. 쓴다: 교체·추가·삭제, 문서 버전 갱신, `.gitignore` 구역, `.lg/project.yaml`. 실행 권한은 생성 계획대로.
+7. 출력: 바뀐 것 요약, `FILEMAP.md` 안내(있으면), 다음 단계("`git diff`로 확인하고 터미널에서 `lg commit` — 타입 `spec`").
+
+**커밋하지 않는다.** 규칙을 바꾸는 일이므로 사람이 확인하고 `spec` 커밋으로 확정한다.
+
+| 종료 코드 | 의미 |
+|---|---|
+| 0 | 갱신함, 이미 최신, `--dry-run` |
+| 1 | 예기치 못한 오류 |
+| 2 | labgate 프로젝트가 아님, 출발할 수 없는 spec_version, 해시표 없음(dev 버전으로 만든 프로젝트), 작업 트리가 깨끗하지 않음, 대기 상태, 형식 오류 |
+| 3 | 관리 문서가 그 버전과 다름 (아무것도 바꾸지 않음, `--force`로 해결) |
+| 4 | Git 오류 |
+| 130 | 중단 |
+
+**누가:** 사람. 에이전트는 실행하지 않는다(G7: 규칙 파일 수정 금지). 생성되는 `.claude/settings.json`에 `Bash(lg upgrade *)` deny를 넣는다. 터미널 확인(TTY)은 하지 않는다. 커밋하지 않으므로 사람이 `git diff`로 확인할 기회가 있다.
+
+### 22.8 연구 프로젝트에서 예상되는 결과
+
+`ssm-latent-reasoning` (generated 3, 문서 대부분 2). v0.3.0 템플릿과 직접 비교한 결과를 바탕으로 했다.
+
+| 파일 | 예상 |
+|---|---|
+| `specs/conventions.md` | 3-4 때 `dev` 중간 상태를 복사해 v3 해시와 다름 → **갱신 실패** (코드 3). 사람이 고친 것이 아니므로 `--force` |
+| 그 밖의 관리 문서 | v3 해시와 같음 → v4로 교체 |
+| stub 사양 | M0에서 채웠으면 내용 유지·버전만 갱신, 아니면 교체 |
+| `.gitignore` | 관리 구역 도입 |
+| 연구 문서 20개 이상 | `spec_version` 2 → 4 (그사이 에이전트가 만든 문서 포함) |
+| `.lg/project.yaml` | `spec_version: 4`, `upgrades`에 3 → 4 (`forced: [specs/conventions.md]`) |
+
+### 22.9 문서와 테스트
+
+- 명령 설명서 `docs/cli/lg-upgrade.md`, 작업 설명서 `docs/guide/upgrade.md` 개정(수동 절차는 `lg` 없이 할 때의 대안으로만 남김).
+- 테스트:
+  - 해시표: 정규화 규칙, 현재 템플릿이 현재 spec_version 해시표와 같음(릴리즈 뒤), 2·3 해시표가 그 tag의 템플릿과 같음.
+  - 갱신: spec_version 2·3 프로젝트를 올리기, 같은 관리 문서 교체, 다른 관리 문서가 있으면 아무것도 바뀌지 않고 코드 3, `--force`(덮어씀, 원래 내용 보관, `forced` 기록), stub 사양을 채운 경우 내용 유지.
+  - `.gitignore`: 구역 도입, 사람이 추가한 줄 보존, 사람이 지운 labgate 줄은 다시 넣지 않고 안내, 구역 안에 더한 줄은 밖으로 옮기고 안내.
+  - 문서 버전 갱신과 형식 오류 보고, 새 파일 추가와 없어진 파일 삭제, 실행 권한, `upgrades` 기록, `--dry-run`, 작업 트리가 깨끗하지 않을 때·대기 상태 거부, 모든 생성 파일의 분류.
+
+### 22.10 결정된 사항
+
+1. **버전별 해시표를 패키지에 둔다.** 관리 문서가 그 버전의 해시와 다르면 사람이 고친 것으로 보고 갱신을 실패한다. `lg upgrade --force`는 다른 관리 문서를 새 버전으로 덮어쓴다.
+2. **`.gitignore`는 관리 구역의 줄만 합친다.**
+3. **`README.md`, `FILEMAP.md`는 연구 문서다.** `FILEMAP.md`는 labgate가 만드는 부분이 바뀐 버전이면 갱신 출력에서 안내한다.
+4. **프로젝트 안에 manifest를 두지 않는다.** 버전별 해시표로 어느 프로젝트든 판별되므로 `--adopt` 같은 모드도 필요 없다.
+5. **stub 사양과 `specs/README.md`는 "다르면 실패"에서 뺀다.** M0에서 사람이 채우라고 만든 문서이므로, 다르면 내용을 유지하고 `spec_version`만 갱신한다. `--force`로도 덮어쓰지 않는다.
+6. **dev 버전은 실사용에 쓰지 않는다.** dev는 개발자만 쓴다. 해시표가 없는 spec_version(dev로 만든 프로젝트)의 갱신은 지원하지 않는다(코드 2, `--force`로도 하지 않는다).
+7. **사람이 항상 우선이다.** `lg`가 사람의 수정을 발견하면 지우거나 되돌리지 않고 터미널에 알린다(§22.5). `.gitignore`에서 사람이 지운 labgate 줄은 다시 넣지 않고 안내한다.
 
 ---
 
@@ -1234,7 +1468,7 @@ updated: {{ today }}
 
 ## A.5 `.claude/settings.json` (S, claude_code)
 
-규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다. `Bash(lg commit *)`는 에이전트가 사람 신원으로 커밋하는 것을 막는다. 준비 명령 `lg draft`는 이 규칙에 일치하지 않는다 (§17.3).
+규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다. `Bash(lg commit *)`는 에이전트가 사람 신원으로 커밋하는 것을 막고, `Bash(lg upgrade *)`는 에이전트가 규칙 파일을 갱신하는 것을 막는다(G7). 준비 명령 `lg draft`는 이 규칙에 일치하지 않는다 (§17.3).
 
 `hooks.SessionStart`는 세션 시작·재개·`/clear`·compact 때 `scripts/session-check`를 실행해 그 출력을 에이전트 맥락에 넣는다 (§17.3). `args`가 없으므로 셸 형식으로 실행되어 `"$CLAUDE_PROJECT_DIR"`가 확장된다.
 
@@ -1258,7 +1492,8 @@ updated: {{ today }}
       "Bash(git add --update *)",
       "Bash(git add . *)",
       "Bash(git stash *)",
-      "Bash(lg commit *)"
+      "Bash(lg commit *)",
+      "Bash(lg upgrade *)"
     ]
   },
   "hooks": {
@@ -1360,6 +1595,8 @@ updated: {{ today }}
 ## A.8 `.gitignore` (S)
 
 ~~~~gitignore
+# labgate:begin  (labgate가 관리한다. lg upgrade가 이 구역을 갱신하므로, 직접 추가할 규칙은 구역 밖에 쓴다)
+
 # 실행 산출물 원본
 runs/*
 !runs/.gitkeep
@@ -1390,6 +1627,8 @@ Thumbs.db
 
 # 대용량 원본 데이터는 필요 시 아래 주석을 해제
 # data/raw/
+
+# labgate:end
 ~~~~
 
 ## A.9 `plan/roadmap.md` (J)
@@ -1691,7 +1930,7 @@ updated: {{ today }}
 ---
 id: conventions
 type: spec
-spec_version: 3
+spec_version: 4
 status: complete
 ---
 # 공통 규칙
@@ -1737,7 +1976,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 3). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 4). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -1791,7 +2030,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ---
 id: workflow
 type: spec
-spec_version: 3
+spec_version: 4
 status: complete
 ---
 # 워크플로우
@@ -1918,7 +2157,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ---
 id: git-commit
 type: spec
-spec_version: 3
+spec_version: 4
 status: complete
 ---
 # 커밋 규약
@@ -2088,7 +2327,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 ---
 id: task-card
 type: spec
-spec_version: 3
+spec_version: 4
 status: complete
 ---
 # Task 카드 사양
@@ -2107,7 +2346,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `3` |
+| `spec_version` | ✓ | `4` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |
@@ -2165,7 +2404,7 @@ status: complete
 ---
 id: review
 type: spec
-spec_version: 3
+spec_version: 4
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -2188,7 +2427,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `3` |
+| `spec_version` | ✓ | `4` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -2334,7 +2573,7 @@ status: stub
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 3
+spec_version: 4
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft
@@ -2395,7 +2634,7 @@ updated: <YYYY-MM-DD>
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 3
+spec_version: 4
 kind: <gate|escalation>
 task: <Task>
 status: open
@@ -2455,7 +2694,7 @@ updated: <YYYY-MM-DD>
 ---
 id: session-start
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 세션 시작
 
@@ -2487,7 +2726,7 @@ spec_version: 3
 ---
 id: session-close
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 세션 종료
 
@@ -2516,7 +2755,7 @@ spec_version: 3
 ---
 id: commit-prep
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 사람 커밋 준비
 
@@ -2557,7 +2796,7 @@ spec_version: 3
 ---
 id: task-start
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # Task 착수
 
@@ -2584,7 +2823,7 @@ spec_version: 3
 ---
 id: task-gate
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 게이트 요청
 
@@ -2611,7 +2850,7 @@ spec_version: 3
 ---
 id: escalate
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 에스컬레이션
 
@@ -2637,7 +2876,7 @@ spec_version: 3
 ---
 id: gate-conversation
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 대화 경로 판정
 
@@ -2675,7 +2914,7 @@ spec_version: 3
 ---
 id: gate-apply
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 사람 커밋의 반영
 
@@ -2718,7 +2957,7 @@ spec_version: 3
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 3).
+"""labgate commit-msg hook (spec_version 4).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -2994,7 +3233,7 @@ exec git commit "$@"
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 3).
+"""labgate 세션 시작 점검 (spec_version 4).
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
@@ -3155,7 +3394,7 @@ if __name__ == "__main__":
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 3).
+"""labgate 사람 커밋 반영 도구 (spec_version 4).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.

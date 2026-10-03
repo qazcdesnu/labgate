@@ -4,7 +4,7 @@
 
 - 누가: 사람. **터미널에서 직접** 실행한다 (에이전트의 셸에서는 거부된다).
 - 언제: 사람의 모든 커밋. task 승인, 게이트 판정, 결정 확정, 에스컬레이션 응답, 계획·사양 변경, 사람이 직접 고친 코드·문서.
-- 전제: labgate 0.2 이상으로 만든 프로젝트(spec_version 2 또는 3) 안. 현재 Git 사용자(`git config user.email`)가 `.lg/identities.json`의 사람 중 하나.
+- 전제: labgate 0.2 이상으로 만든 프로젝트(spec_version 2 이상) 안. 현재 Git 사용자(`git config user.email`)가 `.lg/identities.json`의 사람 중 하나.
 
 ## 형식
 

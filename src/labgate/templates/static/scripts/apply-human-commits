@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 3).
+"""labgate 사람 커밋 반영 도구 (spec_version 4).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
