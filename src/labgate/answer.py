@@ -95,7 +95,8 @@ def _choose(project: Project, review_id: Optional[str]) -> Doc:
         if not found:
             raise Fail(EXIT_TARGET, f"✗ reviews/open/ 에 {review_id} 가 없습니다." + _listing(reviews))
         return found[0]
-    waiting = [r for r in reviews if r.status == "open"]
+    closed = state.closed_review_ids(project)
+    waiting = [r for r in reviews if r.status == "open" and r.id not in closed]
     if not waiting:
         raise Fail(EXIT_TARGET, "✗ 응답을 기다리는 review가 없습니다 (reviews/open/).")
     if len(waiting) == 1:
@@ -110,6 +111,11 @@ def _listing(reviews: list[Doc]) -> str:
 
 def _check_ready(project: Project, review: Doc) -> None:
     """§24.4.1. 사람이 이미 손댄 것은 덮어쓰지 않는다."""
+    if review.id in state.closed_review_ids(project):
+        raise Fail(EXIT_TARGET, (
+            f"✗ {review.id} 는 이미 닫혔습니다 (reviews/closed/). reviews/open/ 의 것은 남은 사본입니다.\n"
+            f"  내용을 확인하고 지우세요: rm {review.rel}"
+        ))
     if project.draft_path.exists():
         raise Fail(EXIT_TARGET, (
             "✗ 사람 커밋 대기 상태입니다 (.lg/pending/COMMIT_MSG).\n"

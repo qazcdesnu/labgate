@@ -24,7 +24,7 @@ labgate 프로젝트에서 일어나는 모든 작업을 **누가, 무엇으로,
 | O4 | 이미 커밋된 초안 정리 | 도구 | `scripts/session-check` | `.lg/pending/COMMIT_MSG` 삭제 | G7 (`.lg/`) | **도구** |
 | O5 | 사람 변경의 커밋 준비 | 에이전트 | `lg draft` | 사람 변경 stage, 초안 | G2 (사람 변경 stage), G7 (`.lg/`) | G2: **특별 규칙** (`commit-prep`). G7: 도구(`lg draft`) |
 | O6 | 대화 판정·결정·응답을 문서로 | 에이전트 | 파일 편집, `lg draft` | review `## 응답`, 초안 | G5 (응답 작성), G7 (`.lg/`) | G5: **특별 규칙** (`gate-conversation`). G7: 도구 |
-| O7 | 사람 커밋의 결과 반영 | 도구 → 에이전트가 커밋 | `scripts/apply-human-commits`, `agent-commit` | 카드·다음 카드·결정·마일스톤 상태, review 닫기, 목록 표 | G4 (사람 몫의 상태 전이) | 전이: **도구**. 커밋: **특별 규칙** (`gate-apply`) |
+| O7 | 사람 커밋의 결과 반영 | 도구 → 에이전트가 커밋 | `scripts/apply-human-commits`, `agent-commit` | 카드·다음 카드·결정·마일스톤 상태, review 닫기, 목록 표(로드맵의 마일스톤 상태 칸 포함) | G4 (사람 몫의 상태 전이), G6 (로드맵) | 전이: **도구**. 커밋: **특별 규칙** (`gate-apply`) |
 | O8 | task 착수 | 에이전트 | `agent-commit` | 카드 `approved → in-progress` | — | |
 | O9 | 작업 수행 | 에이전트 | `agent-commit` | 코드·문서·실행 기록 | — | |
 | O10 | 게이트 요청 | 에이전트 | `agent-commit` | 결과 문서, review 생성, 카드 `in-review` | — | |
@@ -48,7 +48,7 @@ labgate 프로젝트에서 일어나는 모든 작업을 **누가, 무엇으로,
 
 ## 결론
 
-- 특별 규칙은 세 곳에만 남는다: `commit-prep`(G2), `gate-conversation`(G5), `gate-apply`(G4: 도구가 만든 전이만 커밋).
+- 특별 규칙은 세 곳에만 남는다: `commit-prep`(G2), `gate-conversation`(G5), `gate-apply`(G4·G6: 도구가 만든 전이만 커밋).
 - `session-start`는 특별 규칙이 없어진다. 기록·정리는 `session-check`가 한다.
 - 상태 전이 반영(O7)은 경로가 하나가 된다. 문서로 판정하든 대화로 판정하든, 사람이 커밋한 뒤 같은 도구가 반영한다.
 - 이 표에 작업이 추가되면(예: ideation 절차) 같은 기준으로 특별 규칙과 도구를 정한다.

@@ -770,7 +770,7 @@ v2 (`tests/commands/`, `tests/tools/`, 사람 `h@x.com`, `lg init`으로 만든 
 | `task-gate` | task 완료, 게이트 요청 | 없음 | | `/task-gate` |
 | `escalate` | 멈춤 조건 (workflow §7.1) | 없음 | | `/escalate` |
 | `gate-conversation` | 사람이 대화로 판정·결정·응답 | G5 | `lg draft` | — |
-| `gate-apply` | 반영되지 않은 사람 커밋이 있음 | G4 | `apply-human-commits` | — |
+| `gate-apply` | 반영되지 않은 사람 커밋이 있음 | G4, G6 (로드맵의 마일스톤 상태 칸, v0.5.0) | `apply-human-commits` | — |
 
 원문은 부록 B.10. 형식:
 
@@ -1489,6 +1489,7 @@ lg status [--json]
 |---|---|---|---|
 | 사람이 할 일 | 열린 gate·escalation review (`status: open`) | `reviews/open/*.md` frontmatter | `lg answer <ID>` |
 | | 요청서에 응답을 쓰는 중 (커밋되지 않은 변경) | `git status` | `lg commit` |
+| | 닫힌 review의 사본 (`reviews/closed/`에 같은 ID가 있음) | 파일 이름 | 내용을 확인하고 지우기 (`rm`) |
 | | 사람 커밋 대기 (초안) | `.lg/pending/COMMIT_MSG` | `lg commit` |
 | | 커밋되지 않은 내 변경 | `.lg/pending/HUMAN_FILES` | `lg commit` |
 | 에이전트 몫 | 반영되지 않은 사람 커밋 | 프로젝트의 `scripts/apply-human-commits --check` | 다음 세션에서 자동 |
@@ -1519,6 +1520,7 @@ lg answer [REVIEW_ID] [--no-tag]
 
 | 확인 | 실패 시 |
 |---|---|
+| `reviews/closed/`에 같은 ID가 없다 | 코드 3. 남은 사본이다(반영 도구가 옮긴 뒤 편집기가 다시 저장한 경우 등). 지우라고 안내. 고를 목록에서도 뺀다 |
 | 사람 커밋 대기 상태가 아니다 | 코드 3. 대화로 판정해 초안이 있으면 `lg commit`으로 확정하라고 안내 |
 | review가 `open`이다 | 코드 3. `answered`면 `lg commit` 안내 |
 | 그 review에 커밋되지 않은 변경이 없다 | 코드 3. 사람이 응답을 쓰는 중이다. 덮어쓰지 않고 `lg commit`을 안내 |
@@ -1599,7 +1601,13 @@ lg answer [REVIEW_ID] [--no-tag]
 - 계획은 반영과 같은 `plan_for`로 만든다. 해시 자리에는 `(새 커밋)`을 쓴다.
 - 반영할 수 없으면 코드 1과 `✗ 이 커밋은 반영할 수 없습니다: <이유>`. 예: 카드가 `in-review`가 아님, 다음 카드가 `draft`가 아님.
 
-#### 24.5.5 README 템플릿 (부록 A.1)
+#### 24.5.5 로드맵 표의 마일스톤 상태 (부록 C, 절차 gate-apply)
+
+- 실사용: M0-T0 승인 뒤 마일스톤 문서는 `active`가 됐지만 `plan/roadmap.md`의 "마일스톤" 표는 `planned`로 남았다.
+- `apply-human-commits`가 마일스톤을 바꿀 때(`planned → active`, `active → closed`) 로드맵 표에서 그 행의 상태 칸도 바꾼다(`Plan.milestone`).
+- G6은 에이전트가 로드맵을 바꾸지 못하게 하므로, 절차 gate-apply의 특별 규칙에 G6을 더한다: 도구가 바꾼 상태 칸만 커밋하고 로드맵의 다른 내용은 바꾸지 않는다. `AGENTS.md`의 절차 표도 `G4, G6`.
+
+#### 24.5.6 README 템플릿 (부록 A.1)
 
 - "사람이 하는 일"에 `lg status`, `lg answer`를 쓴다.
 - README는 연구 문서로 분류되므로(§22.3) 기존 프로젝트에서는 `lg upgrade`가 바꾸지 않는다. 새 프로젝트에만 들어간다.
@@ -1805,7 +1813,7 @@ updated: {{ today }}
 | task 완료, 게이트 요청 | [task-gate](specs/procedures/task-gate.md) | 없음 |
 | G9의 멈춤 조건 | [escalate](specs/procedures/escalate.md) | 없음 |
 | 사람이 대화로 판정·결정·응답 | [gate-conversation](specs/procedures/gate-conversation.md) | G5 |
-| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4 |
+| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4, G6 |
 
 ## 참고
 
@@ -3300,6 +3308,7 @@ spec_version: 5
 | 대신하는 일반 규칙 | 이 절차에서는 |
 |---|---|
 | G4 (사람 몫의 상태 전이를 하지 않는다) | 사람 커밋이 정한 상태 전이를 커밋한다. 전이는 `scripts/apply-human-commits`가 만든 것만 쓰고, 상태 필드를 직접 편집하지 않는다 |
+| G6 (`plan/roadmap.md`를 바꾸지 않는다) | 로드맵 "마일스톤" 표의 상태 칸은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 로드맵의 다른 내용은 바꾸지 않는다 |
 
 ## 단계
 
@@ -3936,6 +3945,12 @@ class Plan:
             self.table_row(f"plan/milestones/{milestone}/milestone.md", task_id, 2, target)
         return card
 
+    def milestone(self, milestone, label, sources, target, satisfied):
+        """마일스톤 문서의 상태와, 로드맵 "마일스톤" 표의 그 행을 함께 바꾼다."""
+        mfile = f"plan/milestones/{milestone}/milestone.md"
+        if self.transition(mfile, f"마일스톤 {milestone} {label}", sources, target, satisfied):
+            self.table_row("plan/roadmap.md", milestone, 2, target)
+
     def table_row(self, rel, row_id, column, value, column2=None, value2=None):
         """표에서 첫 칸이 row_id인 행의 칸을 바꾼다. 행이 없으면 그대로 둔다."""
         if not (ROOT / rel).is_file() and rel not in self.texts:
@@ -4051,11 +4066,10 @@ def plan_for(sha, ctype, scope, trailers, today):
         if nxt and nxt != "none":
             plan.task(nxt, f"다음 task {nxt}", {"draft"}, "approved", NOT_DRAFT)
         milestone = f"M{TASK_ID_RE.match(task).group(1)}"
-        mfile = f"plan/milestones/{milestone}/milestone.md"
         if verdict == "approve" and task.endswith("-T0"):
-            plan.transition(mfile, f"마일스톤 {milestone} 착수", {"planned"}, "active", {"active", "closed"})
+            plan.milestone(milestone, "착수", {"planned"}, "active", {"active", "closed"})
         if trailers.get("Milestone-Verdict"):
-            plan.transition(mfile, f"마일스톤 {milestone} 판정", {"active"}, "closed", {"closed"})
+            plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
         for d in split_list(trailers.get("Decisions")):
             plan.decision(d, short)
         plan.history(card, f"- {today} gate {verdict} `{short}`", short)

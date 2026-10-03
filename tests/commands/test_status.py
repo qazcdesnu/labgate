@@ -68,3 +68,13 @@ def test_spec2_project_without_apply_script(tmp_path, git_sandbox, old_sources):
     old = make_old(tmp_path, git_sandbox, old_sources, 2)
     out = status(old)
     assert "spec_version 2" in out and "scripts/apply-human-commits 없음" in out
+
+
+def test_stale_copy_of_closed_review(project):
+    """실사용: 반영 도구가 요청서를 closed/로 옮긴 직후 편집기가 open/에 다시 저장했다."""
+    project.write("reviews/closed/M0-T0_gate-01.md", "---\nid: M0-T0_gate-01\ntype: review\nstatus: closed\n---\n")
+    project.agent("log(M0-T0): close review\n\nActor: agent", "reviews/closed")
+    project.write("reviews/open/M0-T0_gate-01.md", "---\nid: M0-T0_gate-01\ntype: review\nkind: gate\nstatus: answered\n---\n")
+    out = status(project)
+    assert "[사본]" in out and "rm reviews/open/M0-T0_gate-01.md" in out
+    assert "응답 작성 중" not in out and "커밋되지 않은 변경" not in out

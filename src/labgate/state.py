@@ -63,6 +63,10 @@ def open_reviews(project: Project) -> list[Doc]:
     return sorted(found, key=lambda d: (d.fields.get("requested", ""), d.id))
 
 
+def closed_review_ids(project: Project) -> set[str]:
+    return {p.stem for p in (project.root / "reviews" / "closed").glob("*.md")}
+
+
 def milestone_of(task_id: str) -> str:
     return task_id.split("-")[0]
 

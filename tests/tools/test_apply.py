@@ -95,6 +95,7 @@ def test_gate_approve_full(project):
     assert project.status(CARD0) == "closed"
     assert project.status("plan/milestones/M0/tasks/M0-T1.md") == "approved"
     assert project.status(MILESTONE0) == "closed"  # T0 승인으로 active, Milestone-Verdict로 closed
+    assert "| `M0` |" in project.read("plan/roadmap.md") and "| closed |" in project.read("plan/roadmap.md")
     assert project.status("decisions/D0.1_core.md") == "confirmed"
     assert f"| D0.1 | 코어 | confirmed | M0 | `{sha[:7]}` |" in project.read("decisions/index.md")
     assert not (project.root / "reviews/open/M0-T0_gate-01.md").exists()
@@ -106,10 +107,16 @@ def test_gate_approve_full(project):
 
 
 def test_gate_t0_approve_activates_milestone(project):
+    """마일스톤 문서와 로드맵 표의 그 행이 함께 바뀐다 (실사용: 로드맵 표만 planned로 남았다)."""
     to_review(project)
     project.human("gate(M0-T0): approve\n\nActor: human\nTask: M0-T0\nVerdict: approve\nSource: document\nNext: none")
-    assert project.apply().returncode == 0
+    result = project.apply()
+    assert result.returncode == 0, result.stderr
     assert project.status(MILESTONE0) == "active"
+    roadmap = project.read("plan/roadmap.md")
+    assert re.search(r"^\| `M0` \| [^|]+ \| active \|", roadmap, re.M)
+    assert re.search(r"^\| `M1` \| [^|]+ \| planned \|", roadmap, re.M)
+    assert "plan/roadmap.md" in project.read(".lg/pending/APPLY_PATHS")
 
 
 def test_gate_revise(project):

@@ -24,6 +24,7 @@ lg status [--json]
 |---|---|---|---|
 | 사람이 할 일 | 열린 게이트 요청·에스컬레이션 (`status: open`) | `reviews/open/*.md`의 frontmatter | `lg answer <ID>` |
 | | 요청서에 응답을 쓰는 중 (커밋되지 않은 변경이 있음) | `git status` | `lg commit` |
+| | 닫힌 review의 사본 (`reviews/closed/`에 같은 ID가 있음. 반영 뒤 편집기가 다시 저장한 경우 등) | 파일 이름 | 내용을 확인하고 지우기 |
 | | 사람 커밋 대기 (초안) | `.lg/pending/COMMIT_MSG` | `lg commit` |
 | | 커밋되지 않은 내 변경 | `.lg/pending/HUMAN_FILES` (세션 시작 때 `session-check`가 기록) | `lg commit` |
 | 에이전트 몫 | 반영되지 않은 사람 커밋 | 프로젝트의 `scripts/apply-human-commits --check` | 다음 세션에서 자동 |

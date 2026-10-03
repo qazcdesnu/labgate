@@ -169,6 +169,12 @@ class Plan:
             self.table_row(f"plan/milestones/{milestone}/milestone.md", task_id, 2, target)
         return card
 
+    def milestone(self, milestone, label, sources, target, satisfied):
+        """마일스톤 문서의 상태와, 로드맵 "마일스톤" 표의 그 행을 함께 바꾼다."""
+        mfile = f"plan/milestones/{milestone}/milestone.md"
+        if self.transition(mfile, f"마일스톤 {milestone} {label}", sources, target, satisfied):
+            self.table_row("plan/roadmap.md", milestone, 2, target)
+
     def table_row(self, rel, row_id, column, value, column2=None, value2=None):
         """표에서 첫 칸이 row_id인 행의 칸을 바꾼다. 행이 없으면 그대로 둔다."""
         if not (ROOT / rel).is_file() and rel not in self.texts:
@@ -284,11 +290,10 @@ def plan_for(sha, ctype, scope, trailers, today):
         if nxt and nxt != "none":
             plan.task(nxt, f"다음 task {nxt}", {"draft"}, "approved", NOT_DRAFT)
         milestone = f"M{TASK_ID_RE.match(task).group(1)}"
-        mfile = f"plan/milestones/{milestone}/milestone.md"
         if verdict == "approve" and task.endswith("-T0"):
-            plan.transition(mfile, f"마일스톤 {milestone} 착수", {"planned"}, "active", {"active", "closed"})
+            plan.milestone(milestone, "착수", {"planned"}, "active", {"active", "closed"})
         if trailers.get("Milestone-Verdict"):
-            plan.transition(mfile, f"마일스톤 {milestone} 판정", {"active"}, "closed", {"closed"})
+            plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
         for d in split_list(trailers.get("Decisions")):
             plan.decision(d, short)
         plan.history(card, f"- {today} gate {verdict} `{short}`", short)

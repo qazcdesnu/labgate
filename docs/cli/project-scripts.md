@@ -75,7 +75,7 @@ scripts/apply-human-commits --preview  # 표준 입력의 커밋 메시지가 �
 | `respond` | 카드 `blocked → in-progress`, esc review를 `reviews/closed/`로 |
 | `decide`, 또는 `gate` + `Decisions` | 결정 `proposed / discussing → confirmed`, 결정 목록의 상태와 확정 커밋 |
 
-- 카드가 바뀌면 마일스톤 문서의 "Task 목록" 표에서 그 행의 상태도 바꾼다.
+- 카드가 바뀌면 마일스톤 문서의 "Task 목록" 표에서 그 행의 상태도 바꾼다. 마일스톤이 바뀌면 `plan/roadmap.md`의 "마일스톤" 표에서 그 행의 상태도 바꾼다(spec_version 5, 절차 `gate-apply`의 G6 특별 규칙).
 - 이미 목표 상태이거나 그 뒤의 상태면 건너뛴다(예: 승인됐는데 이미 `in-progress`). 이때도 반영 커밋은 만들어 `Applies`를 남긴다. 바꿀 파일이 없으면 출력이 그 이유를 알려 준다: 반영 여부는 `Applies`로만 판별하고 `Refs` 같은 다른 trailer는 기록으로 보지 않는다.
 - 한 커밋의 전이 중 하나라도 할 수 없으면(카드가 출발 상태가 아님, 문서 없음) **아무것도 바꾸지 않는다.**
 - 지난 반영이 아직 커밋되지 않았으면 새로 반영하지 않고(코드 2) 그 커밋 명령을 안내한다.

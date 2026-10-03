@@ -217,3 +217,12 @@ def test_spec4_project_answers_without_preview(tmp_path, git_sandbox, old_source
     assert result.exit_code == 0, result.output
     assert "spec_version 5 이상에서 됩니다" in result.output
     assert old.last_commit() == f"{HUMAN}|gate(M0-T0): approve"
+
+
+def test_stale_copy_is_not_answered(gate, tty):
+    gate.write("reviews/closed/M0-T0_gate-01.md", gate.read(GATE))
+    gate.git("add", "reviews/closed")
+    gate.human("chore: copy\n\nActor: human", "reviews/closed")
+    result = gate.lg("answer", "M0-T0_gate-01")
+    assert result.exit_code == 3 and "남은 사본" in result.output
+    assert gate.lg("answer").exit_code == 3  # 고를 것이 없다

@@ -57,7 +57,12 @@ def collect(project: Project) -> Status:
 
 def _human(project: Project, st: Status) -> None:
     changed = set(project.changed_paths())
+    closed = state.closed_review_ids(project)
     for review in state.open_reviews(project):
+        if review.id in closed:  # 반영 도구가 옮긴 뒤 편집기가 다시 저장한 경우 등
+            st.human.append(Item("stale", f"{review.id}  닫힌 review의 사본이 reviews/open/에 남음",
+                                 f"내용을 확인하고 지우기 (rm {review.rel})"))
+            continue
         kind = review.fields.get("kind", "")
         task = review.fields.get("task", "")
         title = state.card_title(project, task)
@@ -76,7 +81,7 @@ def _human(project: Project, st: Status) -> None:
             shown = ", ".join(files[:3]) + (f" 외 {len(files) - 3}개" if len(files) > 3 else "")
             st.human.append(Item("human-files", f"커밋되지 않은 내 변경 {len(files)}개 ({shown})", "lg commit"))
     elif not project.draft_path.exists():
-        shown = {r.rel for r in state.open_reviews(project)}
+        shown = {r.rel for r in state.open_reviews(project)}  # 위에서 이미 보여 준 요청서
         st.uncommitted = len(changed - shown)
 
 
@@ -109,7 +114,8 @@ def _run(script: Path, *args: str) -> Optional[str]:
 
 # ---------------------------------------------------------------- 출력
 
-KIND_LABEL = {"gate": "gate", "escalation": "질문", "answered": "응답", "draft": "초안", "human-files": "변경"}
+KIND_LABEL = {"gate": "gate", "escalation": "질문", "answered": "응답", "draft": "초안", "human-files": "변경",
+              "stale": "사본"}
 STATUS_ORDER = ("in-progress", "blocked", "in-review", "revise", "approved", "draft", "redirected", "closed")
 
 
