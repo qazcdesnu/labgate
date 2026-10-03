@@ -95,10 +95,11 @@ def draft(
 @app.command()
 def upgrade(
     dry_run: bool = typer.Option(False, "--dry-run", help="바꿀 것만 보여 주고 아무것도 쓰지 않는다."),
-    force: bool = typer.Option(False, "--force", help="사람이 고친 관리 문서도 새 버전으로 덮어쓴다 (원래 내용은 .lg/pending/upgrade/)."),
+    force: bool = typer.Option(False, "--force", help="그 버전과 다른 관리 문서도 새 버전으로 덮어쓴다 (원래 내용은 .lg/pending/upgrade/)."),
+    diff: bool = typer.Option(False, "--diff", help="그 버전과 다른 문서마다 지금 파일 → 새 버전의 차이를 보여 준다. 아무것도 쓰지 않는다."),
 ) -> None:
     """프로젝트를 현재 spec_version으로 올린다. 커밋하지 않는다. 사람이 실행한다."""
-    _guard(lambda: _echo(upgrade_module.run_upgrade(dry_run, force)), interrupted="\n중단했습니다.")
+    _guard(lambda: _echo(upgrade_module.run_upgrade(dry_run, force, diff=diff)), interrupted="\n중단했습니다.")
 
 
 @app.command()
