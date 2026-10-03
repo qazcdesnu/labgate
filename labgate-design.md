@@ -1492,6 +1492,7 @@ lg status [--json]
 | | 요청서에 응답을 쓰는 중 (커밋되지 않은 변경) | `git status` | `lg commit` |
 | | 닫힌 review의 사본 (`reviews/closed/`에 같은 ID가 있음) | 파일 이름 | 내용을 확인하고 지우기 (`rm`) |
 | | 사람 커밋 대기 (초안) | `.lg/pending/COMMIT_MSG` | `lg commit` |
+| | task 승인 대기: 현재 마일스톤에 진행 중인 task가 없고 draft 카드만 있음 (첫 task, 게이트에서 다음 task를 고르지 않았을 때). 사람의 다른 할 일이나 에이전트 몫이 있으면 보이지 않는다 | 카드 frontmatter | `lg commit --allow-empty` (타입 `plan`, Approve) |
 | | 커밋되지 않은 내 변경 | `.lg/pending/HUMAN_FILES` | `lg commit` |
 | 에이전트 몫 | 반영되지 않은 사람 커밋 | 프로젝트의 `scripts/apply-human-commits --check` | 다음 세션에서 자동 |
 | | 반영했지만 커밋 전 | `scripts/apply-human-commits --tidy` | 다음 세션에서 자동 |

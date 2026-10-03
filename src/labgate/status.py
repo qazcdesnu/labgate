@@ -46,6 +46,8 @@ def collect(project: Project) -> Status:
     )
     _human(project, st)
     _agent(project, st)
+    if current and not st.agent:
+        _approval(project, current.id, st)
     if current:
         by_status: dict[str, list[str]] = {}
         for card in state.cards(project, current.id):
@@ -85,6 +87,21 @@ def _human(project: Project, st: Status) -> None:
         st.uncommitted = len(changed - shown)
 
 
+ACTIVE_TASK = ("approved", "in-progress", "blocked", "in-review", "revise")
+
+
+def _approval(project: Project, milestone: str, st: Status) -> None:
+    """현재 마일스톤에 진행 중인 task가 없고 draft 카드만 있으면, 사람의 승인을 기다리는 것이다
+    (첫 task M0-T0, 게이트에서 다음 task를 고르지 않았을 때)."""
+    cards = state.cards(project, milestone)
+    if any(c.status in ACTIVE_TASK for c in cards) or st.human:
+        return
+    drafts = [c.id for c in cards if c.status == "draft"]
+    if drafts:
+        st.human.append(Item("approve", f"{_ids(drafts)}  draft, 승인 대기",
+                             "lg commit --allow-empty (타입 plan, Approve)"))
+
+
 def _agent(project: Project, st: Status) -> None:
     script = project.root / "scripts" / "apply-human-commits"
     if not script.is_file():  # spec_version 2: 반영 도구가 없다
@@ -115,7 +132,7 @@ def _run(script: Path, *args: str) -> Optional[str]:
 # ---------------------------------------------------------------- 출력
 
 KIND_LABEL = {"gate": "gate", "escalation": "질문", "answered": "응답", "draft": "초안", "human-files": "변경",
-              "stale": "사본"}
+              "stale": "사본", "approve": "승인"}
 STATUS_ORDER = ("in-progress", "blocked", "in-review", "revise", "approved", "draft", "redirected", "closed")
 
 

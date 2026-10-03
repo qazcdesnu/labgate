@@ -10,11 +10,14 @@ def status(project, *args):
     return result.output
 
 
-def test_fresh_project(project):
+def test_fresh_project_waits_for_first_approval(project):
+    """실사용(연습 프로젝트): 새 프로젝트에서 사람이 할 일은 M0-T0 승인이다."""
     out = status(project)
     assert out.startswith("ptest · spec_version 5 · M0 (planned)\n")
-    assert "사람이 할 일: 없음" in out and "에이전트 몫: 없음" in out
-    assert "draft       M0-T0" in out
+    assert "[승인]" in out and "M0-T0  draft, 승인 대기" in out and "lg commit --allow-empty" in out
+    assert "에이전트 몫: 없음" in out and "draft       M0-T0" in out
+    project.approve_and_start()
+    assert "사람이 할 일: 없음" in status(project)
 
 
 def test_open_gate_points_to_answer(project):
@@ -61,7 +64,7 @@ def test_decisions_and_json(project):
     assert "proposed·discussing 1 (D0.1)" in status(project)
     data = json.loads(status(project, "--json"))
     assert data["milestone"] == "M0" and data["open_decisions"] == ["D0.1"]
-    assert data["tasks"] == {"draft": ["M0-T0"]} and data["human"] == []
+    assert data["tasks"] == {"draft": ["M0-T0"]} and [h["kind"] for h in data["human"]] == ["approve"]
 
 
 def test_spec2_project_without_apply_script(tmp_path, git_sandbox, old_sources):
