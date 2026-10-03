@@ -1,13 +1,16 @@
 ---
 id: session-close
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 세션 종료
 
 - 시작 조건: 세션을 마칠 때 (Claude Code: `/session-close`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 작업 트리에 남은 것은 사람의 변경과 사람 커밋 대기 상태의 stage된 변경뿐이다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 

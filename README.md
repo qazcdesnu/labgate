@@ -4,6 +4,10 @@
 
 설계: [labgate-design.md](labgate-design.md)
 
+사용자 작업 설명서: [docs/guide/](docs/guide/README.md) — 설치, 하루 작업, task 승인, 게이트 판정, 직접 고친 것 커밋 등 사람이 하는 일
+
+명령 설명서: [docs/cli/](docs/cli/README.md) — `lg init`, `lg commit`, `lg draft`와 생성된 프로젝트의 스크립트
+
 사용 시나리오: [Coconut을 읽고 CODI를 시작하는 연구자](docs/scenarios/codi.md) — 전통 방식과의 비교, Claude Code와의 시너지·충돌 점검
 
 ## 설치
@@ -17,14 +21,14 @@ brew install pipx            # macOS
 pipx ensurepath              # ~/.local/bin을 PATH에 추가 — 실행 후 새 터미널을 연다
 
 # labgate 설치 (릴리즈 태그 고정)
-pipx install git+https://github.com/qazcdesnu/labgate.git@v0.2.1
+pipx install git+https://github.com/qazcdesnu/labgate.git@v0.3.0
 lg --version
 ```
 
-- 버전 목록과 변경 내용은 [Releases](https://github.com/qazcdesnu/labgate/releases)에서 본다. 명령의 `@v0.2.1`을 원하는 태그로 바꾼다.
+- 버전 목록과 변경 내용은 [Releases](https://github.com/qazcdesnu/labgate/releases)에서 본다. 명령의 `@v0.3.0`을 원하는 태그로 바꾼다.
 - `lg: command not found`가 나오면 `pipx ensurepath` 후 새 터미널을 연다.
 - 시스템 Python이 3.10 미만이면 `pipx install --python python3.12 git+...`처럼 버전을 지정한다.
-- uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.2.1`도 같다.
+- uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.3.0`도 같다.
 - 업데이트: `pipx install --force git+https://github.com/qazcdesnu/labgate.git@<새 태그>` / 삭제: `pipx uninstall labgate`
 
 ## 사용
@@ -58,6 +62,6 @@ scripts/test-matrix.sh          # 전체
 scripts/test-matrix.sh 3.13     # 특정 버전만
 ```
 
-전체 실행에는 생성되는 commit-msg hook과 session-check를 Python 3.9로 돌리는 검사도 포함된다 (둘 다 Python ≥ 3.9 지원).
+전체 실행에는 생성되는 commit-msg hook과 스크립트(session-check, apply-human-commits)를 Python 3.9로 돌리는 검사도 포함된다 (모두 Python ≥ 3.9 지원).
 
 GitHub Actions가 push마다 같은 조합을 Linux와 macOS에서 돌린다 (`.github/workflows/test.yml`).

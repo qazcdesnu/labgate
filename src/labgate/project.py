@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 import yaml
 
-from . import SPEC_VERSION, gitops
+from . import gitops
 from .errors import EXIT_USAGE, Fail
 from .gitops import GitError
 
@@ -24,6 +24,9 @@ HOOK_NAMES = (
     "HUMAN_TYPES", "AGENT_TYPES", "COMMON_TYPES", "TASK_REQUIRED", "SOURCE_REQUIRED",
     "MAX_HEADER", "HEADER_RE", "TASK_ID_RE", "DECISION_ID_RE", "parse", "check",
 )
+
+# spec_version 2와 3은 커밋 규약(hook의 타입·trailer)이 같다 (설계 문서 §18.3)
+SUPPORTED_SPEC_VERSIONS = (2, 3)
 
 # 사람이 쓸 수 있는 타입을 보여 줄 순서 (git-commit.md §3 표 순서)
 TYPE_ORDER = ("gate", "decide", "plan", "spec", "respond", "exp", "run", "result", "ref", "log", "chore")
@@ -156,14 +159,14 @@ def find_project(cwd: Optional[Path] = None) -> Project:
         version = yaml.safe_load(project_yaml.read_text(encoding="utf-8"))["generated"]["spec_version"]
     except (OSError, yaml.YAMLError, KeyError, TypeError) as e:
         raise Fail(EXIT_USAGE, f"✗ .lg/project.yaml 을 읽지 못했습니다: {e}") from None
-    if version != SPEC_VERSION:
+    if version not in SUPPORTED_SPEC_VERSIONS:
         if version == 1:
             raise Fail(EXIT_USAGE, (
                 "✗ labgate 0.1로 만든 프로젝트입니다 (spec_version 1).\n"
-                "  lg commit, lg draft는 spec_version 2 프로젝트만 지원합니다. git commit 을 직접 쓰세요."
+                "  lg commit, lg draft는 spec_version 2 이상 프로젝트만 지원합니다. git commit 을 직접 쓰세요."
             ))
         raise Fail(EXIT_USAGE, (
-            f"✗ 이 labgate가 모르는 spec_version 입니다: {version} (지원: {SPEC_VERSION}).\n"
+            f"✗ 이 labgate가 모르는 spec_version 입니다: {version} (지원: {', '.join(map(str, SUPPORTED_SPEC_VERSIONS))}).\n"
             "  labgate를 업데이트하세요."
         ))
 
@@ -179,5 +182,5 @@ def find_project(cwd: Optional[Path] = None) -> Project:
         raise Fail(EXIT_USAGE, f"✗ {hook_path} 를 읽지 못했습니다: {e}") from None
     missing = [n for n in HOOK_NAMES if n not in hook]
     if missing:
-        raise Fail(EXIT_USAGE, f"✗ commit-msg hook이 spec_version {SPEC_VERSION} 형식이 아닙니다 (없음: {', '.join(missing)}).")
+        raise Fail(EXIT_USAGE, f"✗ commit-msg hook이 spec_version 2 이상 형식이 아닙니다 (없음: {', '.join(missing)}).")
     return Project(root, identities, hook)

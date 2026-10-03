@@ -46,6 +46,7 @@ SECTIONS = {
     "C.1": "static/dot-lg/hooks/commit-msg",
     "C.2": "static/scripts/agent-commit",
     "C.3": "static/scripts/session-check",
+    "C.4": "static/scripts/apply-human-commits",
 }
 
 HEADING_RE = re.compile(r"^## ([ABC]\.\d+) ")

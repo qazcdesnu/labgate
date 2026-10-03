@@ -1,7 +1,7 @@
 ---
 id: git-commit
 type: spec
-spec_version: 2
+spec_version: 3
 status: complete
 ---
 # 커밋 규약
@@ -69,6 +69,7 @@ Actor: human | agent
 | `Next` | 선택 (`gate`) | `M<n>-T<n>` 또는 `none` |
 | `Milestone-Verdict` | 선택 (`gate`) | `go` \| `nogo` \| `conditional` |
 | `Approve` | 선택 (`plan`) | `M<n>-T<n>` 쉼표 목록 |
+| `Applies` | 선택 (반영 커밋) | 이 커밋이 상태 필드에 반영한 사람 커밋의 해시(7–40자) 쉼표 목록. `scripts/apply-human-commits`가 쓴다 |
 | `Refs` | 선택 | 관련 ID 목록 |
 | `Review` | 선택 | review 문서 ID |
 
@@ -128,6 +129,15 @@ exp(M1-T2): fix off-by-one in window mask
 
 Actor: human
 Task: M1-T2
+```
+
+사람 커밋의 반영 (에이전트):
+
+```
+log(M0-T0): apply plan 70ea21b
+
+Actor: agent
+Applies: 70ea21b
 ```
 
 첫 task 승인:

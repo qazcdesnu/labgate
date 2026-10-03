@@ -34,6 +34,7 @@ STATIC_FILES: tuple[tuple[str, int, bool], ...] = (
     ("dot-lg/hooks/commit-msg", EXECUTABLE, False),
     ("scripts/agent-commit", EXECUTABLE, False),
     ("scripts/session-check", EXECUTABLE, False),
+    ("scripts/apply-human-commits", EXECUTABLE, False),
     ("specs/conventions.md", REGULAR, False),
     ("specs/workflow.md", REGULAR, False),
     ("specs/git-commit.md", REGULAR, False),

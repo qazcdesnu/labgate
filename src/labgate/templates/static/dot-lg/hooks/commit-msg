@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 2).
+"""labgate commit-msg hook (spec_version 3).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -23,6 +23,7 @@ HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summ
 TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
 TASK_ID_RE = re.compile(r"^M\d+-T\d+$")
 DECISION_ID_RE = re.compile(r"^D\d+\.\d+$")
+HASH_RE = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_HEADER = 72
 SCISSORS = "# ------------------------ >8 ------------------------"
 
@@ -197,6 +198,7 @@ def check(text, check_author=True):
         errors.append("decide 커밋에는 Decisions trailer가 필요합니다.")
     check_list(trailers, "Decisions", DECISION_ID_RE, errors)
     check_list(trailers, "Approve", TASK_ID_RE, errors)
+    check_list(trailers, "Applies", HASH_RE, errors)
     return errors
 
 

@@ -1,13 +1,16 @@
 ---
 id: task-gate
 type: procedure
-spec_version: 2
+spec_version: 3
 ---
 # 게이트 요청
 
 - 시작 조건: task의 완료 기준을 모두 충족했다고 판단할 때 (Claude Code: `/task-gate <Task>`).
-- 푸는 일반 규칙: 없음.
 - 끝나는 상태: 카드가 `in-review`이고 게이트 요청 문서와 `review` 커밋이 있다. 이 task에서는 더 작업하지 않는다.
+
+## 특별 규칙
+
+없음. 일반 규칙을 따른다.
 
 ## 단계
 

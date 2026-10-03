@@ -1,0 +1,393 @@
+#!/usr/bin/env python3
+"""labgate 사람 커밋 반영 도구 (spec_version 3).
+
+사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
+표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
+
+사용법:
+  scripts/apply-human-commits            가장 오래된 반영되지 않은 사람 커밋 하나를 반영
+  scripts/apply-human-commits --check    바꾸지 않고 반영되지 않은 사람 커밋을 나열
+  scripts/apply-human-commits --tidy     지난 반영의 커밋 여부를 JSON 한 줄로 알린다 (session-check가 쓴다)
+"""
+import datetime
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PENDING = ROOT / ".lg" / "pending"
+APPLY_MSG = PENDING / "APPLY_MSG"
+APPLY_PATHS = PENDING / "APPLY_PATHS"
+
+HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summary>\S.*)$")
+TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
+TASK_ID_RE = re.compile(r"^M(\d+)-T\d+$")
+HASH_RE = re.compile(r"^[0-9a-f]{7,40}$")
+
+TASK_STATES = {"draft", "approved", "in-progress", "blocked", "in-review", "closed", "revise", "redirected"}
+NOT_DRAFT = TASK_STATES - {"draft"}
+NOT_BLOCKED = TASK_STATES - {"blocked"}
+VERDICT = {  # Verdict → (목표 상태, 이미 만족)
+    "approve": ("closed", {"closed"}),
+    "revise": ("revise", {"revise", "in-progress", "blocked"}),
+    "redirect": ("redirected", {"redirected"}),
+}
+
+
+class CannotApply(Exception):
+    """반영할 수 없음 (종료 코드 1). 아무것도 바꾸지 않는다."""
+
+
+class UsageError(Exception):
+    """환경 오류 (종료 코드 2)."""
+
+
+def git(*args):
+    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise UsageError(f"git {' '.join(args)} 실패: {(result.stderr or result.stdout).strip()}")
+    return result.stdout
+
+
+def parse(message):
+    """(타입, scope, 헤더, trailer dict)."""
+    lines = [l.rstrip() for l in message.strip().splitlines()]
+    header = lines[0] if lines else ""
+    block = []
+    for line in reversed(lines[1:]):
+        if not line:
+            break
+        block.append(line)
+    trailers = {}
+    if block and all(TRAILER_RE.match(l) for l in block):
+        for line in block:
+            m = TRAILER_RE.match(line)
+            trailers[m.group("key")] = m.group("value").strip()
+    m = HEADER_RE.match(header)
+    return (m.group("type") if m else None), (m.group("scope") if m else None), header, trailers
+
+
+def split_list(value):
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
+
+
+def human_emails():
+    try:
+        data = json.loads((ROOT / ".lg" / "identities.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise UsageError(f".lg/identities.json을 읽지 못했습니다: {e}")
+    return {h["email"].lower() for h in data.get("humans", [])}
+
+
+def commits():
+    """오래된 순서의 (해시, 작성자 이메일, 메시지)."""
+    out = git("log", "--reverse", "--format=%H%x00%ae%x00%B%x1e")
+    result = []
+    for record in out.split("\x1e"):
+        record = record.lstrip("\n")
+        if record:
+            sha, email, body = record.split("\x00", 2)
+            result.append((sha, email.strip().lower(), body))
+    return result
+
+
+def is_target(ctype, trailers):
+    return ctype in ("gate", "respond", "decide") or (ctype == "plan" and "Approve" in trailers)
+
+
+def applied_hashes(history):
+    """모든 커밋의 Applies trailer에 적힌 해시."""
+    applied = set()
+    for _, _, body in history:
+        applied.update(h.lower() for h in split_list(parse(body)[3].get("Applies")) if HASH_RE.match(h.lower()))
+    return applied
+
+
+def unreflected():
+    """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer)] (오래된 순)."""
+    humans = human_emails()
+    history = commits()
+    applied = applied_hashes(history)
+    pending = []
+    for sha, email, body in history:
+        ctype, scope, header, trailers = parse(body)
+        if email in humans and is_target(ctype, trailers) and not any(sha.startswith(p) for p in applied):
+            pending.append((sha, ctype, scope, header, trailers))
+    return pending
+
+
+# ---------------------------------------------------------------- 문서 편집 계획
+
+
+class Plan:
+    """바꾸기 전에 모든 변경을 계산한다. 하나라도 반영할 수 없으면 아무것도 쓰지 않는다."""
+
+    def __init__(self, today):
+        self.today = today
+        self.texts = {}   # 최종 경로 → 새 내용
+        self.moves = []   # (원래 경로, 새 경로)
+        self.log = []
+
+    def read(self, rel):
+        if rel in self.texts:
+            return self.texts[rel]
+        path = ROOT / rel
+        if not path.is_file():
+            raise CannotApply(f"파일이 없습니다: {rel}")
+        return path.read_text(encoding="utf-8")
+
+    def status(self, rel):
+        return frontmatter_value(self.read(rel), "status", rel)
+
+    def transition(self, rel, label, sources, target, satisfied):
+        current = self.status(rel)
+        if current == target or current in satisfied:
+            self.log.append(f"  {rel}: status {current} (이미 반영됨)")
+            return False
+        if current not in sources:
+            raise CannotApply(
+                f"{rel}: status가 {current}라서 {label}을(를) {target}(으)로 반영할 수 없습니다 "
+                f"(출발 상태: {', '.join(sorted(sources))})"
+            )
+        text = set_frontmatter(self.read(rel), "status", target, rel)
+        if frontmatter_value(text, "updated", rel, required=False) is not None:
+            text = set_frontmatter(text, "updated", self.today, rel)
+        self.texts[rel] = text
+        self.log.append(f"  {rel}: status {current} → {target}")
+        return True
+
+    def task(self, task_id, label, sources, target, satisfied):
+        m = TASK_ID_RE.match(task_id or "")
+        if not m:
+            raise CannotApply(f"Task ID 형식이 아닙니다: {task_id}")
+        milestone = f"M{m.group(1)}"
+        card = f"plan/milestones/{milestone}/tasks/{task_id}.md"
+        if self.transition(card, label, sources, target, satisfied):
+            self.table_row(f"plan/milestones/{milestone}/milestone.md", task_id, 2, target)
+        return card
+
+    def table_row(self, rel, row_id, column, value, column2=None, value2=None):
+        """표에서 첫 칸이 row_id인 행의 칸을 바꾼다. 행이 없으면 그대로 둔다."""
+        if not (ROOT / rel).is_file() and rel not in self.texts:
+            return
+        lines = self.read(rel).split("\n")
+        for i, line in enumerate(lines):
+            cells = line.split("|")
+            if len(cells) > column + 1 and cells[1].strip().strip("`") == row_id:
+                cells[column + 1] = f" {value} "
+                if column2 is not None and len(cells) > column2 + 1:
+                    cells[column2 + 1] = f" {value2} "
+                lines[i] = "|".join(cells)
+                self.texts[rel] = "\n".join(lines)
+                self.log.append(f"  {rel}: {row_id} 행 → {value}")
+                return
+
+    def history(self, card, line, short):
+        text = self.read(card)
+        if short in text:
+            return
+        heading = "\n## 게이트 이력\n"
+        if heading not in text:
+            text = text.rstrip("\n") + "\n" + heading + "\n"
+        start = text.index(heading) + len(heading)
+        end = text.find("\n## ", start)
+        end = len(text) if end == -1 else end
+        body = text[start:end].rstrip("\n")
+        text = text[:start] + (body + "\n" if body.strip() else "\n") + line + "\n" + text[end:]
+        self.texts[card] = text
+        self.log.append(f"  {card}: 게이트 이력에 추가")
+
+    def close_review(self, task_id, kind, review_id):
+        if review_id:
+            name = f"{review_id}.md"
+        else:
+            found = sorted((ROOT / "reviews" / "open").glob(f"{task_id}_{kind}-*.md"))
+            if not found:
+                return
+            name = found[-1].name
+        src, dst = f"reviews/open/{name}", f"reviews/closed/{name}"
+        if (ROOT / dst).exists() or not (ROOT / src).exists():
+            return
+        self.texts[dst] = set_frontmatter(self.read(src), "status", "closed", src)
+        self.moves.append((src, dst))
+        self.log.append(f"  {src} → {dst} (status closed)")
+
+    def decision(self, decision_id, short):
+        found = sorted((ROOT / "decisions").glob(f"{decision_id}_*.md"))
+        if len(found) != 1:
+            raise CannotApply(f"결정 문서를 하나로 찾지 못했습니다: decisions/{decision_id}_*.md ({len(found)}개)")
+        rel = found[0].relative_to(ROOT).as_posix()
+        if self.transition(rel, f"결정 {decision_id}", {"proposed", "discussing"}, "confirmed", set()):
+            self.table_row("decisions/index.md", decision_id, 2, "confirmed", 4, f"`{short}`")
+
+    def paths(self):
+        return sorted({p for move in self.moves for p in move} | set(self.texts))
+
+    def write(self):
+        for src, dst in self.moves:
+            (ROOT / dst).parent.mkdir(parents=True, exist_ok=True)
+            git("mv", src, dst)
+        for rel, text in self.texts.items():
+            write_lf(ROOT / rel, text)
+
+
+def write_lf(path, text):
+    """LF 줄바꿈으로 쓴다. Path.write_text의 newline 인자는 Python 3.10부터라 open을 쓴다."""
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
+def frontmatter_bounds(text, rel):
+    if not text.startswith("---\n") or "\n---\n" not in text[3:]:
+        raise CannotApply(f"frontmatter가 없습니다: {rel}")
+    return 4, text.index("\n---\n", 3) + 1
+
+
+def frontmatter_value(text, key, rel, required=True):
+    start, end = frontmatter_bounds(text, rel)
+    m = re.search(rf"^{key}:[ \t]*(.*)$", text[start:end], re.M)
+    if not m:
+        if required:
+            raise CannotApply(f"frontmatter에 {key}가 없습니다: {rel}")
+        return None
+    return m.group(1).strip().strip('"')
+
+
+def set_frontmatter(text, key, value, rel):
+    start, end = frontmatter_bounds(text, rel)
+    head, n = re.subn(rf"^{key}:.*$", f"{key}: {value}", text[start:end], count=1, flags=re.M)
+    if not n:
+        raise CannotApply(f"frontmatter에 {key}가 없습니다: {rel}")
+    return text[:start] + head + text[end:]
+
+
+def plan_for(sha, ctype, scope, trailers, today):
+    """한 사람 커밋의 반영 계획과 커밋 메시지."""
+    plan = Plan(today)
+    short = sha[:7]
+    task = trailers.get("Task")
+    if ctype == "plan":
+        approve = split_list(trailers.get("Approve"))
+        for t in approve:
+            plan.task(t, f"승인 {t}", {"draft"}, "approved", NOT_DRAFT)
+        msg_scope = approve[0] if approve else scope
+    elif ctype == "gate":
+        verdict = trailers.get("Verdict")
+        if verdict not in VERDICT:
+            raise CannotApply(f"Verdict가 없거나 알 수 없습니다: {verdict}")
+        target, satisfied = VERDICT[verdict]
+        card = plan.task(task, f"판정 {verdict}", {"in-review"}, target, satisfied)
+        nxt = trailers.get("Next")
+        if nxt and nxt != "none":
+            plan.task(nxt, f"다음 task {nxt}", {"draft"}, "approved", NOT_DRAFT)
+        milestone = f"M{TASK_ID_RE.match(task).group(1)}"
+        mfile = f"plan/milestones/{milestone}/milestone.md"
+        if verdict == "approve" and task.endswith("-T0"):
+            plan.transition(mfile, f"마일스톤 {milestone} 착수", {"planned"}, "active", {"active", "closed"})
+        if trailers.get("Milestone-Verdict"):
+            plan.transition(mfile, f"마일스톤 {milestone} 판정", {"active"}, "closed", {"closed"})
+        for d in split_list(trailers.get("Decisions")):
+            plan.decision(d, short)
+        plan.history(card, f"- {today} gate {verdict} `{short}`", short)
+        plan.close_review(task, "gate", trailers.get("Review"))
+        msg_scope = task
+    elif ctype == "respond":
+        card = plan.task(task, "에스컬레이션 응답", {"blocked"}, "in-progress", NOT_BLOCKED)
+        plan.history(card, f"- {today} respond `{short}`", short)
+        plan.close_review(task, "esc", trailers.get("Review"))
+        msg_scope = task
+    else:  # decide
+        decisions = split_list(trailers.get("Decisions"))
+        for d in decisions:
+            plan.decision(d, short)
+        msg_scope = decisions[0] if decisions else scope
+
+    if ctype == "respond":
+        message = f"task({task}): resume after response {short}\n\nActor: agent\nTask: {task}\nApplies: {short}\n"
+    else:
+        head = f"log({msg_scope}): apply {ctype} {short}" if msg_scope else f"log: apply {ctype} {short}"
+        message = f"{head}\n\nActor: agent\nApplies: {short}\n"
+    return plan, message
+
+
+def last_apply():
+    """지난 반영(.lg/pending/APPLY_MSG)의 상태: None, ("cleaned", 해시, []), ("pending", 해시, 경로들).
+
+    그 Applies 해시를 담은 커밋이 있으면 반영 커밋이 끝난 것이므로 기록 파일을 지운다.
+    없으면 반영은 했지만 커밋하지 않은 것이다(세션이 중간에 끝난 경우 등).
+    """
+    if not APPLY_MSG.exists():
+        return None
+    short = (parse(APPLY_MSG.read_text(encoding="utf-8"))[3].get("Applies") or "").lower()
+    paths = APPLY_PATHS.read_text(encoding="utf-8").splitlines() if APPLY_PATHS.exists() else []
+    if short and short in applied_hashes(commits()):
+        for f in (APPLY_MSG, APPLY_PATHS):
+            if f.exists():
+                f.unlink()
+        return ("cleaned", short, [])
+    return ("pending", short, [p for p in paths if p])
+
+
+def commit_command(paths):
+    if paths:
+        return "scripts/agent-commit -F .lg/pending/APPLY_MSG -- " + " ".join(paths)
+    return "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG"
+
+
+def main(argv):
+    try:
+        if "--tidy" in argv:
+            state = last_apply()
+            if state:
+                print(json.dumps({"state": state[0], "applies": state[1], "paths": state[2]}, ensure_ascii=False))
+            return 0
+        pending = unreflected()
+        if "--check" in argv:
+            for sha, _, _, header, _ in pending:
+                print(f"{sha[:7]} {header}")
+            return 0
+        if not pending:
+            print("반영할 사람 커밋이 없습니다.")
+            return 0
+        if (PENDING / "COMMIT_MSG").exists():
+            raise UsageError("사람 커밋 대기 상태입니다(.lg/pending/COMMIT_MSG). 사람이 lg commit 으로 확정한 뒤 실행하세요.")
+        state = last_apply()
+        if state and state[0] == "pending":
+            raise UsageError(
+                f"지난 반영({state[1]})이 아직 커밋되지 않았습니다. 먼저 커밋하세요:\n  {commit_command(state[2])}"
+            )
+        sha, ctype, scope, header, trailers = pending[0]
+        plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat())
+        paths = plan.paths()
+        dirty = git("status", "--porcelain", "--", *paths).strip() if paths else ""
+        if dirty:
+            raise UsageError("반영할 파일에 커밋되지 않은 변경이 있습니다. 먼저 커밋하세요:\n" + dirty)
+        plan.write()
+        PENDING.mkdir(parents=True, exist_ok=True)
+        write_lf(APPLY_MSG, message)
+        write_lf(APPLY_PATHS, "".join(p + "\n" for p in paths))
+    except CannotApply as e:
+        print(f"✗ 반영할 수 없습니다: {e}\n  아무것도 바꾸지 않았습니다. 사람에게 보고하세요.", file=sys.stderr)
+        return 1
+    except UsageError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+
+    print(f"반영: {sha[:7]} {header}")
+    print("\n".join(plan.log) if plan.log else "  (바뀐 파일 없음)")
+    if not paths:
+        print("  상태는 이미 반영되어 있습니다. 이 커밋을 가리키는 Applies 기록이 없어(Refs 등 다른 trailer는\n"
+              "  반영 기록으로 보지 않는다) 기록만 남기는 빈 반영 커밋을 만듭니다.")
+    if paths:
+        print("커밋: " + commit_command(paths) + "  (STATUS.md를 고쳤으면 함께)")
+    else:
+        print("커밋: " + commit_command(paths) + "  (STATUS.md를 고쳤으면 -- STATUS.md)")
+    if len(pending) > 1:
+        print(f"남은 사람 커밋 {len(pending) - 1}개: 커밋한 뒤 다시 실행하세요.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
