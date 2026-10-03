@@ -426,6 +426,27 @@ def _spec_version(root: Path) -> int:
     return int(data["generated"]["spec_version"])
 
 
+def _evidence_path(token: str) -> Optional[str]:
+    """요청서 근거 칸의 토큰 중 경로로 볼 것. 섹션 인용(`## …`), 공백이 든 문구, URL,
+    확장자 없는 ID(`D1.1`)는 경로가 아니다. `#앵커`와 `:줄 번호`는 뗀다."""
+    token = token.strip()
+    if not token or token.startswith("#") or " " in token or "://" in token:
+        return None
+    path = re.sub(r"(#.*|:\d+(-\d+)?)$", "", token)
+    if "/" in path or re.search(r"\.[A-Za-z]\w*$", path):
+        return path
+    return None
+
+
+def _exists(root: Path, path: str) -> bool:
+    """경로가 있는지. 디렉터리 없이 파일 이름만 쓴 것(`M0-T5.md`)은 저장소 어디에든 있으면 있다."""
+    if (root / path).exists():
+        return True
+    if "/" not in path:
+        return any(p for p in root.rglob(path) if ".git" not in p.relative_to(root).parts)
+    return False
+
+
 def _checklist(project: Project, task: str, commits, changes, report: Report) -> None:
     root = project.root
     card = next(iter(root.glob(f"plan/milestones/*/tasks/{task}.md")), None)
@@ -442,8 +463,8 @@ def _checklist(project: Project, task: str, commits, changes, report: Report) ->
         missing = []
         for row in _table_rows(table):
             for token in re.findall(r"`([^`]+)`|([\w./-]+/[\w./-]+)", row[2] if len(row) > 2 else ""):
-                path = (token[0] or token[1]).strip()
-                if ("/" in path or "." in path) and not (root / path).exists():
+                path = _evidence_path(token[0] or token[1])
+                if path and not _exists(root, path):
                     missing.append(path)
         rel = latest.relative_to(root).as_posix()
         report.checklist.append(f"게이트 요청서 {rel}: 근거 경로 " + ("모두 있음" if not missing else "없음 → " + ", ".join(missing)))

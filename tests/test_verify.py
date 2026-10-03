@@ -14,6 +14,7 @@ import labgate.commit as commit_module
 import labgate.prompts as prompts
 from conftest import ROOT
 from labgate.cli import app
+from labgate import verify
 from labgate.verify import human_transition, justifies, project_rules
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git 없음")
@@ -339,3 +340,26 @@ def test_rules_match_agents_md():
     for transition in ("`draft → approved`", "`in-review → closed | revise | redirected`", "`→ confirmed`",
                        "`planned → active → closed`"):
         assert transition in g4, transition
+
+
+@pytest.mark.parametrize("token, expected", [
+    ("plan/milestones/M0/tasks/M0-T1.md", "plan/milestones/M0/tasks/M0-T1.md"),
+    ("references/library/", "references/library/"),
+    ("M0-T5.md", "M0-T5.md"),
+    ("results/M0/r.md#요약", "results/M0/r.md"),
+    ("src/a.py:12-20", "src/a.py"),
+    ("## Go / No-go 기준", None),
+    ("D1.1", None),
+    ("https://arxiv.org/abs/1", None),
+    ("v0.4.1", None),
+])
+def test_evidence_path(token, expected):
+    """요청서 근거 칸에서 경로가 아닌 것(섹션 인용, ID, URL)을 경로로 읽지 않는다."""
+    assert verify._evidence_path(token) == expected
+
+
+def test_evidence_bare_file_name_found_anywhere(tmp_path):
+    (tmp_path / "plan" / "M0").mkdir(parents=True)
+    (tmp_path / "plan" / "M0" / "M0-T5.md").write_text("x")
+    assert verify._exists(tmp_path, "M0-T5.md")
+    assert not verify._exists(tmp_path, "M0-T6.md")
