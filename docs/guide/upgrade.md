@@ -10,18 +10,19 @@
 | labgate 버전 (`lg`) | `lg --version` | 설치·업데이트할 때 |
 | 프로젝트의 spec_version | `.lg/project.yaml`의 `spec_version`, 생성된 `README.md` 맨 아래 | `lg init`으로 만들 때 정해진다. 자동으로 바뀌지 않는다 |
 
-| 프로젝트 spec_version | 만든 버전 | `lg commit`, `lg draft` |
+| 프로젝트 spec_version | 만든 버전 | `lg commit`, `lg draft` (`lg upgrade`로 4까지 올릴 수 있다) |
 |---|---|---|
 | 1 | labgate 0.1.x | 쓸 수 없다. `git commit`으로 커밋한다 |
 | 2 | labgate 0.2.x | 쓸 수 있다 (사람 커밋 반영 도구 없음) |
 | 3 | labgate 0.3.x | 쓸 수 있다. 규칙 우선순위, 특별 규칙, `scripts/apply-human-commits` |
+| 4 | labgate 0.4.x | 쓸 수 있다. `lg upgrade`, `.gitignore` 관리 구역 |
 
 ## 순서
 
 ### `lg` 업데이트 (어느 터미널이든)
 
 ```bash
-pipx install --force git+https://github.com/qazcdesnu/labgate.git@v0.3.0
+pipx install --force git+https://github.com/qazcdesnu/labgate.git@v0.4.0
 lg --version
 ```
 
@@ -29,27 +30,39 @@ lg --version
 
 `lg`를 업데이트해도 이미 만든 프로젝트의 파일(규칙 문서, 스크립트, hook)은 바뀌지 않는다.
 
-### 이전 버전으로 만든 프로젝트
+### 이전 버전으로 만든 프로젝트: `lg upgrade` (터미널 A)
 
-자동 갱신 명령(`lg upgrade`)은 아직 없다. 두 가지 중 고른다.
+프로젝트 폴더에서 에이전트 세션을 모두 종료한 뒤 실행한다. 세션이 열려 있으면 에이전트가 읽은 규칙과 파일이 달라진다.
 
-1. **그대로 쓴다.** 프로젝트는 만든 버전의 규칙대로 계속 동작한다. spec_version 1 프로젝트는 `git commit`으로 커밋한다.
-2. **규칙 문서를 수동으로 갱신한다.** 같은 설정으로 새 버전의 프로젝트를 임시 폴더에 만들고, 바뀐 파일을 옮겨 `spec` 커밋으로 확정한다.
+1. 무엇이 바뀌는지 본다.
    ```bash
-   lg init /tmp/fresh --config <원래 설정 파일> --no-git
-   diff -r /tmp/fresh/specs specs; diff /tmp/fresh/AGENTS.md AGENTS.md   # 무엇이 바뀌었는지
+   lg upgrade --dry-run
    ```
-   옮길 대상은 규칙과 도구다(실행 권한을 지키도록 `cp -p`로 `/tmp/fresh`에서 복사한다): `AGENTS.md`, `CLAUDE.md`, `.claude/`, `specs/`(사양·절차), `scripts/`, `.lg/hooks/`, 그리고 `.lg/project.yaml`의 `spec_version`. 연구 내용(`plan/`, `decisions/`, `references/`, `results/` 등)은 옮기지 않는다. 버전마다 필요한 작업은 릴리즈 노트에 적는다.
-
-   **연구 문서의 `spec_version`도 같은 커밋에서 올린다.** 문서 frontmatter의 `spec_version`은 그 문서가 따르는 사양 버전이다. 연구 문서는 내용은 그대로 두고 이 값만 바꾼다. 에이전트는 이 값을 바꾸지 않으므로 사람이 일괄로 한다.
+2. 갱신한다.
    ```bash
-   git grep -l '^spec_version: 2$' -- '*.md' | xargs sed -i 's/^spec_version: 2$/spec_version: 3/'
-   sed -i 's/^  spec_version: 2$/  spec_version: 3/' .lg/project.yaml
-   git grep -n '^spec_version: 2$' -- '*.md'        # 아무것도 안 나와야 함
+   lg upgrade
    ```
-   초기화 기록(`.lg/project.yaml`의 `labgate_version`·`created`, 생성된 `README.md` 맨 아래 줄)은 그대로 둔다.
+   - 사람이 고친 관리 문서(규칙·절차·도구)가 있으면 **아무것도 바꾸지 않고** 멈춘다(코드 3). 목록을 보고 정한다.
+     - 의도한 수정이 아니면 `lg upgrade --force`.
+     - 의도한 수정이면 `--force`로 갱신한 뒤, `.lg/pending/upgrade/<경로>`에 남은 원래 내용을 보고 다시 합친다.
+   - 사람이 채운 stub 사양, `.gitignore`에 더한 줄, 지운 labgate 줄은 그대로 두고 알려 준다.
+3. 확인하고 커밋한다.
+   ```bash
+   git diff
+   git add -A
+   lg commit          # 타입 spec, 요약 예: upgrade to spec_version 4
+   ```
+4. 에이전트 세션을 새로 연다.
 
-   spec_version 2 → 3에서 바뀌는 파일: `AGENTS.md`, `specs/workflow.md`, `specs/git-commit.md`, `specs/procedures/*.md`, 사양 문서들의 `spec_version`, `scripts/session-check`, 새 `scripts/apply-human-commits`, `.lg/hooks/commit-msg`(`Applies` 검사). 갱신하기 전의 사람 커밋은 이미 반영된 상태면 도구가 건너뛰고 `Applies`만 남기므로 그대로 둬도 된다.
+마음에 들지 않으면 커밋하기 전에 `git restore .`로 되돌릴 수 있다(`lg upgrade`는 커밋하지 않는다). 무엇을 어떻게 바꾸는지는 [lg upgrade](../cli/lg-upgrade.md).
+
+### `lg` 없이 수동으로 갱신할 때
+
+같은 설정으로 새 버전의 프로젝트를 임시 폴더에 만들고(`lg init /tmp/fresh --config <설정 파일> --no-git`), 관리 문서를 `cp -p`로 옮기고, 모든 문서의 `spec_version`을 올린 뒤 `spec` 커밋으로 확정한다. `lg upgrade`가 하는 일을 손으로 하는 것이라, 사람이 고친 문서를 덮어쓰지 않도록 직접 확인해야 한다.
+
+```bash
+git grep -l '^spec_version: 2$' -- '*.md' | xargs sed -i 's/^spec_version: 2$/spec_version: 3/'   # 숫자는 버전에 맞게
+```
 
 ## 확인
 

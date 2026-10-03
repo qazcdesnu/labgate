@@ -1,0 +1,225 @@
+{
+  "filemap": [
+    "---",
+    "id: FILEMAP",
+    "type: filemap",
+    "---",
+    "# 폴더 지도",
+    "이 문서는 \"무엇이 어디에 있는가\"를 설명한다. \"어떻게 써야 하는가\"는 [specs/](specs/README.md)에 있다.",
+    "## 루트 문서",
+    "| 파일 | 역할 | 주로 쓰는 쪽 |",
+    "|---|---|---|",
+    "| `README.md` | 사람용 입구 | 사람 |",
+    "| `FILEMAP.md` | 이 문서 | 공통 |",
+    "| `AGENTS.md` | 에이전트 행동 규칙의 원본 | 사람 (에이전트는 읽기만) |",
+    "| `CLAUDE.md` | Claude Code 연결: `AGENTS.md` 참조 | 사람 |",
+    "| `STATUS.md` | 현재 상태판, 사람 판단 대기 목록 | 에이전트 |",
+    "## 폴더",
+    "| 폴더 | 내용 | 명명 규칙 |",
+    "|---|---|---|",
+    "| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 초안 `COMMIT_MSG`, 사람의 변경 목록 `HUMAN_FILES`, Git 제외) |",
+    "| `.claude/` | Claude Code 설정과 슬래시 커맨드 | |",
+    "| `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식, 에이전트 절차 | `doc-types/<유형>.spec.md`, `procedures/<절차>.md` |",
+    "| `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |",
+    "| `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |",
+    "| `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |",
+    "| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 실험 | `<M>/<Task>_<slug>/` |",
+    "| `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |",
+    "| `results/` | task 결과, 마일스톤 보고, 그림, 표 | `<M>/<Task>_result.md`, `<M>/report.md` |",
+    "| `reviews/` | 게이트 요청과 에스컬레이션 (`open/` → `closed/`) | `<Task>_gate-NN.md`, `<Task>_esc-NN.md` |",
+    "| `logs/` | 에이전트 세션 작업 일지 | `YYYY-MM-DD_sNN.md` |",
+    "| `data/` | 데이터 생성 설정, 데이터 설명서 | |",
+    "| `paper/` | 원고, 그림, 참고문헌 bib | |",
+    "| `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |",
+    "| `scripts/` | 프로젝트 도구 (`agent-commit`, `session-check`) | |",
+    "| `env/` | 환경 설정 | |",
+    "## 마일스톤",
+    "| ID | 제목 | 계획 | 문헌 매핑 | 결과 |",
+    "|---|---|---|---|---|",
+    "## ID가 문서를 잇는 방식",
+    "모든 문서는 ID로 서로를 가리킨다. 규칙은 [specs/conventions.md](specs/conventions.md) §1.",
+    "예: `results/M1/M1-T2_result.md`의 근거가 `M1-T2_run-003`이고, 이 실행은 결정 `D1.1`과 참고문헌 `guo2025-loglinear`를 따른다."
+  ],
+  "files": {
+    ".claude/commands/commit-prep.md": {
+      "claude_code": "sha256:148ee3450b92e80989939988c1ecd5661fbed6b692b73473131823840a7fb08c"
+    },
+    ".claude/commands/escalate.md": {
+      "claude_code": "sha256:cf017a8a13fa93b7a6628f6db9fae9d5d52a09985bfa6b03e712010930643a36"
+    },
+    ".claude/commands/session-close.md": {
+      "claude_code": "sha256:05b6b5bd347ee00a853fe098efe734ddc80794c6b618c5cb2b5ffe93fde0f1a5"
+    },
+    ".claude/commands/session-start.md": {
+      "claude_code": "sha256:62f10709ec368e5388fa1e957abecd0643a828ee8eb7049470210f2b6469df8a"
+    },
+    ".claude/commands/task-gate.md": {
+      "claude_code": "sha256:b4aef9e1472d5357032a7873f2c2d355e39fabe0ca20fbb0466d718c2eab0175"
+    },
+    ".claude/commands/task-start.md": {
+      "claude_code": "sha256:de71a2f2ef3877f228b418564ca7cc9ab21fbbc7c32adb9ad70485ba26f7c8c7"
+    },
+    ".claude/settings.json": {
+      "claude_code": "sha256:dbf7f01ead318a53a5c61ad3994b110f66296f05592a28925fa6b3a1d5bc2310"
+    },
+    ".lg/hooks/commit-msg": {
+      "claude_code": "sha256:e2782fed3a3602b39faf59dd5590e519530c2c2251243cb3e468f6a8a8bf6e89",
+      "no_claude_code": "sha256:e2782fed3a3602b39faf59dd5590e519530c2c2251243cb3e468f6a8a8bf6e89"
+    },
+    "AGENTS.md": {
+      "claude_code": "sha256:677b24e7c73aeeaef4045ccef016e24d107868466f0c812e71fd2395a12e2f5c",
+      "no_claude_code": "sha256:1ab9f12b28d4ed9f2eccc6c21412205c3e8fec672660b27505ee77eee7ace228"
+    },
+    "CLAUDE.md": {
+      "claude_code": "sha256:0ccaf44765bc637ebbb9ce4dbf7a8b520972aa6e59085f69c3defce7155c621e"
+    },
+    "scripts/agent-commit": {
+      "claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "no_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b"
+    },
+    "scripts/apply-human-commits": {
+      "claude_code": "sha256:7cfd9f8d430e6bb67c79cadb43c5dda41b8afe3ae026398c8afbd6ad5ef771c4",
+      "no_claude_code": "sha256:7cfd9f8d430e6bb67c79cadb43c5dda41b8afe3ae026398c8afbd6ad5ef771c4"
+    },
+    "scripts/session-check": {
+      "claude_code": "sha256:5d9836b80d50ab197159cf7607f4c68c099fe5f823f00646e0d04beb22edd923",
+      "no_claude_code": "sha256:5d9836b80d50ab197159cf7607f4c68c099fe5f823f00646e0d04beb22edd923"
+    },
+    "specs/README.md": {
+      "claude_code": "sha256:b00720e81d2524b433ae7e6d48adb7d671ff98828273e0208299bab77345eeb1",
+      "no_claude_code": "sha256:b00720e81d2524b433ae7e6d48adb7d671ff98828273e0208299bab77345eeb1"
+    },
+    "specs/conventions.md": {
+      "claude_code": "sha256:c8bd7de17bb6e2a9f23b1786e5f69d6f69bff9e4e3338cac0512a56fc57da035",
+      "no_claude_code": "sha256:c8bd7de17bb6e2a9f23b1786e5f69d6f69bff9e4e3338cac0512a56fc57da035"
+    },
+    "specs/doc-types/catalog.spec.md": {
+      "claude_code": "sha256:bba606b3af493c37166bf4d3269458d06fcf9ebbbd4cb0d968ee112cfb4c2da2",
+      "no_claude_code": "sha256:bba606b3af493c37166bf4d3269458d06fcf9ebbbd4cb0d968ee112cfb4c2da2"
+    },
+    "specs/doc-types/decision.spec.md": {
+      "claude_code": "sha256:eb69d2b8a97e39c8f6d2115ba39a977f530929e220545117a7b77568b8a7e840",
+      "no_claude_code": "sha256:eb69d2b8a97e39c8f6d2115ba39a977f530929e220545117a7b77568b8a7e840"
+    },
+    "specs/doc-types/experiment-readme.spec.md": {
+      "claude_code": "sha256:15f2ccd3d9b6ffe20e959c7b5f7a3325262324d8f6bed8f560a587da28e86a91",
+      "no_claude_code": "sha256:15f2ccd3d9b6ffe20e959c7b5f7a3325262324d8f6bed8f560a587da28e86a91"
+    },
+    "specs/doc-types/milestone-report.spec.md": {
+      "claude_code": "sha256:0f53c1d87b82029c7cbf1ccc961fc7e55644f3f3bf03b771f6cfaaa132216a99",
+      "no_claude_code": "sha256:0f53c1d87b82029c7cbf1ccc961fc7e55644f3f3bf03b771f6cfaaa132216a99"
+    },
+    "specs/doc-types/milestone.spec.md": {
+      "claude_code": "sha256:9b81bb4632ef2dd3a9e9d5e03bb80ddb76df6539eade54331f5395d98a57f241",
+      "no_claude_code": "sha256:9b81bb4632ef2dd3a9e9d5e03bb80ddb76df6539eade54331f5395d98a57f241"
+    },
+    "specs/doc-types/review.spec.md": {
+      "claude_code": "sha256:89e74241d7dea85c4e596cdcfc9140b02d0d7ad6e9b1fc062bd5ce51c5e474d7",
+      "no_claude_code": "sha256:89e74241d7dea85c4e596cdcfc9140b02d0d7ad6e9b1fc062bd5ce51c5e474d7"
+    },
+    "specs/doc-types/roadmap.spec.md": {
+      "claude_code": "sha256:9afd028a05c9b02a20987a5e2ad50b5ff9ed3fa4da12bf19026481b9da6a77ce",
+      "no_claude_code": "sha256:9afd028a05c9b02a20987a5e2ad50b5ff9ed3fa4da12bf19026481b9da6a77ce"
+    },
+    "specs/doc-types/run-record.spec.md": {
+      "claude_code": "sha256:bb8ae146ec5c8e67b9e7c92a5816fe83e2e966576f0a02c1e0f3785272217dbc",
+      "no_claude_code": "sha256:bb8ae146ec5c8e67b9e7c92a5816fe83e2e966576f0a02c1e0f3785272217dbc"
+    },
+    "specs/doc-types/status.spec.md": {
+      "claude_code": "sha256:6e7fd267984ab75f6194fa118243ce6eb017fea4b0ed769b8acb6c8cc8d67d44",
+      "no_claude_code": "sha256:6e7fd267984ab75f6194fa118243ce6eb017fea4b0ed769b8acb6c8cc8d67d44"
+    },
+    "specs/doc-types/task-card.spec.md": {
+      "claude_code": "sha256:5203a35dd918ce081bdff9677e7b1ef448340216772013d2543870bc33bbcef8",
+      "no_claude_code": "sha256:5203a35dd918ce081bdff9677e7b1ef448340216772013d2543870bc33bbcef8"
+    },
+    "specs/doc-types/task-map.spec.md": {
+      "claude_code": "sha256:15fb1175099fc59ed4713b16a0f158f598a880f78c8d1646e24685d58ba1e293",
+      "no_claude_code": "sha256:15fb1175099fc59ed4713b16a0f158f598a880f78c8d1646e24685d58ba1e293"
+    },
+    "specs/doc-types/task-result.spec.md": {
+      "claude_code": "sha256:f23d8a4778da35db478290c1c49304fefb36e5b0402dc8a7e113470844159501",
+      "no_claude_code": "sha256:f23d8a4778da35db478290c1c49304fefb36e5b0402dc8a7e113470844159501"
+    },
+    "specs/doc-types/worklog.spec.md": {
+      "claude_code": "sha256:660eaecea29d75c98c7e9f509524d7b9caee2e7b538d72db04d20608ab89b5cd",
+      "no_claude_code": "sha256:660eaecea29d75c98c7e9f509524d7b9caee2e7b538d72db04d20608ab89b5cd"
+    },
+    "specs/git-commit.md": {
+      "claude_code": "sha256:b11672f6cc43a257a5bf08b5ab74a3f7cd66ae40ef83adf8fda6602b2da1546f",
+      "no_claude_code": "sha256:b11672f6cc43a257a5bf08b5ab74a3f7cd66ae40ef83adf8fda6602b2da1546f"
+    },
+    "specs/procedures/commit-prep.md": {
+      "claude_code": "sha256:7a07c4c14ff35ed14c6db8c8a2efb26a74e87ab527a2499ad20c40927fd72297",
+      "no_claude_code": "sha256:7a07c4c14ff35ed14c6db8c8a2efb26a74e87ab527a2499ad20c40927fd72297"
+    },
+    "specs/procedures/escalate.md": {
+      "claude_code": "sha256:91333e9ead448117f7e43c07540d8102491212a8b1f53f8db6643c320504820e",
+      "no_claude_code": "sha256:91333e9ead448117f7e43c07540d8102491212a8b1f53f8db6643c320504820e"
+    },
+    "specs/procedures/gate-apply.md": {
+      "claude_code": "sha256:540ec8bf32b0b1df6cf6a1359790b7366a66ad2a1eb68d78600fe07a1e256a65",
+      "no_claude_code": "sha256:540ec8bf32b0b1df6cf6a1359790b7366a66ad2a1eb68d78600fe07a1e256a65"
+    },
+    "specs/procedures/gate-conversation.md": {
+      "claude_code": "sha256:0ab01e4eac8ac796dcea079f69e162c3a6abff4fbc37cb7b2cdefdacdb433641",
+      "no_claude_code": "sha256:0ab01e4eac8ac796dcea079f69e162c3a6abff4fbc37cb7b2cdefdacdb433641"
+    },
+    "specs/procedures/session-close.md": {
+      "claude_code": "sha256:4a5d8766aa1b980b43e0cf3de52c2ec4a737c3de2023eec5b812618300294b45",
+      "no_claude_code": "sha256:4a5d8766aa1b980b43e0cf3de52c2ec4a737c3de2023eec5b812618300294b45"
+    },
+    "specs/procedures/session-start.md": {
+      "claude_code": "sha256:b6222d1a24725587243f34874fbacaebab53101f965b443edf86ddc50cc9f04e",
+      "no_claude_code": "sha256:b6222d1a24725587243f34874fbacaebab53101f965b443edf86ddc50cc9f04e"
+    },
+    "specs/procedures/task-gate.md": {
+      "claude_code": "sha256:177c8f065aa6ab548527e92da80faa9f79b79313fb818a2aed2214ef0dcaa88f",
+      "no_claude_code": "sha256:177c8f065aa6ab548527e92da80faa9f79b79313fb818a2aed2214ef0dcaa88f"
+    },
+    "specs/procedures/task-start.md": {
+      "claude_code": "sha256:b35f16c088ed3b2ed9b417987d2b55305be63cb949b52c412e83d5fc5582d74a",
+      "no_claude_code": "sha256:b35f16c088ed3b2ed9b417987d2b55305be63cb949b52c412e83d5fc5582d74a"
+    },
+    "specs/templates/review.md": {
+      "claude_code": "sha256:ace2b6b2940b93abb6989c144a363cf6e3e396ad96ce706df662a9a0b281e08d",
+      "no_claude_code": "sha256:ace2b6b2940b93abb6989c144a363cf6e3e396ad96ce706df662a9a0b281e08d"
+    },
+    "specs/templates/task-card.md": {
+      "claude_code": "sha256:f5f2640bbfbadc1278ad40514825ffcdf16712ae7e5bee645bfb94656b32051a",
+      "no_claude_code": "sha256:f5f2640bbfbadc1278ad40514825ffcdf16712ae7e5bee645bfb94656b32051a"
+    },
+    "specs/workflow.md": {
+      "claude_code": "sha256:acc3c2265cb370ef463441ad63282a7362fb609a3be5c2225bc9605d7874f729",
+      "no_claude_code": "sha256:acc3c2265cb370ef463441ad63282a7362fb609a3be5c2225bc9605d7874f729"
+    }
+  },
+  "gitignore": [
+    "# 실행 산출물 원본",
+    "runs/*",
+    "!runs/.gitkeep",
+    "# 대화 경로 게이트용 임시 커밋 메시지",
+    ".lg/pending/",
+    "# Claude Code 워크트리 (실험 격리용, main에 병합하지 않음)",
+    ".claude/worktrees/",
+    "# Python",
+    "__pycache__/",
+    "*.py[cod]",
+    ".venv/",
+    "venv/",
+    ".ipynb_checkpoints/",
+    ".pytest_cache/",
+    "# 실험 도구",
+    "wandb/",
+    "mlruns/",
+    "# OS / 편집기",
+    ".DS_Store",
+    "Thumbs.db",
+    ".idea/",
+    ".vscode/",
+    "# 대용량 원본 데이터는 필요 시 아래 주석을 해제",
+    "# data/raw/"
+  ],
+  "labgate_version": "0.4.0",
+  "spec_version": 4
+}

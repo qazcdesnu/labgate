@@ -1,3 +1,5 @@
+# labgate:begin  (labgate가 관리한다. lg upgrade가 이 구역을 갱신하므로, 직접 추가할 규칙은 구역 밖에 쓴다)
+
 # 실행 산출물 원본
 runs/*
 !runs/.gitkeep
@@ -28,3 +30,5 @@ Thumbs.db
 
 # 대용량 원본 데이터는 필요 시 아래 주석을 해제
 # data/raw/
+
+# labgate:end

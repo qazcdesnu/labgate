@@ -1,7 +1,7 @@
 ---
 id: workflow
 type: spec
-spec_version: 3
+spec_version: 4
 status: complete
 ---
 # 워크플로우

@@ -1,7 +1,7 @@
 ---
 id: session-close
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 세션 종료
 

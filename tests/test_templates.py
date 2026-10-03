@@ -264,7 +264,7 @@ def test_wheel_contains_all_templates(tmp_path):
     names = set(zipfile.ZipFile(wheel).namelist())
     expected = {f"labgate/templates/jinja/{p}" for p in JINJA} | {
         f"labgate/templates/static/{p}" for p in STATIC
-    }
+    } | {f"labgate/hashes/{p.name}" for p in (ROOT / "src/labgate/hashes").glob("*.json")}  # lg upgrade 해시표
     assert expected <= names, sorted(expected - names)
 
 

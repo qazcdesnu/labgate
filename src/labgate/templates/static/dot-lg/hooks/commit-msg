@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 3).
+"""labgate commit-msg hook (spec_version 4).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """

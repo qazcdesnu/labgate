@@ -1,7 +1,7 @@
 ---
 id: gate-apply
 type: procedure
-spec_version: 3
+spec_version: 4
 ---
 # 사람 커밋의 반영
 
