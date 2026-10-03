@@ -43,8 +43,9 @@ def test_options_documented(name):
 
 @pytest.mark.parametrize("name", sorted(COMMANDS))
 def test_exit_codes_documented(name):
-    codes = table_column(section((DOCS / f"lg-{name}.md").read_text(encoding="utf-8"), "종료 코드"))
-    assert {int(c) for c in codes} == EXIT_CODES
+    """명령이 쓰는 코드만 적는다. 공통 체계(README) 밖의 코드는 없고, 0·1·130은 모든 명령에 있다."""
+    codes = {int(c) for c in table_column(section((DOCS / f"lg-{name}.md").read_text(encoding="utf-8"), "종료 코드"))}
+    assert codes <= EXIT_CODES and {errors.EXIT_OK, errors.EXIT_ERROR, errors.EXIT_ABORT} <= codes
 
 
 def test_overview_exit_codes_match_errors_module():

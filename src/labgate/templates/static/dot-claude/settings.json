@@ -16,6 +16,7 @@
       "Bash(git add . *)",
       "Bash(git stash *)",
       "Bash(lg commit *)",
+      "Bash(lg answer *)",
       "Bash(lg upgrade *)"
     ]
   },

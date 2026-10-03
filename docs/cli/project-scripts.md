@@ -60,6 +60,7 @@ scripts/session-check
 scripts/apply-human-commits            # 가장 오래된 반영되지 않은 사람 커밋 하나를 반영
 scripts/apply-human-commits --check    # 바꾸지 않고 반영되지 않은 사람 커밋을 나열
 scripts/apply-human-commits --tidy     # 지난 반영의 커밋 여부 (session-check가 쓴다)
+scripts/apply-human-commits --preview  # 표준 입력의 커밋 메시지가 반영되면 생길 변화. 쓰지 않는다 (lg answer가 쓴다, spec_version 5)
 ```
 
 **반영 대상:** 사람이 작성한 `gate`, `respond`, `decide` 커밋과 `Approve`가 있는 `plan` 커밋 중, 뒤의 어떤 커밋의 `Applies` trailer에도 그 해시가 없는 것. 오래된 것부터 하나씩 반영한다.
@@ -78,6 +79,7 @@ scripts/apply-human-commits --tidy     # 지난 반영의 커밋 여부 (session
 - 이미 목표 상태이거나 그 뒤의 상태면 건너뛴다(예: 승인됐는데 이미 `in-progress`). 이때도 반영 커밋은 만들어 `Applies`를 남긴다. 바꿀 파일이 없으면 출력이 그 이유를 알려 준다: 반영 여부는 `Applies`로만 판별하고 `Refs` 같은 다른 trailer는 기록으로 보지 않는다.
 - 한 커밋의 전이 중 하나라도 할 수 없으면(카드가 출발 상태가 아님, 문서 없음) **아무것도 바꾸지 않는다.**
 - 지난 반영이 아직 커밋되지 않았으면 새로 반영하지 않고(코드 2) 그 커밋 명령을 안내한다.
+- `--preview`는 아직 커밋하지 않은 사람 커밋 메시지 하나를 표준 입력으로 받아, 반영 계획을 `미리보기: <헤더>`와 바뀔 줄들로 출력한다. 아무것도 쓰지 않는다. 반영할 수 없으면 코드 1. `lg answer`가 커밋 전에 판정의 효과를 보여 주고 반영할 수 없는 판정을 막는 데 쓴다.
 - 반영하면 바뀐 내용, 커밋 명령, 메시지(`.lg/pending/APPLY_MSG`)와 경로 목록(`.lg/pending/APPLY_PATHS`)을 낸다. 메시지는 `log(<scope>): apply <타입> <해시>` + `Applies: <해시>`이고, `respond`면 `task(<Task>): resume after response <해시>`다.
 
 ```bash

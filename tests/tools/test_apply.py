@@ -202,3 +202,35 @@ def test_tidy_reports_json(project):
     project.apply()
     state = json.loads(project.apply("--tidy").stdout)
     assert state == {"state": "pending", "applies": sha[:7], "paths": [MILESTONE0, CARD0]}
+
+
+# ---------------------------------------------------------------- --preview (§24.5.4, lg answer가 쓴다)
+
+GATE_APPROVE = ("gate(M0-T0): approve, next M0-T1\n\nActor: human\nTask: M0-T0\nVerdict: approve\n"
+                "Source: document\nNext: M0-T1\nReview: M0-T0_gate-01\n")
+
+
+def test_preview_lists_changes_and_writes_nothing(project):
+    to_review(project)
+    result = project.apply("--preview", input=GATE_APPROVE)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert out.startswith("미리보기: gate(M0-T0): approve, next M0-T1\n")
+    assert f"{CARD0}: status in-review → closed" in out
+    assert "plan/milestones/M0/tasks/M0-T1.md: status draft → approved" in out
+    assert f"{MILESTONE0}: status planned → active" in out
+    assert "reviews/open/M0-T0_gate-01.md → reviews/closed/M0-T0_gate-01.md" in out
+    assert project.git("status", "--porcelain") == ""
+    assert not (project / ".lg/pending/APPLY_MSG").exists()
+
+
+def test_preview_refuses_what_cannot_be_applied(project):
+    """카드가 in-review가 아니면 반영할 수 없다. 커밋 전에 알 수 있다."""
+    result = project.apply("--preview", input=GATE_APPROVE.replace("Next: M0-T1\n", ""))
+    assert result.returncode == 1
+    assert "반영할 수 없습니다" in result.stderr and "draft" in result.stderr
+
+
+def test_preview_of_non_target_commit(project):
+    result = project.apply("--preview", input="exp: x\n\nActor: human\n")
+    assert result.returncode == 0 and result.stdout.startswith("반영할 것이 없습니다")

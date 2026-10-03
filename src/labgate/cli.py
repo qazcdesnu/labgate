@@ -1,4 +1,5 @@
-"""Typer 앱: `lg init` (설계 문서 §5), `lg commit` (§18), `lg draft` (§19)."""
+"""Typer 앱: `lg init` (설계 문서 §5), `lg commit` (§18), `lg draft` (§19), `lg upgrade` (§22), `lg verify` (§23),
+`lg status`, `lg answer` (§24)."""
 from __future__ import annotations
 
 import os
@@ -12,7 +13,9 @@ import typer
 
 from . import __version__, gitops, prompts
 from . import commit as commit_module  # 명령 함수 commit, draft와 이름이 겹치지 않게
+from . import answer as answer_module
 from . import draft as draft_module
+from . import status as status_module
 from . import upgrade as upgrade_module
 from . import verify as verify_module
 from .config import Config, ConfigError, load_config
@@ -116,6 +119,23 @@ def verify(
         typer.echo(verify_module.render(report))
         return EXIT_TARGET if report.findings else EXIT_OK
     _guard(run, interrupted="\n중단했습니다.")
+
+
+@app.command()
+def status(
+    as_json: bool = typer.Option(False, "--json", help="같은 내용을 JSON으로 출력한다."),
+) -> None:
+    """사람이 할 일, 에이전트 몫, 진행 상황을 보여 준다. 읽기만 한다."""
+    _guard(lambda: _echo(status_module.run_status(as_json)), interrupted="\n중단했습니다.")
+
+
+@app.command()
+def answer(
+    review_id: Optional[str] = typer.Argument(None, help="응답할 review ID. 생략하면 열린 review에서 고른다.", show_default=False),
+    no_tag: bool = typer.Option(False, "--no-tag", help="gate 승인이어도 tag를 만들지 않는다."),
+) -> None:
+    """열린 review를 보여 주고 판정을 물어, 응답과 사람 커밋을 함께 만든다. 사람이 터미널에서 직접 실행한다."""
+    _guard(lambda: _echo(answer_module.run_answer(review_id, no_tag)), interrupted="\n중단했습니다. 아무것도 바꾸지 않았습니다.")
 
 
 def _echo(message: str) -> int:

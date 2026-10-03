@@ -148,13 +148,15 @@ def select(message: str, choices: list[str]) -> str:
     return _answer(questionary.select(message, choices=choices, **IO))
 
 
-def checkbox(message: str, choices: list[str]) -> list[str]:
-    return list(_answer(questionary.checkbox(message, choices=choices, **IO)))
+def checkbox(message: str, choices: list[str], checked: Optional[set[str]] = None) -> list[str]:
+    """여러 개 고르기. `checked`의 항목은 미리 골라 둔다."""
+    items = [questionary.Choice(c, checked=c in (checked or set())) for c in choices]
+    return list(_answer(questionary.checkbox(message, choices=items, **IO)))
 
 
-def text(message: str, validate: Optional[Callable[[str], Optional[str]]] = None) -> str:
+def text(message: str, validate: Optional[Callable[[str], Optional[str]]] = None, default: str = "") -> str:
     """한 줄 입력. `validate`는 오류 문구 또는 None을 돌려준다."""
     def check(raw: str) -> Any:
         return (validate(raw) if validate else None) or True
 
-    return _answer(questionary.text(message, validate=check, **IO)).strip()
+    return _answer(questionary.text(message, default=default, validate=check, **IO)).strip()

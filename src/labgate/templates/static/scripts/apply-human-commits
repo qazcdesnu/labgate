@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 4).
+"""labgate 사람 커밋 반영 도구 (spec_version 5).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -8,6 +8,7 @@
   scripts/apply-human-commits            가장 오래된 반영되지 않은 사람 커밋 하나를 반영
   scripts/apply-human-commits --check    바꾸지 않고 반영되지 않은 사람 커밋을 나열
   scripts/apply-human-commits --tidy     지난 반영의 커밋 여부를 JSON 한 줄로 알린다 (session-check가 쓴다)
+  scripts/apply-human-commits --preview  표준 입력의 커밋 메시지가 반영되면 생길 변화를 출력한다. 쓰지 않는다 (lg answer가 쓴다)
 """
 import datetime
 import json
@@ -336,6 +337,22 @@ def commit_command(paths):
     return "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG"
 
 
+def preview(message):
+    """아직 커밋하지 않은 사람 커밋 메시지 하나의 반영 계획 (§24.5.4). 아무것도 쓰지 않는다."""
+    ctype, scope, header, trailers = parse(message)
+    if not is_target(ctype, trailers):
+        print(f"반영할 것이 없습니다: {header}")
+        return 0
+    try:
+        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat())
+    except CannotApply as e:
+        print(f"✗ 이 커밋은 반영할 수 없습니다: {e}", file=sys.stderr)
+        return 1
+    print(f"미리보기: {header}")
+    print("\n".join(plan.log) if plan.log else "  (바뀐 파일 없음)")
+    return 0
+
+
 def main(argv):
     try:
         if "--tidy" in argv:
@@ -343,6 +360,8 @@ def main(argv):
             if state:
                 print(json.dumps({"state": state[0], "applies": state[1], "paths": state[2]}, ensure_ascii=False))
             return 0
+        if "--preview" in argv:
+            return preview(sys.stdin.read())
         pending = unreflected()
         if "--check" in argv:
             for sha, _, _, header, _ in pending:

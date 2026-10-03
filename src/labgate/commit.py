@@ -28,20 +28,7 @@ def run_commit(pending: Optional[bool], no_tag: bool, allow_empty: bool = False,
                cwd: Optional[Path] = None) -> str:
     """§18.2. 성공하면 출력할 안내를 돌려준다."""
     project = find_project(cwd)
-
-    if not is_tty():
-        raise Fail(EXIT_USAGE, (
-            "✗ lg commit 은 사람이 터미널에서 직접 실행합니다.\n"
-            "  에이전트는 lg draft 로 초안만 준비합니다."
-        ))
-
-    result = gitops.run(["config", "user.email"], cwd=project.root)
-    email = result.stdout.strip().lower() if result.returncode == 0 else ""
-    if email not in project.human_emails():
-        raise Fail(EXIT_USAGE, (
-            f"✗ 현재 Git 사용자({email or '설정 없음'})가 .lg/identities.json 의 humans 에 없습니다.\n"
-            '  git config user.email "<등록된 이메일>" 로 설정하세요.'
-        ))
+    require_human_terminal(project, "lg commit", "에이전트는 lg draft 로 초안만 준비합니다.")
 
     has_draft = project.draft_path.exists()
     if pending and not has_draft:
@@ -63,6 +50,19 @@ def run_commit(pending: Optional[bool], no_tag: bool, allow_empty: bool = False,
     if hint:
         lines.append(f"  {hint}")
     return "\n".join(lines)
+
+
+def require_human_terminal(project: Project, command: str, agent_hint: str) -> None:
+    """§18.2 2–3: 사람이 터미널에서, 등록된 사람 신원으로 실행하는가."""
+    if not is_tty():
+        raise Fail(EXIT_USAGE, f"✗ {command} 은 사람이 터미널에서 직접 실행합니다.\n  {agent_hint}")
+    result = gitops.run(["config", "user.email"], cwd=project.root)
+    email = result.stdout.strip().lower() if result.returncode == 0 else ""
+    if email not in project.human_emails():
+        raise Fail(EXIT_USAGE, (
+            f"✗ 현재 Git 사용자({email or '설정 없음'})가 .lg/identities.json 의 humans 에 없습니다.\n"
+            '  git config user.email "<등록된 이메일>" 로 설정하세요.'
+        ))
 
 
 REFLECTED_TYPES = ("gate", "respond", "decide")

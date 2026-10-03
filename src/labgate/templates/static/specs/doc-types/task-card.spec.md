@@ -1,7 +1,7 @@
 ---
 id: task-card
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # Task 카드 사양
@@ -20,7 +20,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `4` |
+| `spec_version` | ✓ | `5` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |

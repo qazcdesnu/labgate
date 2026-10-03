@@ -186,7 +186,7 @@ def test_settings_json_valid():
     assert data["attribution"] == {"commit": "", "pr": "", "sessionUrl": False}
     assert "includeCoAuthoredBy" not in data
     # §17.3: 에이전트는 lg commit을 실행하지 못하고, 세션 시작마다 session-check가 돈다
-    assert "Bash(lg commit *)" in deny
+    assert "Bash(lg commit *)" in deny and "Bash(lg answer *)" in deny  # §24.5.3: 응답은 사람만
     (group,) = data["hooks"]["SessionStart"]
     assert "matcher" not in group  # 시작·재개·/clear·compact 모두
     assert group["hooks"] == [{"type": "command", "command": '"$CLAUDE_PROJECT_DIR"/scripts/session-check'}]
@@ -278,3 +278,10 @@ def test_user_input_with_template_like_braces_renders():
     assert "$O(n^{{2}})$ 를 줄인다" in readme
     fm = frontmatter(results[("plan/milestones/milestone.md.j2", "M0")])
     assert fm["title"] == "{% raw %} 재현"
+
+
+def test_procedures_point_to_lg_answer():
+    """§24.5.1–2: 게이트 요청 전에 카드를 체크하고 lg verify를 돌리며, 보고에 lg answer를 안내한다."""
+    gate = read_static("specs/procedures/task-gate.md")
+    assert "`- [x]`" in gate and "`lg verify --task <Task>`" in gate and "`lg answer <review id>`" in gate
+    assert "`lg answer <review id>`" in read_static("specs/procedures/escalate.md")

@@ -53,18 +53,21 @@ commands 계층도 커밋할 때 hook을 거치고, `approve_and_start`처럼 �
 | `unit/test_writer.py` | 대상 폴더 검사, 쓰기와 롤백 | §5.3, §8.3 |
 | `unit/test_kinds.py` | 생성 파일 분류의 정규화 (`lg upgrade` 비교 기준) | §22.3 |
 | `unit/test_verify_rules.py` | `lg verify`의 전이·근거 판정, 근거 경로 판별 | §23 |
+| `unit/test_answer_parts.py` | `lg answer`의 응답 만들기·검사, 선택지 읽기, 커밋 메시지 | §24.4 |
 | `contract/test_templates.py` | 템플릿 = 설계 문서 부록, 렌더링 결과 규약, 절차 문서 링크·특별 규칙, verify 규칙 = AGENTS.md, wheel 내용 | 부록 A–C, §16, §23.3 |
 | `contract/test_docs.py` | `docs/cli/`의 옵션 표·종료 코드 = CLI, `docs/guide/` 링크 | — |
 | `contract/test_releases.py` | 해시표 = 릴리즈 tag의 템플릿, 릴리즈된 spec_version 동결, 모든 생성 파일 분류 | §22.2.2, §22.4 |
 | `tools/test_hook.py` | commit-msg hook 규칙 전부, `agent-commit` 옵션 차단 | §11, §12, 부록 C, §14.1 |
 | `tools/test_session_check.py` | 사람의 변경 기록, 초안·반영 대기 알림, `--tidy` 연동 | §17.2 |
-| `tools/test_apply.py` | 사람 커밋(plan, gate, respond, decide)의 반영 | §21 |
+| `tools/test_apply.py` | 사람 커밋(plan, gate, respond, decide)의 반영, `--preview` | §21, §24.5.4 |
 | `commands/test_project.py` | 명령 공통의 프로젝트 확인: 위치, spec_version, hook 계약 | §18.3 |
 | `commands/test_init.py` | `lg init` (설정 파일, 대화형, 오류와 롤백) | §5, §6.3, §10, §14.2 |
 | `commands/test_draft.py` | `lg draft` | §19 |
 | `commands/test_commit.py` | `lg commit` (초안·작성 모드, tag, gate의 verify 요약, 다음 할 일 안내) | §18, §23.5 |
 | `commands/test_upgrade.py` | `lg upgrade` (옛 tag로 만든 프로젝트를 올리기) | §22 |
 | `commands/test_verify.py` | `lg verify` (V1–V5, 범위, 옛 프로젝트) | §23 |
+| `commands/test_status.py` | `lg status` | §24.3 |
+| `commands/test_answer.py` | `lg answer` (gate, escalation, 미리보기 = 실제 반영, 전제, spec_version 4) | §24.4 |
 | `e2e/test_acceptance.py` | §14.3 수용 기준, entry point, 워크트리 | §14.3 |
 
 각 파일 첫 줄 docstring에 대상과 설계 문서 절을 적는다. 설계 문서의 절이 바뀌면 이 표와 docstring을 함께 고친다.
@@ -107,12 +110,13 @@ commands 계층도 커밋할 때 hook을 거치고, `approve_and_start`처럼 �
 | `read`, `write(rel, text="x\n")` | 파일 읽기·쓰기 (`write`는 폴더를 만든다) |
 | `status(rel)`, `set_status(rel, value)` | frontmatter `status` 읽기·바꾸기 |
 | `yaml()`, `agent_email` | `.lg/project.yaml`, 에이전트 이메일 (`agent@<slug>.local`을 하드코딩하지 않는다) |
-| `run`, `git`, `lg`, `script(name, *args)` | 명령 실행. `git`은 stdout 문자열, `lg`는 프로젝트 폴더에서 CliRunner, `script`는 `python3 scripts/<name>` |
+| `run`, `git`, `lg`, `script(name, *args, input=None)` | 명령 실행. `git`은 stdout 문자열, `lg`는 프로젝트 폴더에서 CliRunner, `script`는 `python3 scripts/<name>` |
 | `human(message, *paths, all=False, no_verify=False)` | 사람 신원 커밋. 지정한 경로만 stage (`all=True`면 전부) |
 | `agent(message, *paths, no_verify=False)` | `scripts/agent-commit`으로 에이전트 커밋. `no_verify`면 hook을 우회한 커밋을 git으로 직접 |
 | `last_commit()`, `trailers()` | `"작성자 이메일\|헤더"`, 마지막 커밋의 trailer |
 | `session_check()`, `apply(*args)`, `commit_apply(result)` | 생성 스크립트 실행, 반영 결과의 커밋 명령 실행 |
 | `approve_and_start(task="M0-T0")` | 정상 흐름: 승인 → 반영 → 착수 |
+| `add_card`, `add_decision`, `request_gate`, `escalate` | 에이전트 쪽 문서 준비: 카드(생성된 T0 카드를 본뜸)·결정 추가, 게이트 요청·에스컬레이션(요청서와 `review` 커밋) |
 
 ### 설정 고르기
 

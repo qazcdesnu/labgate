@@ -54,4 +54,4 @@
 - `--no-verify` 차단용 Claude Code PreToolUse hook 검토 (같은 문서 §6.5).
 - 탐색 구간의 task 크기 지침(넓은 범위 + 예산)을 `workflow.md`에 추가 검토 (같은 문서 §4.2).
 - Claude Code 슬래시 커맨드를 `.claude/commands/`(지원되지만 구식)에서 `.claude/skills/`로 옮길지 검토.
-- §15 향후 확장: `lg gate`, `lg status`, `lg validate`, `lg upgrade`, `lg doctor`.
+- §15 향후 확장: `lg validate`, `lg doctor`. 다음 마이너 후보: 열린 세션의 사람 커밋 자동 감지(UserPromptSubmit hook), 커밋 순간 G3·G7 차단 (§24.7).

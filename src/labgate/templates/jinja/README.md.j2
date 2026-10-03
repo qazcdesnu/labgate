@@ -16,7 +16,7 @@
 
 ## 사람이 하는 일
 
-- `STATUS.md`의 "사람 판단 대기"를 확인하고 `reviews/open/`의 요청에 응답한다.
+- 터미널에서 `lg status`로 내가 할 일(열린 요청, 커밋 대기)을 보고, 요청에는 `lg answer <ID>`로 응답한다. 요청서를 터미널에 보여 주고, 판정을 물어 `## 응답`과 사람 커밋을 함께 만든다. 요청서(`reviews/open/`)에 직접 써도 된다.
 - 판정과 확정은 사람 신원의 커밋으로 남긴다. 사람 전용 커밋 타입: `gate`, `decide`, `plan`, `spec`, `respond` ([specs/git-commit.md](specs/git-commit.md)).
 - 커밋은 터미널에서 `lg commit`으로 한다. 타입과 필수 trailer를 물어 메시지를 만들고, 게이트 승인이면 tag `gate/<Task>`도 남긴다. `git commit`을 직접 써도 되며, 그때 tag는 `git tag gate/<Task>`로 남긴다.
 - 코드·문서를 직접 고쳤다면 에이전트가 작업하기 전에 커밋한다(`exp`, `result` 등 공통 타입 사용 가능). 에이전트에게 초안을 부탁하면 에이전트가 `lg draft`로 준비하고, `lg commit`으로 확인해 확정한다 ([specs/workflow.md](specs/workflow.md) §4).
@@ -29,6 +29,6 @@ git config user.name "<이름>"
 git config user.email "<.lg/identities.json에 등록된 이메일>"
 ```
 
-`lg commit`을 쓰려면 labgate(spec_version {{ spec_version }} 지원 버전)를 설치한다. 없어도 `git commit`으로 커밋할 수 있다.
+`lg`(`lg status`, `lg answer`, `lg commit`)를 쓰려면 labgate(spec_version {{ spec_version }} 지원 버전)를 설치한다. 없어도 `git commit`으로 커밋할 수 있다.
 
 <sub>labgate {{ labgate_version }}로 {{ today }}에 초기화됨 · spec_version {{ spec_version }}</sub>

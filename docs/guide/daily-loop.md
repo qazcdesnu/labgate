@@ -11,9 +11,9 @@
 | 2 | B | 보고를 읽는다. 사람의 변경이나 사람 커밋 대기 상태가 있다고 하면 그것부터 처리한다 ([edit-yourself.md](edit-yourself.md)) |
 | 3 | B | task가 `approved`이고 아직 시작 전이면 `/task-start <Task>` (예: `/task-start M0-T0`). 이미 진행 중이면 "계속해"로 충분하다 |
 | 4 | B | 에이전트가 일한다. 중간에 질문하면 답한다. 범위·예산을 넘거나 판단이 필요하면 에이전트가 스스로 멈추고 에스컬레이션한다 ([respond-escalation.md](respond-escalation.md)) |
-| 5 | A | 중간중간 확인: `git log --oneline -10`, `cat STATUS.md` |
+| 5 | A | 중간중간 확인: `lg status`(내가 할 일, 진행), `git log --oneline -10` |
 | 6 | B | task가 끝나면 에이전트가 `/task-gate <Task>`로 게이트 요청서를 내고 멈춘다. 직접 지시해도 된다. 요청 전에 "`lg verify --task <Task>` 돌려 보고 위반이 있으면 고쳐"라고 시킬 수 있다(읽기 전용이라 에이전트도 실행할 수 있다) |
-| 7 | A·B | 판정한다 ([judge-gate.md](judge-gate.md)) |
+| 7 | A | 판정한다: `lg answer` ([judge-gate.md](judge-gate.md)) |
 | 8 | B | 그만할 때 `/session-close` — 일지와 STATUS를 남기고 커밋한다 |
 
 세션 도중에는 코드·문서를 직접 고치지 않는 것이 좋다. 고쳤다면 에이전트에게 어떤 파일을 고쳤는지 알린다([edit-yourself.md](edit-yourself.md)).
@@ -26,7 +26,7 @@ git status --short                     # 세션 종료 뒤에는 비어 있어�
 ls reviews/open/                       # 판정을 기다리는 요청서
 ```
 
-`STATUS.md`의 "사람 판단 대기"에 내가 할 일이 모여 있다.
+터미널 A에서 `lg status`를 치면 내가 할 일이 다음 명령과 함께 나온다. 예: 열린 요청은 `lg answer <ID>`, 초안은 `lg commit`. `STATUS.md`의 "사람 판단 대기"는 에이전트가 쓰는 같은 내용의 서술이다.
 
 ## 잘 안 될 때
 
