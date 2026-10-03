@@ -10,6 +10,7 @@ labgate가 제공하는 명령과, 생성된 프로젝트에 들어 있는 스�
 | `lg commit` | 사람 (터미널에서만) | 사람의 모든 커밋: task 승인, 게이트 판정, 결정, 직접 고친 것 | stage(작성 모드에서 고른 파일), 사람 신원 커밋, tag, `.lg/pending/` 정리 | [lg-commit.md](lg-commit.md) |
 | `lg draft` | 에이전트 (사람도 가능) | 사람 커밋의 초안을 준비할 때 | stage, `.lg/pending/COMMIT_MSG` | [lg-draft.md](lg-draft.md) |
 | `lg upgrade` | 사람 | labgate 업데이트 뒤 프로젝트 규칙을 새 버전으로 올릴 때 | 관리 문서, 문서의 `spec_version`, `.gitignore` 관리 구역, 갱신 기록 (커밋은 하지 않음) | [lg-upgrade.md](lg-upgrade.md) |
+| `lg verify` | 사람·에이전트 | 게이트 판정 전, 게이트 요청 전 (`lg commit`이 gate에서 자동으로 요약) | — (읽기만) | [lg-verify.md](lg-verify.md) |
 | `lg --version` | 누구나 | 설치된 버전 확인 | — | 아래 |
 | `scripts/agent-commit` | 에이전트 | 에이전트의 모든 커밋 | 에이전트 신원 커밋 | [project-scripts.md](project-scripts.md#scriptsagent-commit) |
 | `scripts/session-check` | 에이전트 (Claude Code는 hook이 자동 실행) | 세션 시작 | `.lg/pending/HUMAN_FILES`, 이미 커밋된 초안 정리 | [project-scripts.md](project-scripts.md#scriptssession-check) |

@@ -12,6 +12,7 @@ import typer
 
 from . import gitops, prompts
 from .errors import EXIT_ABORT, EXIT_GIT, EXIT_TARGET, EXIT_USAGE, Fail
+from . import verify as verify_module
 from .project import Project, build_message, find_project
 
 COMMIT, EDIT, CANCEL = "커밋", "편집기로 수정", "취소"
@@ -58,8 +59,25 @@ def run_commit(pending: Optional[bool], no_tag: bool, allow_empty: bool = False,
 
     lines = [f"✓ 커밋했습니다: {sha} {message.split(chr(10), 1)[0]}"]
     lines += [f"  tag: {t}" for t in tags]
-    lines.append("  에이전트에게 커밋했다고 알리세요.")
+    hint = next_step_hint(project, message, use_draft)
+    if hint:
+        lines.append(f"  {hint}")
     return "\n".join(lines)
+
+
+REFLECTED_TYPES = ("gate", "respond", "decide")
+
+
+def next_step_hint(project: Project, message: str, from_draft: bool) -> Optional[str]:
+    """커밋 뒤 에이전트와 관련해 사람이 할 일 (설계 문서 §18.2 9). 할 일이 없으면 None."""
+    if from_draft:  # 에이전트가 초안을 만들고 멈춰 기다리는 경우
+        return "에이전트가 기다리고 있으면 '커밋했어'라고 알리세요. 새 세션에서는 자동으로 확인합니다."
+    ctype = project.header_type(message)
+    if ctype in REFLECTED_TYPES or (ctype == "plan" and "Approve" in project.trailers(message)):
+        return "다음 세션 시작 때 에이전트가 자동으로 반영합니다. 열린 세션에서 바로 이어 가려면 알리세요."
+    if ctype == "spec":
+        return "규칙 문서가 바뀌었습니다. 열린 에이전트 세션이 있으면 새로 시작하세요."
+    return None
 
 
 # ---------------------------------------------------------------- 메시지 준비
@@ -161,16 +179,33 @@ def _ask_task(project: Project) -> str:
 # ---------------------------------------------------------------- 확인, 커밋, tag
 
 
+def _gate_check(project: Project, message: str) -> tuple[list[str], int]:
+    """§23.6: gate 커밋이면 그 Task로 lg verify를 돌린 요약과 위반 수. 막지 않는다."""
+    if project.header_type(message) != "gate":
+        return [], 0
+    task = project.trailers(message).get("Task", "")
+    if not project.hook["TASK_ID_RE"].match(task):
+        return [], 0
+    return verify_module.summary_for_commit(project, task)
+
+
 def _confirm(project: Project, message: str) -> str:
-    """§18.2 5: stage 요약과 메시지를 보여 주고 커밋 / 편집 / 취소."""
+    """§18.2 5: stage 요약과 메시지를 보여 주고 커밋 / 편집 / 취소. gate면 lg verify 요약도 (§23.6)."""
+    checked_for, check, violations = None, [], 0
     while True:
+        if checked_for != message:
+            check, violations = _gate_check(project, message)
+            checked_for = message
         typer.echo("\n" + project.git("diff", "--cached", "--stat").rstrip())
+        if check:
+            typer.echo("\n" + "\n".join(check))
         typer.echo("\n" + "\n".join(f"  │ {l}" for l in message.rstrip("\n").split("\n")) + "\n")
         errors = project.check_message(message)
         if errors:
             typer.echo("✗ 커밋 규약에 맞지 않습니다:\n" + "\n".join(f"  - {e}" for e in errors), err=True)
-        choice = prompts.select("어떻게 할까요?", ([] if errors else [COMMIT]) + [EDIT, CANCEL])
-        if choice == COMMIT:
+        commit_label = f"{COMMIT} (위반 {violations}건 있음)" if violations else COMMIT
+        choice = prompts.select("어떻게 할까요?", ([] if errors else [commit_label]) + [EDIT, CANCEL])
+        if choice == commit_label:
             return message
         if choice == CANCEL:
             raise Fail(EXIT_ABORT, "취소했습니다. stage된 변경과 초안은 그대로 두었습니다.")

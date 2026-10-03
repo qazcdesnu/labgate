@@ -12,7 +12,7 @@
 | 3 | B | task가 `approved`이고 아직 시작 전이면 `/task-start <Task>` (예: `/task-start M0-T0`). 이미 진행 중이면 "계속해"로 충분하다 |
 | 4 | B | 에이전트가 일한다. 중간에 질문하면 답한다. 범위·예산을 넘거나 판단이 필요하면 에이전트가 스스로 멈추고 에스컬레이션한다 ([respond-escalation.md](respond-escalation.md)) |
 | 5 | A | 중간중간 확인: `git log --oneline -10`, `cat STATUS.md` |
-| 6 | B | task가 끝나면 에이전트가 `/task-gate <Task>`로 게이트 요청서를 내고 멈춘다. 직접 지시해도 된다 |
+| 6 | B | task가 끝나면 에이전트가 `/task-gate <Task>`로 게이트 요청서를 내고 멈춘다. 직접 지시해도 된다. 요청 전에 "`lg verify --task <Task>` 돌려 보고 위반이 있으면 고쳐"라고 시킬 수 있다(읽기 전용이라 에이전트도 실행할 수 있다) |
 | 7 | A·B | 판정한다 ([judge-gate.md](judge-gate.md)) |
 | 8 | B | 그만할 때 `/session-close` — 일지와 STATUS를 남기고 커밋한다 |
 

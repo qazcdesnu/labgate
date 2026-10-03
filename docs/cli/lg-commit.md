@@ -28,10 +28,11 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 3. 메시지를 준비한다.
    - **초안 모드** (`.lg/pending/COMMIT_MSG`가 있을 때): 초안을 읽는다. stage된 변경이 있어야 하고(`--allow-empty` 제외), 초안이 `Actor: human`이어야 한다.
    - **작성 모드:** 아래 [작성 모드의 질문](#작성-모드의-질문).
-4. stage 요약(`git diff --cached --stat`)과 메시지를 보여 주고 **커밋 / 편집기로 수정 / 취소**를 고르게 한다. 편집한 메시지는 커밋 규약을 다시 검사하고, 맞지 않으면 커밋을 고를 수 없다. 편집기는 Git과 같은 규칙으로 고른다(`core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순).
+4. stage 요약(`git diff --cached --stat`)과 메시지를 보여 주고 **커밋 / 편집기로 수정 / 취소**를 고르게 한다. `gate` 커밋이면 그 Task로 [`lg verify`](lg-verify.md)를 돌려 결과 요약(위반 없음 한 줄, 또는 위반 건수와 커밋, 점검표)을 함께 보여 준다. **막지 않는다**: 위반이 있으면 선택지가 `커밋 (위반 N건 있음)`으로 보일 뿐이다. 검사 자체가 실패해도 커밋 흐름은 계속된다. 편집한 메시지는 커밋 규약을 다시 검사하고, 맞지 않으면 커밋을 고를 수 없다. 편집기는 Git과 같은 규칙으로 고른다(`core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순).
 5. 커밋한다. 커밋할 때 hook이 작성자 신원까지 다시 검사한다.
 6. 정리한다: 초안 모드였으면 초안을 지우고, `.lg/pending/HUMAN_FILES`에서 이번에 커밋된 경로를 뺀다.
 7. tag를 만든다: `gate` + `Verdict: approve`면 `gate/<Task>`, `Milestone-Verdict`가 있으면 `milestone/<M>-<verdict>`. `--no-tag`면 만들지 않는다.
+8. 다음 할 일을 안내한다. 에이전트는 세션을 시작할 때 사람 커밋을 자동으로 확인하므로, 알려야 하는 것은 열린 세션이 기다리고 있을 때뿐이다: 초안 모드면 "에이전트가 기다리고 있으면 알리세요", `gate`·`respond`·`decide`·`plan`+`Approve`면 "다음 세션 때 자동 반영, 바로 이어 가려면 알리세요", `spec`이면 "열린 세션이 있으면 새로 시작하세요", 그 밖에는 안내하지 않는다.
 
 자세한 사양: 설계 문서 §18.
 

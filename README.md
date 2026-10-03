@@ -1,14 +1,8 @@
 # labgate
 
-사람이 task 경계의 승인 게이트마다 판정하고 에이전트가 그 사이를 수행하는 연구 프로젝트의 작업 공간을 한 번에 초기화하고, 그 안에서 사람의 커밋을 돕는 CLI. 명령은 `lg`.
+연구 프로젝트에서 **사람은 task 경계의 게이트마다 판정하고, 에이전트(Claude Code)는 그 사이를 수행**하게 하는 CLI. 명령은 `lg`.
 
-설계: [labgate-design.md](labgate-design.md)
-
-사용자 작업 설명서: [docs/guide/](docs/guide/README.md) — 설치, 하루 작업, task 승인, 게이트 판정, 직접 고친 것 커밋 등 사람이 하는 일
-
-명령 설명서: [docs/cli/](docs/cli/README.md) — `lg init`, `lg commit`, `lg draft`와 생성된 프로젝트의 스크립트
-
-사용 시나리오: [Coconut을 읽고 CODI를 시작하는 연구자](docs/scenarios/codi.md) — 전통 방식과의 비교, Claude Code와의 시너지·충돌 점검
+`lg init`이 그 방식대로 일하는 연구 작업 공간을 만든다: 계획 문서(로드맵·마일스톤·task 카드), 에이전트가 따를 규칙과 절차, 그리고 규칙을 지키게 하는 hook과 스크립트. 그 뒤로 사람은 승인·판정만 커밋하고, 나머지(코드, 실행, 기록, 상태 갱신)는 에이전트가 한다. 모든 판단이 커밋과 문서로 남아, 어떤 결과가 어떤 승인에서 나왔는지 거슬러 올라갈 수 있다.
 
 ## 설치
 
@@ -21,27 +15,81 @@ brew install pipx            # macOS
 pipx ensurepath              # ~/.local/bin을 PATH에 추가 — 실행 후 새 터미널을 연다
 
 # labgate 설치 (릴리즈 태그 고정)
-pipx install git+https://github.com/qazcdesnu/labgate.git@v0.4.0
+pipx install git+https://github.com/qazcdesnu/labgate.git@v0.4.1
 lg --version
 ```
 
-- 버전 목록과 변경 내용은 [Releases](https://github.com/qazcdesnu/labgate/releases)에서 본다. 명령의 `@v0.4.0`을 원하는 태그로 바꾼다.
+- 버전 목록과 변경 내용은 [Releases](https://github.com/qazcdesnu/labgate/releases)에서 본다. 명령의 `@v0.4.1`을 원하는 태그로 바꾼다.
 - `lg: command not found`가 나오면 `pipx ensurepath` 후 새 터미널을 연다.
 - 시스템 Python이 3.10 미만이면 `pipx install --python python3.12 git+...`처럼 버전을 지정한다.
-- uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.4.0`도 같다.
+- uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.4.1`도 같다.
 - 업데이트: `pipx install --force git+https://github.com/qazcdesnu/labgate.git@<새 태그>` / 삭제: `pipx uninstall labgate`
 
 ## 사용
 
-| 명령 | 누가 | 하는 일 |
+### 1. 프로젝트 만들고 첫 task 승인하기
+
+```bash
+lg init ~/research/my-study            # 대화형으로 연구 질문, 마일스톤, 에이전트 신원 등을 묻는다
+cd ~/research/my-study
+# STATUS.md와 첫 task 카드(plan/milestones/M0/tasks/M0-T0.md)를 읽고, 필요하면 고친다
+lg commit --allow-empty                # 타입 plan, Approve: M0-T0 → 첫 task 승인
+```
+
+### 2. 터미널 두 개로 일하기
+
+| 터미널 | 여는 법 | 하는 일 |
 |---|---|---|
-| `lg init [PATH]` | 사람 | 연구 프로젝트 작업 공간을 만든다 (대화형, 또는 `--config`) |
-| `lg commit` | 사람 (터미널에서만) | 사람 신원으로 커밋한다. 타입과 필수 trailer를 묻거나, 에이전트가 준비한 초안을 확인해 확정한다. 게이트 승인이면 tag도 만든다 |
-| `lg draft` | 에이전트·사람 | 사람 커밋의 초안을 준비한다 (stage와 `.lg/pending/COMMIT_MSG`). 커밋하지 않는다 |
+| A (사람) | `cd ~/research/my-study` | `lg commit`, `lg verify`, `git log`, 문서 읽기 |
+| B (에이전트) | `cd ~/research/my-study && claude` | `/session-start`, `/task-start M0-T0`, 작업 지시와 질문에 답하기 |
 
-생성된 프로젝트에서 사람이 코드·문서를 직접 고쳤다면, 에이전트 세션이 시작될 때 `scripts/session-check`가 이를 알리고 에이전트는 작업 전에 정리를 요청한다. 사람은 직접 `lg commit`을 하거나, 에이전트에게 초안을 부탁한 뒤 `lg commit`으로 확정한다. 자세한 흐름은 설계 문서 §16–§20.
+Claude Code는 반드시 프로젝트 폴더에서 연다. 그래야 그 프로젝트의 규칙(`CLAUDE.md`), 차단 규칙과 세션 시작 hook(`.claude/settings.json`), 슬래시 명령이 적용된다.
 
-`lg commit`, `lg draft`는 labgate 0.2 이상으로 만든 프로젝트(spec_version 2)에서 동작한다.
+### 3. 한 task의 흐름
+
+```
+사람: 승인 (plan + Approve) ──▶ 에이전트: 착수, 작업, 커밋, 일지
+                                   │  범위·예산을 넘거나 판단이 필요하면 멈추고 질문 (에스컬레이션)
+                                   │  ──▶ 사람: 응답 (respond) ──▶ 에이전트: 재개
+                                   ▼
+                             에이전트: 게이트 요청서 (reviews/open/) 내고 멈춤
+                                   ▼
+사람: 판정 (gate: approve / revise / redirect, 다음 task 승인) ──▶ 에이전트: 반영하고 다음 task
+```
+
+사람이 하는 일은 승인, 판정, 응답, 결정 확정, 계획·규칙 변경이고, 모두 `lg commit`으로 사람 신원의 커밋을 남긴다. 판정은 터미널 B에서 말로 해도 된다. 에이전트가 요청서에 옮기고 커밋 초안을 만들면 사람이 `lg commit`으로 확인해 확정한다.
+
+### 4. init 뒤에 저절로 돌아가는 것
+
+`lg init`이 프로젝트 안에 설치한 것들이 매 세션, 매 커밋마다 규칙을 지키게 한다. 스크립트와 hook은 Python 표준 라이브러리만 쓰므로 `lg`가 없는 컴퓨터에서도 동작한다.
+
+| 언제 | 무엇이 | 하는 일 |
+|---|---|---|
+| 세션 시작 | `scripts/session-check` (Claude Code hook) | 아직 반영하지 않은 사람 커밋과 커밋되지 않은 사람 변경을 찾아 에이전트에게 알린다. 그래서 사람이 커밋한 승인·판정은 다음 세션에서 자동으로 이어진다 |
+| 모든 커밋 | `.lg/hooks/commit-msg` | 커밋 규약과 작성자 신원을 검사한다. 에이전트는 승인·판정 같은 사람 몫의 커밋을 만들 수 없다 |
+| 에이전트 커밋 | `scripts/agent-commit` | 작성자를 에이전트 신원으로 고정한다. 검사 우회(`--no-verify`), 작성자 바꾸기, 사람의 미커밋 변경까지 담는 `-a`는 거부한다 |
+| 항상 | `.claude/settings.json` | 에이전트가 `git commit`·`git tag`·`lg commit`·`lg upgrade`, 이력 재작성, 일괄 stage(`git add -A` 등)를 쓰지 못하게 막는다 |
+| 항상 | `AGENTS.md`, `specs/` | 에이전트가 따르는 규칙과 절차. 규칙 문서는 사람만 고친다. 이것처럼 도구가 막지 못하는 규칙은 `lg verify`가 이력으로 확인한다 |
+| 사람 커밋 뒤 | `scripts/apply-human-commits` | 에이전트가 승인·판정·응답을 task 카드, review, 결정 문서의 상태에 반영할 때 쓴다 |
+
+### 5. 사람이 쓰는 명령
+
+| 명령 | 언제 | 하는 일 |
+|---|---|---|
+| `lg init [PATH]` | 연구마다 한 번 | 작업 공간을 만들고 `init` 커밋 (대화형, 또는 `--config`) |
+| `lg commit` | 사람의 모든 커밋 | 타입과 필수 trailer를 물어 커밋하거나, 에이전트가 준비한 초안을 확인해 확정한다. 게이트 승인이면 tag를 만들고, 그 task의 `lg verify` 요약을 보여 준다. 터미널에서만 동작 |
+| `lg verify` | 게이트 판정 전, 다른 컴퓨터에서 작업한 뒤 | 에이전트가 규칙을 지켰는지(신원, 사람 몫의 상태 전이, 규칙 파일, 문서 형식) 이력으로 확인한다. 읽기만 함 |
+| `lg upgrade` | labgate를 새 마이너 버전으로 올린 뒤 | 프로젝트의 규칙·절차·스크립트를 새 버전으로 바꾼다. 사람이 고친 문서는 덮어쓰지 않고 알린다. 커밋은 `lg commit`(타입 `spec`)으로 |
+| `lg draft` | (주로 에이전트) | 사람 커밋의 초안을 준비한다. 커밋하지 않는다 |
+
+`lg commit`, `lg draft`, `lg verify`는 labgate 0.2 이상으로 만든 프로젝트에서 동작한다.
+
+### 더 보기
+
+- [사용자 작업 설명서](docs/guide/README.md): 상황별 따라 하기 (설치, 하루 작업, task 승인, 게이트 판정, 에스컬레이션 응답, 직접 고친 것 커밋, 계획 변경, 바로잡기, 업데이트)
+- [명령 설명서](docs/cli/README.md): `lg` 명령과 프로젝트 스크립트의 옵션, 종료 코드
+- [사용 시나리오](docs/scenarios/codi.md): Coconut을 읽고 CODI를 시작하는 가상의 연구자. 전통 방식과의 비교, Claude Code와의 시너지·충돌 점검
+- [설계 문서](labgate-design.md): 규칙, 커밋 규약, 생성 파일의 전체 사양
 
 ## 개발
 

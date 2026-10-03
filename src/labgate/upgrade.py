@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import re
@@ -50,7 +51,8 @@ class UpgradePlan:
     replaced: list[str] = field(default_factory=list)
     added: list[str] = field(default_factory=list)
     kept: list[str] = field(default_factory=list)            # 사람이 채운 관리 문서
-    failed: list[str] = field(default_factory=list)          # 사람이 고친 관리 문서
+    failed: list[str] = field(default_factory=list)          # 그 버전의 해시와 다른 관리 문서
+    compare: dict[str, tuple[str, str]] = field(default_factory=dict)  # 경로 → (지금, 새 버전): 다른 문서의 비교용
     forced: list[str] = field(default_factory=list)
     bumped: dict[int, list[str]] = field(default_factory=dict)
     notices: list[str] = field(default_factory=list)
@@ -60,7 +62,7 @@ class UpgradePlan:
 # ---------------------------------------------------------------- 계획
 
 
-def run_upgrade(dry_run: bool, force: bool, cwd: Optional[Path] = None) -> str:
+def run_upgrade(dry_run: bool, force: bool, cwd: Optional[Path] = None, diff: bool = False) -> str:
     root, data = _project(cwd or Path.cwd())
     source = data["generated"]["spec_version"]
     if source == SPEC_VERSION:
@@ -92,13 +94,17 @@ def run_upgrade(dry_run: bool, force: bool, cwd: Optional[Path] = None) -> str:
     if plan.errors:
         raise Fail(EXIT_USAGE, "✗ 갱신할 수 없습니다:\n" + "\n".join(f"  - {e}" for e in plan.errors))
 
+    if diff:
+        return _diffs(plan)
     report = _report(plan, dry_run)
     if dry_run:
         return report + "\n\n(--dry-run: 아무것도 바꾸지 않았습니다)"
     if plan.failed and not force:
         raise Fail(EXIT_TARGET, report + (
-            "\n\n✗ 사람이 고친 관리 문서가 있어 갱신하지 않았습니다. 아무것도 바꾸지 않았습니다.\n"
-            "  고친 것이 의도한 수정이 아니면: lg upgrade --force\n"
+            f"\n\n✗ 릴리즈된 spec_version {plan.source}의 파일과 다른 관리 문서가 있어 갱신하지 않았습니다. "
+            "아무것도 바꾸지 않았습니다.\n"
+            "  누가 왜 바꿨는지는 도구가 알 수 없습니다. 먼저 차이를 보세요: lg upgrade --diff\n"
+            "  의도한 수정이 아니면: lg upgrade --force\n"
             "  의도한 수정이면: --force로 갱신한 뒤 .lg/pending/upgrade/ 에 남는 원래 내용을 보고 다시 합치세요."
         ))
     _record(plan, data)
@@ -162,7 +168,8 @@ def _plan_managed(plan: UpgradePlan, hashes: dict, new: dict, var: str, force: b
                 plan.writes[path], plan.modes[path] = target, new[path].mode
                 plan.added.append(path)
             elif kind == MANAGED:
-                plan.failed.append(path)  # 사람이 지운 관리 문서
+                plan.failed.append(path)  # 지워진 관리 문서
+                plan.compare[path] = ("", target)
                 if force:
                     plan.writes[path], plan.modes[path] = target, new[path].mode
                     plan.forced.append(path)
@@ -176,6 +183,7 @@ def _plan_managed(plan: UpgradePlan, hashes: dict, new: dict, var: str, force: b
             if not pristine:
                 plan.failed.append(path)
                 plan.forced.append(path)
+                plan.compare[path] = (current, target or "")
             if target is None:
                 plan.deletes.append(path)
             else:
@@ -184,8 +192,10 @@ def _plan_managed(plan: UpgradePlan, hashes: dict, new: dict, var: str, force: b
                 plan.replaced.append(path)
         elif kind == MANAGED:
             plan.failed.append(path)
-        else:  # 사람이 채운 문서: 내용 유지 (spec_version은 _plan_versions가 올린다)
+            plan.compare[path] = (current, target or "")
+        else:  # 사람이 채운 것으로 본다: 내용 유지 (spec_version은 _plan_versions가 올린다)
             plan.kept.append(path)
+            plan.compare[path] = (current, target or "")
 
 
 def _plan_gitignore(plan: UpgradePlan, hashes: dict, new: dict) -> None:
@@ -294,11 +304,38 @@ def _write(plan: UpgradePlan) -> None:
             os.chmod(full, plan.modes[path])
 
 
+def _counts(plan: UpgradePlan, path: str) -> str:
+    """다른 문서 옆에 붙일 줄 수: 지금 파일 → 새 버전."""
+    if path not in plan.compare:
+        return ""
+    current, target = plan.compare[path]
+    added = removed = 0
+    for line in difflib.unified_diff(current.splitlines(), target.splitlines(), lineterm="", n=0):
+        if line.startswith("+") and not line.startswith("+++"):
+            added += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            removed += 1
+    return f"  (지금 → 새 버전: +{added} −{removed}줄)"
+
+
+def _diffs(plan: UpgradePlan) -> str:
+    """--diff: 그 버전과 다른 문서마다 지금 파일 → 새 버전의 차이. 아무것도 쓰지 않는다."""
+    if not plan.compare:
+        return f"릴리즈된 spec_version {plan.source}과 다른 문서가 없습니다."
+    out = [f"릴리즈된 spec_version {plan.source}과 다른 문서: 지금 파일(-) → --force가 쓸 새 버전(+)",
+           "새 버전으로 바뀌는 줄(버전 갱신)과 이 프로젝트에서 바뀐 줄이 함께 보입니다.", ""]
+    for path, (current, target) in sorted(plan.compare.items()):
+        out += difflib.unified_diff(current.splitlines(), target.splitlines(),
+                                    fromfile=f"{path} (지금)", tofile=f"{path} (새 버전)", lineterm="")
+        out.append("")
+    return "\n".join(out).rstrip() + "\n\n(--diff: 아무것도 바꾸지 않았습니다)"
+
+
 def _report(plan: UpgradePlan, dry_run: bool) -> str:
     def section(title: str, items: list[str]) -> list[str]:
         if not items:
             return []
-        shown = [f"    {p}" for p in items[:MAX_SHOWN]]
+        shown = [f"    {p}{_counts(plan, p)}" for p in items[:MAX_SHOWN]]
         if len(items) > MAX_SHOWN:
             shown.append(f"    … 외 {len(items) - MAX_SHOWN}개")
         return [f"  {title} ({len(items)})", *shown]
@@ -307,8 +344,9 @@ def _report(plan: UpgradePlan, dry_run: bool) -> str:
     lines += section("교체", plan.replaced)
     lines += section("추가", plan.added)
     lines += section("삭제", plan.deletes)
-    lines += section("사람이 채운 문서: 내용 유지, spec_version만 갱신", plan.kept)
-    lines += section("사람이 고친 관리 문서" + (" → --force로 덮어씀" if plan.forced else " → 갱신 실패"), plan.failed)
+    lines += section(f"릴리즈된 spec_version {plan.source}과 다른 문서(사람이 채운 것으로 봄): 내용 유지, spec_version만 갱신", plan.kept)
+    lines += section(f"릴리즈된 spec_version {plan.source}과 다른 관리 문서"
+                     + (" → --force로 덮어씀" if plan.forced else " → 갱신 실패"), plan.failed)
     for value, paths in sorted(plan.bumped.items()):
         lines += section(f"spec_version {value} → {SPEC_VERSION}", paths)
     if plan.notices:

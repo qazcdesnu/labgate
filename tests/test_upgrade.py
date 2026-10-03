@@ -192,6 +192,10 @@ def test_human_edited_managed_fails_then_force(tmp_path, git_sandbox, old_source
     assert result.exit_code == 3
     assert "specs/workflow.md" in result.output and "아무것도 바꾸지 않았습니다" in result.output
     assert p.git("status", "--porcelain") == ""
+    assert "릴리즈된 spec_version 3과 다른 관리 문서" in result.output and "(지금 → 새 버전: +" in result.output
+    diff = run_upgrade(p, "--diff")
+    assert diff.exit_code == 0 and "-사람이 추가한 원칙" in diff.output and "--- specs/workflow.md (지금)" in diff.output
+    assert p.git("status", "--porcelain") == ""
     result = run_upgrade(p, "--force")
     assert result.exit_code == 0, result.output
     assert "사람이 추가한 원칙" not in p.read("specs/workflow.md")
@@ -207,7 +211,7 @@ def test_filled_stub_is_kept(tmp_path, git_sandbox, old_sources):
     result = run_upgrade(p)
     assert result.exit_code == 0, result.output
     assert "사람이 채운 내용" in p.read(stub) and f"spec_version: {SPEC_VERSION}\n" in p.read(stub)
-    assert "사람이 채운 문서" in result.output
+    assert "사람이 채운 것으로 봄" in result.output
 
 
 def test_agents_project_lines_preserved(tmp_path, git_sandbox, old_sources):
