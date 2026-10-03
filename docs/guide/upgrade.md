@@ -21,7 +21,7 @@
 ### `lg` 업데이트 (어느 터미널이든)
 
 ```bash
-pipx install --force git+https://github.com/qazcdesnu/labgate.git@v0.2.1
+pipx install --force git+https://github.com/qazcdesnu/labgate.git@v0.3.0
 lg --version
 ```
 
@@ -39,7 +39,15 @@ lg --version
    lg init /tmp/fresh --config <원래 설정 파일> --no-git
    diff -r /tmp/fresh/specs specs; diff /tmp/fresh/AGENTS.md AGENTS.md   # 무엇이 바뀌었는지
    ```
-   옮길 대상은 규칙과 도구다: `AGENTS.md`, `CLAUDE.md`, `.claude/`, `specs/`(사양·절차), `scripts/`, `.lg/hooks/`, 그리고 `.lg/project.yaml`의 `spec_version`. 연구 내용(`plan/`, `decisions/`, `references/`, `results/` 등)은 옮기지 않는다. 버전마다 필요한 작업은 릴리즈 노트에 적는다.
+   옮길 대상은 규칙과 도구다(실행 권한을 지키도록 `cp -p`로 `/tmp/fresh`에서 복사한다): `AGENTS.md`, `CLAUDE.md`, `.claude/`, `specs/`(사양·절차), `scripts/`, `.lg/hooks/`, 그리고 `.lg/project.yaml`의 `spec_version`. 연구 내용(`plan/`, `decisions/`, `references/`, `results/` 등)은 옮기지 않는다. 버전마다 필요한 작업은 릴리즈 노트에 적는다.
+
+   **연구 문서의 `spec_version`도 같은 커밋에서 올린다.** 문서 frontmatter의 `spec_version`은 그 문서가 따르는 사양 버전이다. 연구 문서는 내용은 그대로 두고 이 값만 바꾼다. 에이전트는 이 값을 바꾸지 않으므로 사람이 일괄로 한다.
+   ```bash
+   git grep -l '^spec_version: 2$' -- '*.md' | xargs sed -i 's/^spec_version: 2$/spec_version: 3/'
+   sed -i 's/^  spec_version: 2$/  spec_version: 3/' .lg/project.yaml
+   git grep -n '^spec_version: 2$' -- '*.md'        # 아무것도 안 나와야 함
+   ```
+   초기화 기록(`.lg/project.yaml`의 `labgate_version`·`created`, 생성된 `README.md` 맨 아래 줄)은 그대로 둔다.
 
    spec_version 2 → 3에서 바뀌는 파일: `AGENTS.md`, `specs/workflow.md`, `specs/git-commit.md`, `specs/procedures/*.md`, 사양 문서들의 `spec_version`, `scripts/session-check`, 새 `scripts/apply-human-commits`, `.lg/hooks/commit-msg`(`Applies` 검사). 갱신하기 전의 사람 커밋은 이미 반영된 상태면 도구가 건너뛰고 `Applies`만 남기므로 그대로 둬도 된다.
 

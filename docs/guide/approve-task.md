@@ -59,7 +59,7 @@ git log --format='%an | %s' -2                            # research-agent | tas
 | 증상 | 원인과 해결 |
 |---|---|
 | `lg commit`이 "커밋할 변경이 없습니다" | stage한 것이 없다. `--allow-empty`를 붙인다 |
-| `plan`을 골랐는데 Approve를 묻지 않음 | labgate 0.2.0이다. 0.2.1로 업데이트한다 ([upgrade.md](upgrade.md)) |
+| `plan`을 골랐는데 Approve를 묻지 않음 | labgate 0.2.0이다. 0.2.1 이상으로 업데이트한다 ([upgrade.md](upgrade.md)) |
 | 에이전트가 "카드가 draft라 작업할 수 없다"며 멈춤 | 아래 참고 |
 
 ## 에이전트는 무엇을 하나

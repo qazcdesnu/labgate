@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "labgate"
-version = "0.2.1"
+version = "0.3.0"
 description = "Initialize human-gated, agent-driven research project workspaces"
 readme = "README.md"
 requires-python = ">=3.10"

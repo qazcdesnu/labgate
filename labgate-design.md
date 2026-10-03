@@ -217,7 +217,7 @@ milestones:
 - 생성되는 `.lg/project.yaml`에는 위 내용에 다음이 추가된다:
   ```yaml
   generated:
-    labgate_version: "0.2.1"
+    labgate_version: "0.3.0"
     spec_version: 3
     created: "2026-10-01"
   ```
@@ -448,7 +448,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "labgate"
-version = "0.2.1"
+version = "0.3.0"
 requires-python = ">=3.10"
 dependencies = [
   "typer>=0.15.4",
@@ -721,7 +721,7 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 | `lg gate <verdict> <Task>` | review 응답 기록, 카드 상태 변경, 사람 신원 `gate` 커밋, tag 생성을 한 번에. `lg commit`(§18) 위에 만들고, 생기면 `gate` 타입은 `lg gate`로만 받는다 | 상태값·trailer를 사양대로 고정 |
 | `lg status` | frontmatter와 커밋 이력으로 `STATUS.md` 재생성 | 모든 문서에 frontmatter |
 | `lg validate` | 문서를 사양의 검증 규칙으로 검사 | 사양마다 §7 검증 규칙 섹션 유지 |
-| `lg upgrade` | 사양 버전 갱신 (v0.1 프로젝트의 spec_version 1 → 2 포함) | `spec_version` 필드 |
+| `lg upgrade` | 사양 버전 갱신: 규칙·도구 파일 교체와 모든 문서의 `spec_version` 일괄 갱신(§16.4), v0.1 프로젝트의 1 → 2 포함 | `spec_version` 필드 |
 | `lg doctor` | hooksPath 등 로컬 설정 점검·복구 | `.lg/` 안에 필요한 정보 보관 |
 | 계획서 가져오기 | Markdown 계획서 → roadmap, milestone, decisions | — |
 | 세션 도중 사람 변경 감지 | 에이전트가 편집한 파일 목록을 기록해(PostToolUse hook 등) 그 밖의 변경을 사람의 변경으로 판별 | §20 |
@@ -793,6 +793,15 @@ spec_version: 3
 ## 단계
 ## 멈추는 경우 (있을 때)
 ```
+
+### 16.4 사양 버전 갱신
+
+프로젝트의 사양 버전(spec_version)은 `lg init` 때 정해지고 자동으로 바뀌지 않는다. 문서 frontmatter의 `spec_version`은 그 문서가 따르는 사양 버전이다.
+
+- 사양을 올릴 때(예: 2 → 3)는 사람이 규칙·도구 파일과 함께 **프로젝트의 모든 문서의 `spec_version`을 일괄로** 올리고 하나의 `spec` 커밋으로 확정한다. 연구 문서(`plan/`, `decisions/`, `references/`, `STATUS.md` 등)는 내용은 그대로 두고 이 값만 바꾼다. 절차는 [docs/guide/upgrade.md](docs/guide/upgrade.md).
+- 에이전트는 문서를 쓰거나 고칠 때 `spec_version`을 바꾸지 않는다. 생성되는 `specs/conventions.md`의 frontmatter 표에 이 규칙을 둔다(B.2).
+- 초기화 기록은 바꾸지 않는다: `.lg/project.yaml`의 `generated.labgate_version`, `generated.created`, 생성된 `README.md` 맨 아래 줄. `.lg/project.yaml`의 `generated.spec_version`만 올린다.
+- 이 일괄 갱신은 기계적인 일이므로, `lg upgrade`(§15)가 생기면 그 도구가 한다.
 
 ---
 
@@ -1728,7 +1737,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 3) |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 3). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
