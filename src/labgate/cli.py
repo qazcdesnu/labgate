@@ -14,6 +14,7 @@ from . import __version__, gitops, prompts
 from . import commit as commit_module  # 명령 함수 commit, draft와 이름이 겹치지 않게
 from . import draft as draft_module
 from . import upgrade as upgrade_module
+from . import verify as verify_module
 from .config import Config, ConfigError, load_config
 from .errors import EXIT_ABORT, EXIT_ERROR, EXIT_GIT, EXIT_OK, EXIT_TARGET, EXIT_USAGE, Fail
 from .gitops import GitError
@@ -98,6 +99,22 @@ def upgrade(
 ) -> None:
     """프로젝트를 현재 spec_version으로 올린다. 커밋하지 않는다. 사람이 실행한다."""
     _guard(lambda: _echo(upgrade_module.run_upgrade(dry_run, force)), interrupted="\n중단했습니다.")
+
+
+@app.command()
+def verify(
+    task: Optional[str] = typer.Option(None, "--task", help="그 task에 관련된 커밋만 검사하고 점검표를 붙인다.", show_default=False),
+    since: Optional[str] = typer.Option(None, "--since", help="그 커밋 이후만 검사한다.", show_default=False),
+    everything: bool = typer.Option(False, "--all", help="처음부터 검사한다."),
+) -> None:
+    """에이전트의 작업이 규칙을 지켰는지 커밋 이력과 문서로 확인한다. 읽기만 한다."""
+    def run() -> int:
+        if sum(bool(x) for x in (task, since, everything)) > 1:
+            raise Fail(EXIT_USAGE, "✗ --task, --since, --all 중 하나만 쓰세요.")
+        report = verify_module.run_verify(task=task, since=since, everything=everything)
+        typer.echo(verify_module.render(report))
+        return EXIT_TARGET if report.findings else EXIT_OK
+    _guard(run, interrupted="\n중단했습니다.")
 
 
 def _echo(message: str) -> int:

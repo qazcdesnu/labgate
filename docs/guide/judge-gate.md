@@ -34,6 +34,7 @@
    lg commit
    ```
    질문: 타입 `gate` → Task `M0-T0` → Verdict → Source `document` → Next(예: `M0-T1`, 없으면 빈 입력) → Milestone-Verdict(마지막 task가 아니면 `(없음)`) → 요약(예: `approve, next M0-T1`) → 커밋.
+5. 커밋하기 전 확인 화면에 **`lg verify` 결과**가 나온다. `✓ … 위반 없음`이면 그대로 커밋한다. `✗ … 위반 N건`이면 `lg verify --task <Task>`로 자세히 보고 정한다: 의도된 것(예: 카드 범위가 허용한 규칙 파일 수정)이면 커밋, 아니면 취소하고 에이전트에게 바로잡게 한다([mistakes.md](mistakes.md)). 점검표(완료 기준 체크 수, 근거 경로)도 판정에 참고한다.
 
 ### 방법 2: 대화로 (터미널 B → A)
 
