@@ -6,7 +6,7 @@
 
 ## Claude Code 고유 사항
 
-- 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit`, `lg answer` 직접 실행은 `.claude/settings.json`에서 차단되어 있다.
+- 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit`, `lg answer`, `lg spec` 직접 실행은 `.claude/settings.json`에서 차단되어 있다.
 - 세션이 시작될 때(재개, `/clear`, compact 포함) hook이 `scripts/session-check`를 실행한다. 출력이 있으면 그 내용이 절차 `session-start`의 1단계 결과다.
 - 절차는 슬래시 커맨드로 시작할 수 있다:
   - `/session-start`: 세션 시작

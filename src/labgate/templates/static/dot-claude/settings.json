@@ -17,6 +17,7 @@
       "Bash(git stash *)",
       "Bash(lg commit *)",
       "Bash(lg answer *)",
+      "Bash(lg spec *)",
       "Bash(lg upgrade *)"
     ]
   },

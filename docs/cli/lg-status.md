@@ -29,7 +29,7 @@ lg status [--json]
 | | 커밋되지 않은 내 변경 | `.lg/pending/HUMAN_FILES` (세션 시작 때 `session-check`가 기록) | `lg commit` |
 | 에이전트 몫 | 반영되지 않은 사람 커밋 | 프로젝트의 `scripts/apply-human-commits --check` | 다음 세션에서 자동 |
 | | 반영했지만 커밋 전 | `scripts/apply-human-commits --tidy` | 다음 세션에서 자동 |
-| 진행 | 현재 마일스톤(active인 첫 마일스톤, 없으면 planned인 첫 마일스톤)과 그 task의 상태별 목록, proposed·discussing 결정 | frontmatter | — |
+| 진행 | 현재 마일스톤(active인 첫 마일스톤, 없으면 planned인 첫 마일스톤)과 그 task의 상태별 목록, proposed·discussing 결정 | frontmatter | 결정: `lg answer <ID>`로 확정 |
 
 - `STATUS.md`는 읽지 않는다. `STATUS.md`는 에이전트가 쓰는 서술이고, `lg status`는 사실만 모은다.
 - `HUMAN_FILES`가 없으면 커밋되지 않은 변경의 수만 "진행"에 적는다. 누구의 변경인지는 세션 시작 때 `session-check`가 기록한다.

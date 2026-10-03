@@ -157,7 +157,8 @@ def render(st: Status) -> str:
         ids = st.tasks[status]
         lines.append(f"  {_pad(status, 11)} {_ids(ids)}")
     if st.open_decisions:
-        lines.append(f"  {_pad('결정', 11)} proposed·discussing {len(st.open_decisions)} ({' '.join(st.open_decisions)})")
+        lines.append(f"  {_pad('결정', 11)} proposed·discussing {len(st.open_decisions)} ({' '.join(st.open_decisions)})"
+                     f"  → 확정: lg answer <ID>")
     if st.uncommitted:
         lines.append(f"  커밋되지 않은 변경 {st.uncommitted}개 (세션 시작 때 session-check가 사람의 변경인지 기록한다)")
 

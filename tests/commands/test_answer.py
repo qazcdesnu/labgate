@@ -226,3 +226,31 @@ def test_stale_copy_is_not_answered(gate, tty):
     result = gate.lg("answer", "M0-T0_gate-01")
     assert result.exit_code == 3 and "남은 사본" in result.output
     assert gate.lg("answer").exit_code == 3  # 고를 것이 없다
+
+
+# ---------------------------------------------------------------- 결정 확정 (§24.4.5)
+
+
+def test_confirm_decision_by_id(project, keys):
+    project.add_decision("D0.1")
+    project.agent("propose(D0.1): core\n\nActor: agent", "decisions")
+    # 확정 내용 → 근거 → 요약(기본값) → 커밋
+    keys("Mamba-2로 간다\r", "T4 비교 결과\r", ENTER, ENTER)
+    result = project.lg("answer", "D0.1")
+    assert result.exit_code == 0, result.output
+    assert "decisions/D0.1_core.md: status proposed → confirmed" in result.output  # 미리보기
+    assert project.last_commit() == f"{HUMAN}|decide(D0.1): confirm Mamba-2로 간다"
+    assert project.git("log", "-1", "--format=%b").startswith("확정: Mamba-2로 간다\n\nT4 비교 결과\n")
+    assert project.trailers() == "Actor: human\nDecisions: D0.1\nSource: document"
+    assert project.read("decisions/D0.1_core.md").count("status: proposed") == 1  # 문서는 고치지 않는다
+    project.commit_apply(project.apply())
+    assert project.status("decisions/D0.1_core.md") == "confirmed"
+
+
+def test_confirm_decision_refusals(project, tty):
+    result = project.lg("answer", "D9.9")
+    assert result.exit_code == 3 and "찾지 못했습니다" in result.output
+    project.add_decision("D0.1", status="confirmed")
+    project.agent("log: d\n\nActor: agent", "decisions")
+    result = project.lg("answer", "D0.1")
+    assert result.exit_code == 3 and "status가 confirmed" in result.output

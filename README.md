@@ -40,7 +40,7 @@ lg commit --allow-empty                # 타입 plan, Approve: M0-T0 → 첫 tas
 
 | 터미널 | 여는 법 | 하는 일 |
 |---|---|---|
-| A (사람) | `cd ~/research/my-study` | `lg status`, `lg answer`, `lg commit`, `lg verify` |
+| A (사람) | `cd ~/research/my-study` | `lg status`, `lg answer`, `lg spec adopt`, `lg commit`, `lg verify` |
 | B (에이전트) | `cd ~/research/my-study && claude` | `/session-start`, `/task-start M0-T0`, 작업 지시와 질문에 답하기 |
 
 Claude Code는 반드시 프로젝트 폴더에서 연다. 그래야 그 프로젝트의 규칙(`CLAUDE.md`), 차단 규칙과 세션 시작 hook(`.claude/settings.json`), 슬래시 명령이 적용된다.
@@ -78,7 +78,8 @@ Claude Code는 반드시 프로젝트 폴더에서 연다. 그래야 그 프로�
 |---|---|---|
 | `lg init [PATH]` | 연구마다 한 번 | 작업 공간을 만들고 `init` 커밋 (대화형, 또는 `--config`) |
 | `lg status` | 수시로 | 내가 할 일(열린 요청, 커밋 대기), 에이전트가 반영할 것, 진행 상황을 다음 명령과 함께 보여 준다. 읽기만 함 |
-| `lg answer [ID]` | 에이전트가 게이트 요청·질문을 내고 멈췄을 때 | 요청서를 터미널에 보여 주고 판정을 물어, `## 응답`과 사람 커밋(+ tag)을 함께 만든다. 판정이 만들 상태 변화를 먼저 보여 준다. 터미널에서만 동작 |
+| `lg answer [ID]` | 에이전트가 게이트 요청·질문을 내고 멈췄을 때, 결정을 따로 확정할 때(`lg answer D0.1`) | 요청서(또는 결정 문서)를 터미널에 보여 주고 판정을 물어, `## 응답`과 사람 커밋(+ tag)을 함께 만든다. 판정이 만들 상태 변화를 먼저 보여 준다. 터미널에서만 동작 |
+| `lg spec adopt DRAFT...` | 에이전트가 사양 초안을 냈을 때 | `notes/`의 초안(번호 붙은 절)을 stub 사양에 합치고, 차이를 보여 준 뒤 `spec` 커밋으로 확정한다. 터미널에서만 동작 |
 | `lg commit` | 사람의 모든 커밋 | 타입과 필수 trailer를 물어 커밋하거나, 에이전트가 준비한 초안을 확인해 확정한다. 게이트 승인이면 tag를 만들고, 그 task의 `lg verify` 요약을 보여 준다. 터미널에서만 동작 |
 | `lg verify` | 게이트 판정 전, 다른 컴퓨터에서 작업한 뒤 | 에이전트가 규칙을 지켰는지(신원, 사람 몫의 상태 전이, 규칙 파일, 문서 형식) 이력으로 확인한다. 읽기만 함 |
 | `lg upgrade` | labgate를 새 마이너 버전으로 올린 뒤 | 프로젝트의 규칙·절차·스크립트를 새 버전으로 바꾼다. 사람이 고친 문서는 덮어쓰지 않고 알린다. 커밋은 `lg commit`(타입 `spec`)으로 |

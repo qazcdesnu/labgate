@@ -53,6 +53,8 @@ class Answer:
 def run_answer(review_id: Optional[str], no_tag: bool, cwd=None) -> str:
     project = find_project(cwd)
     commit_module.require_human_terminal(project, "lg answer", "에이전트는 응답을 쓰지 않습니다 (G5).")
+    if review_id and project.hook["DECISION_ID_RE"].match(review_id):
+        return _answer_decision(project, review_id)
     review = _choose(project, review_id)
     _check_ready(project, review)
 
@@ -143,14 +145,20 @@ def _check_ready(project: Project, review: Doc) -> None:
 # ---------------------------------------------------------------- 보여 주기
 
 
-def _show(project: Project, review: Doc) -> str:
-    """응답 위의 에이전트 섹션을 렌더링한다. gate면 lg verify 요약을 붙인다."""
-    body = review.text.split("\n---\n", 1)[1] if review.text.startswith("---\n") else review.text
-    body = re.split(r"^## 응답[ \t]*$", body, maxsplit=1, flags=re.M)[0]
+def _render(markdown: str) -> str:
+    """frontmatter를 떼고 터미널용으로 렌더링한다 (터미널이 아니면 색 없이)."""
+    if markdown.startswith("---\n") and "\n---\n" in markdown[3:]:
+        markdown = markdown.split("\n---\n", 1)[1]
     width = min(shutil.get_terminal_size((100, 40)).columns, 100)
     buffer = io.StringIO()
-    Console(file=buffer, width=width, force_terminal=sys.stdout.isatty(), highlight=False).print(Markdown(body))
-    text = "\n".join(l.rstrip() for l in buffer.getvalue().rstrip().split("\n"))
+    Console(file=buffer, width=width, force_terminal=sys.stdout.isatty(), highlight=False).print(Markdown(markdown))
+    return "\n".join(l.rstrip() for l in buffer.getvalue().rstrip().split("\n"))
+
+
+def _show(project: Project, review: Doc) -> str:
+    """응답 위의 에이전트 섹션을 렌더링한다. gate면 lg verify 요약을 붙인다."""
+    body = re.split(r"^## 응답[ \t]*$", review.text, maxsplit=1, flags=re.M)[0]
+    text = _render(body)
     if review.fields.get("kind") == "gate":
         lines, _ = verify_module.summary_for_commit(project, review.fields["task"])
         text += "\n\n" + "\n".join(lines)
@@ -384,3 +392,50 @@ def _set_field(text: str, key: str, value: str) -> str:
     if not n:
         head = head + f"\n{key}: {value}"
     return head + text[end:]
+
+
+# ---------------------------------------------------------------- 결정 확정 (§24.4.5)
+
+
+def _answer_decision(project: Project, decision_id: str) -> str:
+    """게이트와 별개로 결정 하나를 확정한다. 결정 문서는 고치지 않고(양식은 프로젝트의 stub 사양),
+    확정 내용은 `decide` 커밋 본문에 남긴다. 상태는 다음 세션에 반영 도구가 바꾼다."""
+    found = [d for d in state.decisions(project) if d.id == decision_id]
+    if len(found) != 1:
+        open_ids = [d.id for d in state.decisions(project) if d.status in OPEN_DECISION]
+        raise Fail(EXIT_TARGET, f"✗ 결정 {decision_id} 를 하나로 찾지 못했습니다 (decisions/{decision_id}_*.md)."
+                   + (f"\n  확정할 수 있는 결정: {', '.join(open_ids)}" if open_ids else ""))
+    doc = found[0]
+    if doc.status not in OPEN_DECISION:
+        raise Fail(EXIT_TARGET, f"✗ {decision_id} 의 status가 {doc.status} 입니다 (확정할 수 있는 것: proposed, discussing).")
+    if project.draft_path.exists():
+        raise Fail(EXIT_TARGET, "✗ 사람 커밋 대기 상태입니다 (.lg/pending/COMMIT_MSG). 먼저 lg commit 으로 확정하세요.")
+    if doc.rel in project.changed_paths():
+        raise Fail(EXIT_TARGET, f"✗ {doc.rel} 에 커밋되지 않은 변경이 있습니다. 직접 고치고 있다면 lg commit (타입 decide) 하세요.")
+    staged = project.staged_paths()
+    if staged:
+        raise Fail(EXIT_USAGE, "✗ stage된 변경이 있습니다. 결정 커밋에 섞이지 않게 먼저 정리하세요:\n"
+                   + "\n".join(f"  {p}" for p in staged))
+
+    typer.echo(_render(doc.text) + "\n")
+    content = prompts.text(f"{decision_id} 확정 내용 (한 줄)", lambda v: "입력하세요" if not v.strip() else None)
+    comment = prompts.text("근거·코멘트 (선택, 빈 입력이면 없음)")
+    limit = project.hook["MAX_HEADER"] - len(f"decide({decision_id}): ")
+    summary = prompts.text(
+        "커밋 요약 (한 줄)",
+        lambda v: "요약을 입력하세요" if not v.strip() else f"{limit}자를 넘습니다" if len(v.strip()) > limit else None,
+        default=f"confirm {content}"[:limit],
+    )
+    body = f"확정: {content}" + (f"\n\n{comment}" if comment else "")
+    message = build_message("decide", summary, decision_id, body,
+                            [("Decisions", decision_id), ("Source", "document")])
+    errors = project.check_message(message)
+    if errors:
+        raise Fail(EXIT_USAGE, "✗ 만든 커밋 메시지가 규약에 맞지 않습니다:\n" + "\n".join(f"  - {e}" for e in errors))
+    typer.echo(_preview(project, [message]))
+    typer.echo("\n".join(f"  ┊ {l}" for l in message.rstrip("\n").split("\n")))
+    if prompts.select("어떻게 할까요?", [COMMIT, CANCEL]) != COMMIT:
+        raise Fail(EXIT_ABORT, "취소했습니다. 아무것도 바꾸지 않았습니다.")
+    sha = commit_module._commit(project, message, allow_empty=True)
+    return "\n".join([f"✓ 커밋했습니다: {sha} {message.split(chr(10), 1)[0]}",
+                      "  " + commit_module.next_step_hint(project, message, from_draft=False)])

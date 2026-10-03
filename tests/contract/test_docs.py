@@ -33,7 +33,9 @@ def test_options_documented(name):
     names = table_column(section((DOCS / f"lg-{name}.md").read_text(encoding="utf-8"), "인자와 옵션"))
     documented = {tok for cell in names for tok in re.findall(r"`([^`]+)`", cell)}
     actual = set()
-    for param in COMMANDS[name].params:
+    command = COMMANDS[name]
+    params = [p for sub in getattr(command, "commands", {}).values() for p in sub.params] or command.params  # lg spec adopt
+    for param in params:
         if param.param_type_name == "argument":
             actual.add(param.name.upper().rstrip("S") if param.nargs == -1 else param.name.upper())
         else:

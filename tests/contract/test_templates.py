@@ -186,7 +186,7 @@ def test_settings_json_valid():
     assert data["attribution"] == {"commit": "", "pr": "", "sessionUrl": False}
     assert "includeCoAuthoredBy" not in data
     # §17.3: 에이전트는 lg commit을 실행하지 못하고, 세션 시작마다 session-check가 돈다
-    assert "Bash(lg commit *)" in deny and "Bash(lg answer *)" in deny  # §24.5.3: 응답은 사람만
+    assert {"Bash(lg commit *)", "Bash(lg answer *)", "Bash(lg spec *)"} <= set(deny)  # §24.5.3: 응답·사양은 사람만
     (group,) = data["hooks"]["SessionStart"]
     assert "matcher" not in group  # 시작·재개·/clear·compact 모두
     assert group["hooks"] == [{"type": "command", "command": '"$CLAUDE_PROJECT_DIR"/scripts/session-check'}]
@@ -285,3 +285,9 @@ def test_procedures_point_to_lg_answer():
     gate = read_static("specs/procedures/task-gate.md")
     assert "`- [x]`" in gate and "`lg verify --task <Task>`" in gate and "`lg answer <review id>`" in gate
     assert "`lg answer <review id>`" in read_static("specs/procedures/escalate.md")
+
+
+def test_conventions_explain_spec_drafts():
+    """§24.8: 에이전트는 사양 초안을 번호 붙은 절로 쓰고, 사람이 lg spec adopt로 확정한다."""
+    text = read_static("specs/conventions.md")
+    assert "`lg spec adopt <초안>`" in text and "`## 3. Frontmatter`" in text

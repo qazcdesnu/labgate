@@ -30,10 +30,29 @@
 
 ### 결정 확정
 
-결정은 보통 게이트 판정 때 함께 확정한다(요청서의 "확정이 필요한 결정"). 따로 확정할 때:
+결정은 보통 게이트 판정 때 함께 확정한다(`lg answer`의 "확정할 결정"). 따로 확정할 때는 터미널에서:
 
-1. 결정 문서의 `status`를 `confirmed`로 바꾸고 근거를 적는다.
-2. `lg commit` → 타입 `decide` → scope(예: `D0.2`, 빈 입력이면 생략) → Source `document` → Decisions(예: `D0.2`) → 요약 → 커밋. 헤더는 `decide(D0.2): …`가 된다.
+```bash
+lg answer D0.2
+```
+
+결정 문서가 터미널에 나온다. 확정 내용 한 줄과 근거를 쓰고 커밋한다. `decide(D0.2): …` 커밋의 본문에 `확정: <내용>`이 남고, 다음 세션에 에이전트가 결정 문서를 `confirmed`로 반영한다.
+
+`lg`가 없거나 결정 문서에 직접 쓰고 싶으면, 결정 문서를 고친 뒤 `lg commit`으로 커밋한다. 질문 순서: 타입 `decide` → scope(예: `D0.2`) → Source `document` → Decisions(예: `D0.2`) → 요약.
+
+### 사양 초안 확정 (stub 사양 보완)
+
+에이전트는 stub 사양을 보완할 때 `notes/`에 초안을 쓴다(예: `notes/spec-drafts/catalog.md`, 그 사양의 `## 3. Frontmatter` 같은 번호 붙은 절만). 확정은 사람이 한다.
+
+1. 초안을 읽는다. 초안 묶음에 "확정 전에 판단이 필요한 점"이 있으면 먼저 정해 초안에 반영한다. 직접 고쳐도 되고, 에이전트에게 고치게 해도 된다.
+2. 합쳐서 커밋한다.
+   ```bash
+   lg spec adopt notes/spec-drafts/catalog.md notes/spec-drafts/decision.md   # 여러 개 한 번에
+   ```
+   파일마다 바뀌는 차이가 나온다. stub에 초안의 절이 들어가고 `status: complete`가 된다. 확인하고 커밋하면 `spec: adopt … specs` 커밋 하나가 생긴다.
+3. 열린 에이전트 세션이 있으면 새로 시작한다(규칙 문서는 세션 시작 때 읽는다).
+
+초안에 비어 있는 절(TODO)이 남거나, 번호 없는 절이 있으면 `lg spec adopt`가 멈추고 이유를 알려 준다.
 
 대화로 정했다면 에이전트에게 말하면 된다. 에이전트가 `lg draft --type decide …`로 초안을 만들고, `lg commit`으로 확정한다.
 

@@ -1462,8 +1462,9 @@ v0.4.1까지 실사용(ssm-latent-reasoning M0-T0 게이트)에서 겪은 불편
 
 | 명령 | 누가 | 하는 일 |
 |---|---|---|
+| `lg spec adopt` | 사람 (터미널에서만) | 에이전트가 쓴 사양 초안을 stub 사양에 합쳐 `spec` 커밋으로 확정한다 (§24.8) |
 | `lg status` | 사람, 에이전트 (읽기만) | 사람이 할 일, 에이전트 몫, 진행을 파일과 이력에서 모아 보여 준다 |
-| `lg answer [ID]` | 사람 (터미널에서만) | 열린 review를 보여 주고 판정을 한 번 묻는다. 그 답으로 `## 응답`, frontmatter, 사람 커밋을 **한 번에** 만든다. 판정이 만들 상태 변화를 먼저 보여 준다 |
+| `lg answer [ID]` | 사람 (터미널에서만) | 열린 review를 보여 주고 판정을 한 번 묻는다(결정 ID면 그 결정을 확정한다, §24.4.5). 그 답으로 `## 응답`, frontmatter, 사람 커밋을 **한 번에** 만든다. 판정이 만들 상태 변화를 먼저 보여 준다 |
 
 요청서에 직접 쓰는 길(문서 경로)과 대화로 판정하는 길(절차 gate-conversation)은 그대로 둔다. `lg answer`는 세 번째 길이고, 안내는 이것을 기본으로 한다.
 
@@ -1576,6 +1577,21 @@ lg answer [REVIEW_ID] [--no-tag]
 - 커밋: `respond(<Task>): <요약>` + `Task`, `Source: document`, `Review: <ID>`. `### 다음 task 승인`은 "없음", frontmatter `verdict`는 `null` 그대로.
 - 결정을 골랐으면 이어서 빈 `decide` 커밋을 만든다. 결정이 하나면 `decide(<D>): confirm`, 여럿이면 `decide: confirm <D, …>`. 본문은 `<review ID> 응답에서 확정.`, trailer는 `Decisions`, `Source: document`. `respond` 커밋에 `Decisions`를 허용하지 않는 지금 규약을 그대로 쓴다.
 
+#### 24.4.5 결정 확정 (`lg answer <D-ID>`)
+
+게이트와 별개로 결정 하나를 확정한다(결정 ID가 hook의 `DECISION_ID_RE`에 맞으면 이 모드).
+
+- 전제:
+  - 결정 문서가 `decisions/<ID>_*.md` 하나다.
+  - `status`가 `proposed`나 `discussing`이다.
+  - 사람 커밋 대기 상태가 아니다.
+  - 결정 문서에 커밋되지 않은 변경이 없다.
+  - stage된 변경이 없다.
+  - 어긋나면 코드 3(stage는 2).
+- 흐름: 결정 문서를 보여 준다 → 묻는다(확정 내용 한 줄(필수), 근거·코멘트(선택), 커밋 요약(기본값 `confirm <확정 내용>`)) → 미리보기 → 커밋 / 취소.
+- 커밋: 빈 커밋 `decide(<ID>): <요약>`. 본문은 `확정: <내용>`(+ 빈 줄과 코멘트), trailer는 `Decisions: <ID>`, `Source: document`.
+- 결정 문서는 고치지 않는다. 결정 문서의 양식은 프로젝트가 채우는 stub 사양(`decision`)이라 labgate가 구조를 모른다. 확정 내용은 커밋 본문에 남고, 상태(`confirmed`)와 결정 목록은 다음 세션에 반영 도구가 바꾼다. 절차 gate-apply의 "다음 할 일" 표가 확정 내용의 위치를 알려 준다.
+
 ### 24.5 생성되는 프로젝트의 변경 (spec_version 5)
 
 `lg status`와 `lg answer`는 지금의 review 양식과 trailer만으로 동작한다(spec_version 2–4에서도 쓸 수 있다). 다만 아래는 생성되는 파일을 바꿔야 해결되므로 spec_version을 5로 올린다. 4 → 5는 기본 갱신만으로 된다(`MIGRATIONS[4] = ()`, §22.6).
@@ -1607,7 +1623,13 @@ lg answer [REVIEW_ID] [--no-tag]
 - `apply-human-commits`가 마일스톤을 바꿀 때(`planned → active`, `active → closed`) 로드맵 표에서 그 행의 상태 칸도 바꾼다(`Plan.milestone`).
 - G6은 에이전트가 로드맵을 바꾸지 못하게 하므로, 절차 gate-apply의 특별 규칙에 G6을 더한다: 도구가 바꾼 상태 칸만 커밋하고 로드맵의 다른 내용은 바꾸지 않는다. `AGENTS.md`의 절차 표도 `G4, G6`.
 
-#### 24.5.6 README 템플릿 (부록 A.1)
+#### 24.5.6 사양 초안 (부록 B.2 conventions §8, stub 템플릿, A.4, A.5)
+
+- conventions §8: 사양 보완은 `notes/`에 사양 하나당 파일 하나로, 그 사양의 번호 붙은 절만 쓴다. 사람이 `lg spec adopt`로 확정한다(§24.8).
+- stub 안내 문단: "확정은 사람이 한다(`lg spec adopt`, `spec` 커밋)".
+- deny에 `Bash(lg spec *)`, `CLAUDE.md`의 차단 목록에 `lg spec`.
+
+#### 24.5.7 README 템플릿 (부록 A.1)
 
 - "사람이 하는 일"에 `lg status`, `lg answer`를 쓴다.
 - README는 연구 문서로 분류되므로(§22.3) 기존 프로젝트에서는 `lg upgrade`가 바꾸지 않는다. 새 프로젝트에만 들어간다.
@@ -1629,7 +1651,10 @@ lg answer [REVIEW_ID] [--no-tag]
 | tools | `test_apply.py` | `--preview`: 변화 출력, 아무것도 쓰지 않음, 반영 불가 → 1, 반영 대상 아님 (Python 3.9 포함) |
 | commands | `test_status.py` | 새 프로젝트, 열린 gate, 응답 작성 중(두 번 세지 않음), 초안·내 변경, 반영 대기와 반영 후 커밋 전, 결정과 `--json`, spec_version 2 |
 | commands | `test_answer.py` | approve(다음 task 여럿 → plan 커밋, tag, 응답·frontmatter), 미리보기 = 실제 반영 결과, revise 코멘트 필수, 마지막 task의 마일스톤 판정, 결정 확정, 고친 응답 재검사, 취소, 반영할 수 없는 판정, escalation(respond, decide), 전제 실패, spec_version 4 프로젝트(v0.4.0 tag로 만듦, 미리보기 없음) |
-| contract | `test_templates.py` | 절차의 `- [x]`·`lg verify`·`lg answer` 안내, deny |
+| unit | `test_spec_merge.py` | 사양 초안 합치기: 초안의 절만 바뀜, 초안 frontmatter 무시, 거부(TODO가 남음, 번호 없는 절, 없는 절, 절 없음) |
+| commands | `test_spec.py` | `lg spec adopt`: 합치기·색인·커밋, 여러 초안과 frontmatter의 이름, 거부, 취소, 덮어쓰지 않음, 터미널 |
+| commands | `test_answer.py` (결정) | `lg answer D0.1`: 확정 커밋과 본문, 미리보기, 반영 뒤 confirmed, 거부 |
+| contract | `test_templates.py` | 절차의 `- [x]`·`lg verify`·`lg answer` 안내, conventions §8의 `lg spec adopt`, deny |
 | contract | `test_releases.py` | spec_version 4 해시표 유지, 5는 릴리즈 뒤 동결 |
 
 ### 24.7 결정된 사항
@@ -1641,6 +1666,40 @@ lg answer [REVIEW_ID] [--no-tag]
 | 다음 task 여럿 | gate + `plan` 두 커밋 | 커밋 규약을 바꾸지 않는다 |
 | escalation에서 결정 확정 | 이어지는 `decide` 커밋 | `respond`에 `Decisions`를 허용하지 않는 지금 규약 그대로 |
 | `lg status`와 `session-check` | 연결하지 않음 | `session-check`는 `lg` 없이 돈다 |
+| 결정 따로 확정 | `lg answer <D-ID>`. 결정 문서는 고치지 않고 확정 내용은 커밋 본문에 | 결정 문서의 양식은 프로젝트가 채우는 stub 사양이다 |
+| 사양 초안 확정 | v0.5.0에 `lg spec adopt` (§24.8) | 연구 프로젝트에 확정을 기다리는 초안 9종이 있다. 미루지 않기로 했다 |
+
+### 24.8 `lg spec adopt` (사양 초안 확정)
+
+```
+lg spec adopt DRAFT... [--name NAME]
+```
+
+실사용: M0-T0에서 에이전트가 stub 사양 9종의 초안(§3–§7)을 `notes/spec-drafts/`에 썼다. 확정하려면 사람이 초안을 `specs/doc-types/`로 옮기며 stub의 frontmatter·§1–§2와 합치고, `status`를 바꾸고, `specs/README.md` 표를 고쳐야 했다.
+
+- **사람만, 터미널에서만.** 규칙 문서는 사람만 고친다(G7). `lg commit`과 같은 검사를 하고, Claude Code deny도 있다.
+- **이름:**
+  - 초안 frontmatter의 `id`, 없으면 파일 이름(`catalog.md`, `catalog.spec.md`), 또는 `--name`(초안 하나일 때).
+  - stub 사양 11종(`labgate.stubs.STUBS`) 중 하나여야 한다.
+  - 한 번에 같은 사양에 초안 둘을 줄 수 없다.
+- **합치기 (`spec.merge`):**
+  - 초안의 frontmatter와 첫 `## N.` 앞부분(초안 제목)은 버린다.
+  - 대상의 절 가운데 초안에 있는 번호의 절만 내용을 바꾼다. 절 제목은 대상의 것을 쓴다.
+  - 초안에 번호 없는 `## ` 절이 있거나, 대상에 없는 번호의 절이 있으면 오류다(내용을 소리 없이 버리지 않는다).
+  - 합친 뒤 비어 있는(`> TODO`) 절이 남으면 오류다. `complete`라고 표시된 불완전한 사양이 생기지 않게 하기 위해서다.
+  - 머리 부분: `status: stub` → `complete`, 제목의 ` (stub)`과 stub 안내 문단(`> 이 사양은 아직 공통 구조만 있다.`로 시작)을 지운다. `spec_version`은 그대로 둔다.
+  - 이미 `complete`인 사양에도 쓸 수 있다(개정).
+- **색인:** `specs/README.md`의 사양 표에서 그 행의 마지막 칸 `stub` → `complete`.
+- **전제:**
+  - 사람 커밋 대기 상태가 아니다(코드 3).
+  - 대상 사양·색인에 커밋되지 않은 변경이 없다(코드 3, 덮어쓰지 않음).
+  - stage된 변경이 없다(코드 2).
+- **확인과 커밋:**
+  - 파일마다 unified diff(지금 → 확정)와 메시지를 보여 주고 고른다: 커밋 / 취소. 확인 전에는 쓰지 않는다.
+  - 커밋: 대상들과 색인만 stage한 `spec: adopt <이름…> spec(s)`. 72자를 넘으면 `spec: adopt <n> doc-type specs`. 본문은 `초안: <경로…>`.
+  - 초안 파일은 지우지 않는다.
+  - 커밋 뒤 안내는 `spec` 커밋의 것(§18.2 9): 열린 에이전트 세션이 있으면 새로 시작한다.
+- **`lg upgrade`와의 관계:** 채운 stub은 "사람이 채운 것"으로 보고 내용을 유지한다(§22.5). 그래서 확정한 사양은 갱신 때 덮어써지지 않는다.
 
 ---
 
@@ -1833,7 +1892,7 @@ updated: {{ today }}
 
 ## Claude Code 고유 사항
 
-- 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit`, `lg answer` 직접 실행은 `.claude/settings.json`에서 차단되어 있다.
+- 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit`, `lg answer`, `lg spec` 직접 실행은 `.claude/settings.json`에서 차단되어 있다.
 - 세션이 시작될 때(재개, `/clear`, compact 포함) hook이 `scripts/session-check`를 실행한다. 출력이 있으면 그 내용이 절차 `session-start`의 1단계 결과다.
 - 절차는 슬래시 커맨드로 시작할 수 있다:
   - `/session-start`: 세션 시작
@@ -1846,7 +1905,7 @@ updated: {{ today }}
 
 ## A.5 `.claude/settings.json` (S, claude_code)
 
-규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다. `Bash(lg commit *)`와 `Bash(lg answer *)`는 에이전트가 사람 신원으로 커밋하는 것을 막고(`lg answer`는 사람의 응답도 쓴다, §24), `Bash(lg upgrade *)`는 에이전트가 규칙 파일을 갱신하는 것을 막는다(G7). 준비 명령 `lg draft`는 이 규칙에 일치하지 않는다 (§17.3).
+규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다. `Bash(lg commit *)`, `Bash(lg answer *)`, `Bash(lg spec *)`는 에이전트가 사람 신원으로 커밋하는 것을 막고(`lg answer`는 사람의 응답을, `lg spec adopt`는 규칙 문서를 쓴다, §24), `Bash(lg upgrade *)`는 에이전트가 규칙 파일을 갱신하는 것을 막는다(G7). 준비 명령 `lg draft`는 이 규칙에 일치하지 않는다 (§17.3).
 
 `hooks.SessionStart`는 세션 시작·재개·`/clear`·compact 때 `scripts/session-check`를 실행해 그 출력을 에이전트 맥락에 넣는다 (§17.3). `args`가 없으므로 셸 형식으로 실행되어 `"$CLAUDE_PROJECT_DIR"`가 확장된다.
 
@@ -1872,6 +1931,7 @@ updated: {{ today }}
       "Bash(git stash *)",
       "Bash(lg commit *)",
       "Bash(lg answer *)",
+      "Bash(lg spec *)",
       "Bash(lg upgrade *)"
     ]
   },
@@ -2401,6 +2461,8 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ## 8. Stub 사양의 문서를 쓸 때
 
 해당 사양이 `stub`이면 이 문서의 규칙을 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 새로 구조를 정했다면 작업 일지에 적어 둔다(사양 보완 근거가 된다).
+
+사양 보완을 제안할 때는 `notes/`에 사양 하나당 파일 하나로 초안을 쓴다(예: `notes/spec-drafts/catalog.md`). 초안에는 그 사양의 번호 붙은 절(`## 3. Frontmatter` …)만 쓰고, 번호 없는 절은 쓰지 않는다. 사람이 `lg spec adopt <초안>`으로 stub에 합쳐 확정한다. 초안에 있는 절만 바뀌고, 비어 있는(TODO) 절이 남으면 확정할 수 없다.
 ~~~~
 
 ## B.3 `specs/workflow.md` (S)
@@ -2915,7 +2977,7 @@ status: stub
 ---
 # {{ stub.title }} 사양 (stub)
 
-> 이 사양은 아직 공통 구조만 있다. 이 유형의 문서를 쓸 때는 [conventions.md](../conventions.md)를 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 보완은 M0 진행 중에 하고, 확정은 사람의 `spec` 커밋으로 한다.
+> 이 사양은 아직 공통 구조만 있다. 이 유형의 문서를 쓸 때는 [conventions.md](../conventions.md)를 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 보완은 M0 진행 중에 하고, 확정은 사람이 한다(`lg spec adopt`, `spec` 커밋).
 
 ## 1. 목적
 
@@ -3327,7 +3389,7 @@ spec_version: 5
 | `revise` | 같은 task 재개. review의 `## 응답`을 읽고 반영 계획을 세운다 |
 | `redirect` | 사람의 `plan` 커밋을 기다린다 |
 | `respond` | 막혔던 task로 돌아간다 |
-| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다 |
+| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다. 확정 내용은 `decide` 커밋 본문(`확정:` 줄)이나 review의 `## 응답`에 있다 |
 ~~~~
 
 ---
