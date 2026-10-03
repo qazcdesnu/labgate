@@ -110,7 +110,9 @@ scripts/test-matrix.sh          # 전체
 scripts/test-matrix.sh 3.13     # 특정 버전만
 ```
 
-전체 실행에는 생성되는 commit-msg hook과 스크립트(session-check, apply-human-commits)를 Python 3.9로 돌리는 검사도 포함된다 (모두 Python ≥ 3.9 지원).
+전체 실행에는 생성되는 commit-msg hook과 스크립트(`tests/tools`)를 Python 3.9로 돌리는 검사도 포함된다 (모두 Python ≥ 3.9 지원).
+
+테스트는 실행하는 것에 따라 다섯 계층(`unit`, `contract`, `tools`, `commands`, `e2e`)으로 나뉜다. `pytest -m unit`처럼 계층만 돌릴 수 있다. 새 테스트를 둘 곳, 공용 도구, 겹침과 obsolete 정리 규칙: [tests/README.md](tests/README.md).
 
 릴리즈할 때 현재 spec_version이 처음 릴리즈되는 것이면, 그 템플릿의 해시표를 만들어 함께 커밋한다(`lg upgrade`가 쓴다, 설계 문서 §22.4.3). 그 뒤로 그 spec_version의 템플릿은 바꾸지 않는다(테스트가 막는다).
 

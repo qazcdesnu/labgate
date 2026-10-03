@@ -5,9 +5,11 @@ import runpy
 import pytest
 import typer.main
 
-from conftest import ROOT
 from labgate import errors
 from labgate.cli import app
+
+from support.env import ROOT
+from support.markdown import section, table_column
 
 DOCS = ROOT / "docs" / "cli"
 STATIC = ROOT / "src" / "labgate" / "templates" / "static"
@@ -15,19 +17,6 @@ EXIT_CODES = {errors.EXIT_OK, errors.EXIT_ERROR, errors.EXIT_USAGE, errors.EXIT_
               errors.EXIT_GIT, errors.EXIT_ABORT}
 
 COMMANDS = typer.main.get_command(app).commands
-
-
-def section(text, heading):
-    """`## heading` 아래부터 다음 `## ` 전까지."""
-    start = text.index(f"\n## {heading}\n")
-    end = text.find("\n## ", start + 1)
-    return text[start: end if end != -1 else len(text)]
-
-
-def table_column(block, column=0):
-    """Markdown 표의 본문 행에서 한 열의 값 (머리·구분선 제외)."""
-    rows = [l for l in block.splitlines() if l.startswith("|")]
-    return [[c.strip() for c in r.strip("|").split("|")][column] for r in rows[2:]]
 
 
 def test_every_command_has_a_page_and_overview_row():

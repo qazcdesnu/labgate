@@ -686,7 +686,7 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 | a | 헤더 73자 이상 | 실패 |
 | h | 통과하는 `gate` 메시지 뒤에 가위 줄과 diff(`+foo: bar` 같은 줄 포함)가 붙음 | 통과 |
 
-v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝트에서):
+v2 (`tests/commands/`, `tests/tools/`, 사람 `h@x.com`, `lg init`으로 만든 프로젝트에서. 테스트 계층은 `tests/README.md`):
 
 | 대상 | 내용 |
 |---|---|

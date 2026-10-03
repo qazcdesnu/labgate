@@ -6,17 +6,15 @@ hook을 임시 Git 저장소에 설치하고 실제 `git commit`으로 검사한
 """
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from conftest import isolated_git_env
 from labgate.render import read_static
 
-pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git 없음")
+from support.env import isolated_git_env
 
 HUMAN = ("Human", "h@x.com")
 AGENT = ("Agent", "a@x.local")
@@ -253,6 +251,8 @@ def test_scissors_line_and_diff_ignored(repo):
         ("chore: x\n\nActor: human\nnot a trailer line\n", "Actor trailer가 필요합니다"),
         ("chore: x\n\n# 주석은 무시\nActor: human\n# 끝 주석\n", None),
         ("chore: x\n\n본문 문단.\n\nActor: human\n", None),
+        ("log: x\n\nActor: human\nApplies: not-a-hash\n", "Applies 형식이 잘못되었습니다: not-a-hash"),
+        ("log: x\n\nActor: human\nApplies: 1a2b3c4\n", None),
     ],
 )
 def test_other_rules(repo, message, error):

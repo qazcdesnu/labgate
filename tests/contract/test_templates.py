@@ -3,20 +3,20 @@ import copy
 import importlib.util
 import json
 import re
-import shutil
-import subprocess
 import zipfile
 from importlib.resources import files
 
 import pytest
-import yaml
 
-from conftest import BASE, ROOT, make_config
 from labgate import SPEC_VERSION
 from labgate.config import parse_config
 from labgate.plan import build_plan
 from labgate.render import base_context, milestone_context, read_static, render, stub_context
 from labgate.stubs import STUBS
+
+from support.configs import BASE, make_config
+from support.env import ROOT
+from support.markdown import frontmatter
 
 TEMPLATES = files("labgate").joinpath("templates")
 JINJA = sorted(
@@ -58,13 +58,6 @@ def render_all(config):
         else:
             out[(name, None)] = render(name, base)
     return out
-
-
-def frontmatter(text):
-    if not text.startswith("---\n"):
-        return None
-    end = text.index("\n---\n", 4)
-    return yaml.safe_load(text[4:end])
 
 
 SCENARIOS = {
@@ -173,7 +166,6 @@ def test_milestone_tables_list_every_milestone(rendered):
 
 
 def test_static_files_readable():
-    assert len(STATIC) == 27
     for path in STATIC:
         text = read_static(path)
         assert text.endswith("\n") and not text.endswith("\n\n"), path
@@ -246,13 +238,17 @@ def test_gitignore_excludes_claude_worktrees():
     assert ".claude/worktrees/" in read_static("dot-gitignore").splitlines()
 
 
-def test_hook_is_valid_python():
-    compile(read_static("dot-lg/hooks/commit-msg"), "commit-msg", "exec")
-
-
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash 없음")
-def test_agent_commit_is_valid_bash():
-    subprocess.run(["bash", "-n"], input=read_static("scripts/agent-commit"), text=True, check=True)
+def test_rules_match_agents_md():
+    """§23.3: verify의 G4 전이와 G7 보호 경로가 현재 AGENTS.md의 G4·G7과 같은 내용이다."""
+    from labgate.verify import PROTECTED
+    agents = {str(f.path): f.content for f in build_plan(make_config(), "2026-10-01")}["AGENTS.md"]
+    g4 = next(l for l in agents.splitlines() if l.startswith("- **G4.**"))
+    g7 = next(l for l in agents.splitlines() if l.startswith("- **G7.**"))
+    for path in PROTECTED:
+        assert f"`{path}`" in g7, path
+    for transition in ("`draft → approved`", "`in-review → closed | revise | redirected`", "`→ confirmed`",
+                       "`planned → active → closed`"):
+        assert transition in g4, transition
 
 
 # ---------------------------------------------------------------- 패키징

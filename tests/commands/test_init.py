@@ -1,23 +1,17 @@
 """`lg init` 통합 테스트 (설계 문서 §5, §6.3, §10, §14.2)."""
-import shutil
 import subprocess
 import traceback
 
 import pytest
 import yaml
-from prompt_toolkit.input import create_pipe_input
-from prompt_toolkit.output import DummyOutput
-from typer.testing import CliRunner
 
 import labgate.cli as cli
 import labgate.gitops as gitops
-import labgate.prompts as prompts
 import labgate.writer as writer
-from labgate.cli import app
 
-pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git 없음")
+from support.cli import CLEAR, CTRL_C, ENTER, lg
 
-CONFIG = {
+CONFIG = {  # init 결과(커밋 본문, AGENTS.md)를 실제 이름으로 확인하므로 support.configs와 따로 둔다
     "schema_version": 1,
     "project": {
         "name": "Capacity-Driven Adaptive State Partitioning",
@@ -35,10 +29,6 @@ def cfg(tmp_path):
     path = tmp_path / "cfg.yaml"
     path.write_text(yaml.safe_dump(CONFIG, allow_unicode=True), encoding="utf-8")
     return path
-
-
-def lg(*args):
-    return CliRunner().invoke(app, [str(a) for a in args], catch_exceptions=False)
 
 
 def git(cwd, *args, check=True):
@@ -67,6 +57,7 @@ def test_init_with_config(tmp_path, cfg, git_sandbox):
 
 
 def test_agent_commit_in_generated_project(tmp_path, cfg, git_sandbox):
+    """§14.2 2–3: 만든 프로젝트에서 에이전트 신원과 hook이 연결되어 있다 (hook 규칙 자체는 tools/test_hook.py)."""
     target = tmp_path / "proj"
     assert lg("init", target, "--config", cfg).exit_code == 0
     run = subprocess.run([target / "scripts/agent-commit", "--allow-empty", "-m", "log: test", "-m", "Actor: agent"],
@@ -226,24 +217,6 @@ def test_unexpected_error(tmp_path, cfg, git_sandbox, monkeypatch):
 
 
 # ---------------------------------------------------------------- 대화형 (§6.3)
-
-ENTER, CLEAR, CTRL_C = "\r", "\x15", "\x03"
-
-
-@pytest.fixture
-def keys(monkeypatch):
-    """가짜 터미널 입력. keys("abc\r", ...) 로 입력할 키를 모두 넣고 입력을 닫는다.
-    입력이 모자라면 기다리지 않고 EOF로 끝난다 (중단, 코드 130)."""
-    monkeypatch.setattr(cli, "_require_tty", lambda: None)
-    with create_pipe_input() as pipe:
-        monkeypatch.setattr(prompts, "IO", {"input": pipe, "output": DummyOutput()})
-
-        def send(*parts):
-            pipe.send_text("".join(parts))
-            pipe.pipe.close_write()
-
-        yield send
-
 
 def answers(*, path=None, claude=ENTER, extra_humans=(), milestones=("기반 구축",), confirm=ENTER):
     """§6.3 질문 순서대로의 입력. 기본값을 받을 곳은 ENTER."""

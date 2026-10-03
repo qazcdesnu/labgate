@@ -11,7 +11,7 @@
 
 ## 템플릿
 
-- 템플릿 원문의 원본은 설계 문서다. `scripts/sync-templates.py`가 부록의 `~~~~` 블록을 `src/labgate/templates/`로 옮기고, `--check`로 차이를 검사한다(`tests/test_templates.py`가 매번 실행). **템플릿을 고칠 때는 설계 문서를 고치고 스크립트를 실행한다.**
+- 템플릿 원문의 원본은 설계 문서다. `scripts/sync-templates.py`가 부록의 `~~~~` 블록을 `src/labgate/templates/`로 옮기고, `--check`로 차이를 검사한다(`tests/contract/test_templates.py`가 매번 실행). **템플릿을 고칠 때는 설계 문서를 고치고 스크립트를 실행한다.**
 - 템플릿 경로: Jinja는 `jinja/<출력 경로>.j2`, 마일스톤별 T0 카드는 `jinja/plan/milestones/tasks/T0.md.j2`, stub은 `jinja/specs/doc-types/_stub.spec.md.j2`. 점으로 시작하는 경로는 `dot-` 접두어(§8.1).
 - **템플릿 제어문은 문자열 비교로 분기하지 않는다.** 잔여 문법 검사는 문자열을 모두 `"x"`로 바꾼 검사용 컨텍스트로 렌더링해서 하므로(§9), 문자열로 분기하면 검사가 실제 출력과 달라진다.
 - 생성 파일 표는 `plan.py` 상단 상수(`STATIC_FILES`, `SINGLE_TEMPLATES`, `MILESTONE_TEMPLATES`, `GITKEEP_*`)에 있다. 템플릿을 추가하고 표에 빠뜨리면 테스트가 실패한다.
@@ -27,17 +27,19 @@
 
 ## 테스트
 
-- `tests/test_hook.py`: 생성될 hook과 `agent-commit`을 임시 저장소에 설치하고 실제 `git commit`으로 검사한다. hook의 `#!/usr/bin/env python3`는 PATH를 따르므로, 테스트는 PATH 맨 앞에 테스트 중인 Python(또는 환경 변수 `HOOK_PYTHON`)을 둔다. 그래서 매트릭스가 hook도 각 버전에서 검증한다.
-- 사용자 전역 Git 설정과 `GIT_*` 변수는 테스트마다 차단한다(`tests/conftest.py`의 `isolated_git_env`). 그래서 사용자 환경 변수 누출은 별도 테스트로 재현한다.
-- 대화형은 prompt_toolkit 파이프 입력으로 실제 questionary를 구동한다(`tests/test_init.py`의 `keys`). 키를 다 보낸 뒤 입력을 닫으므로, 입력이 모자라면 멈추지 않고 EOF(코드 130)로 실패한다.
-- `tests/test_acceptance.py`는 설치된 `lg` 실행 파일을 별도 프로세스로 실행한다(사람이 쓰는 그대로).
+계층(unit, contract, tools, commands, e2e), 둘 곳, 공용 도구, 더하고 지우는 규칙은 [tests/README.md](tests/README.md)에 있다. 구현할 때 알아 둘 것만 적는다.
+
+- 생성되는 hook과 `scripts/`는 `tests/tools/`에서 실제 `git commit`으로 검사한다. 생성 도구의 `#!/usr/bin/env python3`는 PATH를 따르므로, 테스트는 PATH 맨 앞에 테스트 중인 Python(또는 환경 변수 `HOOK_PYTHON`)을 둔다. CI는 `tests/tools`를 Python 3.9로 다시 돌린다.
+- 사용자 전역 Git 설정과 `GIT_*` 변수는 테스트마다 차단한다(`tests/support/env.py`의 `isolated_git_env`). 그래서 사용자 환경 변수 누출은 별도 테스트로 재현한다.
+- 대화형은 prompt_toolkit 파이프 입력으로 실제 questionary를 구동한다(`tests/conftest.py`의 `keys`). 키를 다 보낸 뒤 입력을 닫으므로, 입력이 모자라면 멈추지 않고 EOF(코드 130)로 실패한다.
+- `tests/e2e/`는 설치된 `lg` 실행 파일을 별도 프로세스로 실행한다(사람이 쓰는 그대로).
 
 §14.3 수용 기준과 확인하는 테스트:
 
 | 수용 기준 | 확인 |
 |---|---|
-| §14.1, §14.2 테스트 모두 통과 | §14.1: `test_config.py`, `test_render.py`, `test_templates.py`, `test_plan.py`, `test_writer.py`, `test_hook.py`. §14.2: `test_init.py` (`test_init_with_config`, `test_agent_commit_in_generated_project`, `test_dry_run_writes_nothing`, `test_no_git`, `test_inside_existing_repo`) |
-| 마일스톤 1개, 20개 설정 모두에서 생성 성공 | `test_acceptance[1·20 × Claude Code 사용·미사용]` |
+| §14.1, §14.2 테스트 모두 통과 | §14.1: `unit/test_config.py`, `unit/test_render.py`, `contract/test_templates.py`, `unit/test_plan.py`, `unit/test_writer.py`, `tools/test_hook.py`. §14.2: `commands/test_init.py` (`test_init_with_config`, `test_agent_commit_in_generated_project`, `test_dry_run_writes_nothing`, `test_no_git`, `test_inside_existing_repo`) |
+| 마일스톤 1개, 20개 설정 모두에서 생성 성공 | `e2e/test_acceptance[1·20 × Claude Code 사용·미사용]` |
 | 생성된 Markdown에 렌더링되지 않은 템플릿 문법 없음 (사용자 입력의 `{{`·`{%`는 그대로) | `test_acceptance`, `test_user_braces_are_kept_and_generation_succeeds` |
 | 생성 직후 `git status` 깨끗함 | `test_acceptance` (`--ignored` 포함) |
 | §5.4 안내대로 M0-T0 승인 커밋을 실행하면 hook 통과 | `test_acceptance`, `test_approve_together_with_card_status` |

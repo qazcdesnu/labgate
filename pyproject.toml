@@ -30,3 +30,12 @@ packages = ["src/labgate"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]          # tests/support 패키지
+addopts = "--import-mode=importlib"
+markers = [
+    "unit: 순수 함수 (Git, 하위 프로세스 없음)",
+    "contract: 생성 내용·문서·해시표가 설계와 코드에 맞는지",
+    "tools: 생성된 hook과 scripts/를 실제 Git 저장소에서 (Python 3.9로도 실행)",
+    "commands: lg 명령을 실제 프로젝트에서",
+    "e2e: 설치된 lg 실행 파일을 별도 프로세스로",
+]
