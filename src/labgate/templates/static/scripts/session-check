@@ -3,8 +3,10 @@
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
-3. 상태 필드에 반영되지 않은 사람 커밋을 알린다 (scripts/apply-human-commits --check).
-4. 커밋되지 않은 변경을 사람의 변경으로 알리고 .lg/pending/HUMAN_FILES에 기록한다.
+3. 커밋된 반영 기록(.lg/pending/APPLY_MSG)을 정리하고, 반영했지만 커밋하지 않은 것을 알린다.
+4. 상태 필드에 반영되지 않은 사람 커밋을 알린다 (scripts/apply-human-commits --check).
+5. 커밋되지 않은 변경을 사람의 변경으로 알리고 .lg/pending/HUMAN_FILES에 기록한다.
+   반영 도구가 바꾼 경로(커밋 대기 중)는 사람의 변경에서 뺀다.
 표준 라이브러리만 사용한다. 출력은 에이전트의 맥락에 들어간다. 종료 코드는 항상 0이다.
 """
 import json
@@ -65,11 +67,24 @@ def committed_draft():
     return None
 
 
-def unreflected():
+def run_apply(flag):
     if not APPLY.is_file():
-        return []
-    result = subprocess.run([sys.executable, str(APPLY), "--check"], cwd=ROOT, capture_output=True, text=True)
-    return [line for line in result.stdout.splitlines() if line.strip()] if result.returncode == 0 else []
+        return ""
+    result = subprocess.run([sys.executable, str(APPLY), flag], cwd=ROOT, capture_output=True, text=True)
+    return result.stdout if result.returncode == 0 else ""
+
+
+def unreflected():
+    return [line for line in run_apply("--check").splitlines() if line.strip()]
+
+
+def last_apply():
+    """apply-human-commits --tidy 결과: None 또는 {"state", "applies", "paths"}."""
+    out = run_apply("--tidy").strip()
+    try:
+        return json.loads(out) if out else None
+    except ValueError:
+        return None
 
 
 def main():
@@ -93,7 +108,21 @@ def main():
         print("\n".join(lines))
         return 0
 
-    pending = unreflected()
+    apply = last_apply()
+    applying = set()
+    if apply and apply["state"] == "cleaned":
+        lines.append(f"[labgate] 커밋된 반영 기록을 정리했습니다 ({apply['applies']}).")
+    elif apply and apply["state"] == "pending":
+        applying = set(apply["paths"])
+        command = ("scripts/agent-commit -F .lg/pending/APPLY_MSG -- " + " ".join(apply["paths"])
+                   if apply["paths"] else "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG")
+        lines.append(
+            f"[labgate] 사람 커밋({apply['applies']})을 반영했지만 아직 커밋하지 않았습니다. "
+            "이 변경은 에이전트의 것이며, specs/procedures/gate-apply.md 5단계로 먼저 커밋하세요:"
+        )
+        lines.append(f"  {command}")
+
+    pending = [] if apply and apply["state"] == "pending" else unreflected()
     if pending:
         lines.append(
             "[labgate] 상태 필드에 반영되지 않은 사람 커밋이 있습니다. 작업 전에 "
@@ -101,6 +130,7 @@ def main():
         )
         lines += [f"  - {p}" for p in pending]
 
+    paths = [p for p in paths if p not in applying]
     record = PENDING / "HUMAN_FILES"
     if paths:
         PENDING.mkdir(parents=True, exist_ok=True)

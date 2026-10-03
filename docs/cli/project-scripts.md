@@ -42,9 +42,10 @@ scripts/session-check
 |---|---|---|---|
 | 1 | Git 저장소가 아님 | 없음 (끝) | — |
 | 2 | 초안(`.lg/pending/COMMIT_MSG`)과 같은 메시지의 사람 커밋이 최근 20개 안에 있음 (`lg commit` 대신 `git commit -F`로 확정한 경우) | 초안을 정리했다는 안내 | 초안 삭제 |
-| 3 | 초안이 남아 있음 (사람 커밋 대기 상태) | 대기 상태 안내 (4, 5는 하지 않음) | — |
-| 4 | 반영되지 않은 사람 커밋 (`scripts/apply-human-commits --check`) | 커밋 목록과 절차 `gate-apply` 안내 | — |
-| 5 | 커밋되지 않은 변경 | 사람의 변경 안내와 파일 목록(20개까지, 넘으면 "외 N개") | `.lg/pending/HUMAN_FILES`에 전체 목록. 깨끗하면 이 파일을 지움 |
+| 3 | 초안이 남아 있음 (사람 커밋 대기 상태) | 대기 상태 안내 (4–6은 하지 않음) | — |
+| 4 | 지난 반영 (`scripts/apply-human-commits --tidy`): 커밋됐으면 정리, 아니면 "반영했지만 커밋하지 않음" | 정리 안내, 또는 커밋 명령 안내 (5는 하지 않음) | `APPLY_MSG`·`APPLY_PATHS` 삭제 |
+| 5 | 반영되지 않은 사람 커밋 (`scripts/apply-human-commits --check`) | 커밋 목록과 절차 `gate-apply` 안내 | — |
+| 6 | 커밋되지 않은 변경 (커밋 대기 중인 반영의 경로는 뺌) | 사람의 변경 안내와 파일 목록(20개까지, 넘으면 "외 N개") | `.lg/pending/HUMAN_FILES`에 전체 목록. 깨끗하면 이 파일을 지움 |
 
 - 세션 시작 시점의 커밋되지 않은 변경은 사람의 변경으로 본다. 이전 세션은 깨끗한 작업 트리로 끝나기 때문이다.
 - 새 파일도 포함하고, 이름 바꾸기는 새 경로와 이전 경로를 모두 기록한다.
@@ -58,6 +59,7 @@ scripts/session-check
 ```
 scripts/apply-human-commits            # 가장 오래된 반영되지 않은 사람 커밋 하나를 반영
 scripts/apply-human-commits --check    # 바꾸지 않고 반영되지 않은 사람 커밋을 나열
+scripts/apply-human-commits --tidy     # 지난 반영의 커밋 여부 (session-check가 쓴다)
 ```
 
 **반영 대상:** 사람이 작성한 `gate`, `respond`, `decide` 커밋과 `Approve`가 있는 `plan` 커밋 중, 뒤의 어떤 커밋의 `Applies` trailer에도 그 해시가 없는 것. 오래된 것부터 하나씩 반영한다.
@@ -73,9 +75,10 @@ scripts/apply-human-commits --check    # 바꾸지 않고 반영되지 않은 �
 | `decide`, 또는 `gate` + `Decisions` | 결정 `proposed / discussing → confirmed`, 결정 목록의 상태와 확정 커밋 |
 
 - 카드가 바뀌면 마일스톤 문서의 "Task 목록" 표에서 그 행의 상태도 바꾼다.
-- 이미 목표 상태이거나 그 뒤의 상태면 건너뛴다(예: 승인됐는데 이미 `in-progress`). 이때도 반영 커밋은 만들어 `Applies`를 남긴다.
+- 이미 목표 상태이거나 그 뒤의 상태면 건너뛴다(예: 승인됐는데 이미 `in-progress`). 이때도 반영 커밋은 만들어 `Applies`를 남긴다. 바꿀 파일이 없으면 출력이 그 이유를 알려 준다: 반영 여부는 `Applies`로만 판별하고 `Refs` 같은 다른 trailer는 기록으로 보지 않는다.
 - 한 커밋의 전이 중 하나라도 할 수 없으면(카드가 출발 상태가 아님, 문서 없음) **아무것도 바꾸지 않는다.**
-- 반영하면 바뀐 내용, 커밋 명령, 메시지(`.lg/pending/APPLY_MSG`)를 낸다. 메시지는 `log(<scope>): apply <타입> <해시>` + `Applies: <해시>`이고, `respond`면 `task(<Task>): resume after response <해시>`다.
+- 지난 반영이 아직 커밋되지 않았으면 새로 반영하지 않고(코드 2) 그 커밋 명령을 안내한다.
+- 반영하면 바뀐 내용, 커밋 명령, 메시지(`.lg/pending/APPLY_MSG`)와 경로 목록(`.lg/pending/APPLY_PATHS`)을 낸다. 메시지는 `log(<scope>): apply <타입> <해시>` + `Applies: <해시>`이고, `respond`면 `task(<Task>): resume after response <해시>`다.
 
 ```bash
 scripts/apply-human-commits
@@ -89,7 +92,7 @@ scripts/apply-human-commits
 |---|---|
 | 0 | 반영함, 또는 반영할 것이 없음 (`--check`는 항상 0) |
 | 1 | 반영할 수 없음. 아무것도 바꾸지 않았다. 에이전트는 멈추고 사람에게 묻는다 |
-| 2 | Git 저장소가 아님, 사람 커밋 대기 상태, 반영할 파일에 커밋되지 않은 변경 |
+| 2 | Git 저장소가 아님, 사람 커밋 대기 상태, 지난 반영이 커밋되지 않음, 반영할 파일에 커밋되지 않은 변경 |
 
 ## .lg/hooks/commit-msg
 

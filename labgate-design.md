@@ -818,9 +818,10 @@ B·C에서 사람이 "버린다"를 고르면 사람이 직접 되돌린다. 에
 
 1. **Git 저장소가 아니면** 아무것도 출력하지 않고 끝낸다.
 2. **이미 커밋된 초안 정리.** `.lg/pending/COMMIT_MSG`가 있고, 최근 20개 커밋 중 사람이 작성한 커밋의 메시지가 초안과 같으면(양끝 공백 무시) 초안을 지우고 알린다. 사람이 `lg commit` 대신 `git commit -F`로 확정한 경우다.
-3. **사람 커밋 대기 상태.** 초안이 남아 있으면 대기 상태를 알리고 4, 5단계는 하지 않는다(`HUMAN_FILES`도 건드리지 않는다).
-4. **반영되지 않은 사람 커밋.** `scripts/apply-human-commits --check`의 결과가 있으면 커밋 목록과 함께 절차 `gate-apply`를 안내한다. 이 스크립트가 없으면(spec_version 2 프로젝트) 건너뛴다.
-5. **사람의 변경.**
+3. **사람 커밋 대기 상태.** 초안이 남아 있으면 대기 상태를 알리고 4–6단계는 하지 않는다(`HUMAN_FILES`도 건드리지 않는다).
+4. **지난 반영.** `scripts/apply-human-commits --tidy`로 `.lg/pending/APPLY_MSG`의 상태를 본다. 그 `Applies` 해시를 담은 커밋이 있으면 기록 파일(`APPLY_MSG`, `APPLY_PATHS`)을 지운다. 없으면 "반영했지만 커밋하지 않음"을 알리고 커밋 명령을 안내하며, 그 경로는 6단계의 사람의 변경에서 빼고, 5단계는 하지 않는다. 세션이 반영과 커밋 사이에 끝난 경우, 반영 도구가 바꾼 파일이 사람의 변경으로 잘못 분류되지 않게 하기 위해서다.
+5. **반영되지 않은 사람 커밋.** `scripts/apply-human-commits --check`의 결과가 있으면 커밋 목록과 함께 절차 `gate-apply`를 안내한다. 이 스크립트가 없으면(spec_version 2 프로젝트) 건너뛴다.
+6. **사람의 변경.**
 
 | 상태 | 표준 출력 | `.lg/pending/HUMAN_FILES` |
 |---|---|---|
@@ -979,7 +980,7 @@ Python 표준 라이브러리만 쓰고 `lg` 없이 동작한다. 저장소 루�
 | `decide` 또는 `gate` + `Decisions: D…` | 결정 D | `proposed`, `discussing` | `confirmed` | `confirmed` |
 
 - 상태가 출발 상태도 아니고 이미 만족도 아니면 **반영할 수 없다.** 이때 아무것도 바꾸지 않고 이유를 출력한 뒤 코드 1로 끝낸다. 에이전트는 멈추고 사람에게 묻는다.
-- "이미 만족"은 `Applies`가 없던 v0.2 프로젝트에서 에이전트가 판단으로 반영해 둔 경우를 받아들이기 위한 것이다. 이때도 반영 커밋은 만들어 `Applies`로 기록을 남긴다.
+- "이미 만족"은 `Applies`가 없던 v0.2 프로젝트에서 에이전트가 판단으로 반영해 둔 경우를 받아들이기 위한 것이다. 이때도 반영 커밋은 만들어 `Applies`로 기록을 남긴다. 바꿀 파일이 하나도 없으면 출력에 이 이유(상태는 이미 반영됨, `Applies` 기록이 없어 빈 반영 커밋만 남김)를 적는다. `Refs` 등 다른 trailer는 반영 기록으로 보지 않는다.
 - 한 사람 커밋의 전이는 모두 반영하거나 하나도 반영하지 않는다. 바꾸기 전에 전부 계산한다.
 
 ### 21.4 함께 바꾸는 것
@@ -996,7 +997,7 @@ Python 표준 라이브러리만 쓰고 `lg` 없이 동작한다. 저장소 루�
 
 ### 21.5 출력
 
-반영했으면 바뀐 내용, 커밋할 경로, 커밋 메시지를 출력하고 메시지를 `.lg/pending/APPLY_MSG`에 쓴다.
+반영했으면 바뀐 내용, 커밋할 경로, 커밋 메시지를 출력하고 메시지를 `.lg/pending/APPLY_MSG`에, 커밋할 경로를 `.lg/pending/APPLY_PATHS`에 쓴다. 지난 반영이 아직 커밋되지 않았으면(`APPLY_MSG`의 `Applies` 해시를 담은 커밋이 없음) 새로 반영하지 않고 코드 2로 끝나며 커밋 명령을 안내한다. `--tidy`는 지난 반영을 확인해, 커밋됐으면 기록 파일을 지우고 결과를 JSON 한 줄(`state`: `cleaned` | `pending`, `applies`, `paths`)로 출력한다(`session-check`가 쓴다).
 
 ```
 반영: 70ea21b plan(M0-T0): approve initial task
@@ -1018,7 +1019,7 @@ Python 표준 라이브러리만 쓰고 `lg` 없이 동작한다. 저장소 루�
 |---|---|
 | 0 | 반영함, 또는 반영할 것이 없음 (`--check`는 항상 0) |
 | 1 | 반영할 수 없음 (카드·결정 문서 없음, 출발 상태가 아님). 아무것도 바꾸지 않았다 |
-| 2 | Git 저장소가 아님, 사람 커밋 대기 상태(G3), 커밋되지 않은 변경이 반영 대상 파일에 있음 |
+| 2 | Git 저장소가 아님, 사람 커밋 대기 상태(G3), 지난 반영이 커밋되지 않음, 커밋되지 않은 변경이 반영 대상 파일에 있음 |
 
 ---
 
@@ -2988,8 +2989,10 @@ exec git commit "$@"
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
-3. 상태 필드에 반영되지 않은 사람 커밋을 알린다 (scripts/apply-human-commits --check).
-4. 커밋되지 않은 변경을 사람의 변경으로 알리고 .lg/pending/HUMAN_FILES에 기록한다.
+3. 커밋된 반영 기록(.lg/pending/APPLY_MSG)을 정리하고, 반영했지만 커밋하지 않은 것을 알린다.
+4. 상태 필드에 반영되지 않은 사람 커밋을 알린다 (scripts/apply-human-commits --check).
+5. 커밋되지 않은 변경을 사람의 변경으로 알리고 .lg/pending/HUMAN_FILES에 기록한다.
+   반영 도구가 바꾼 경로(커밋 대기 중)는 사람의 변경에서 뺀다.
 표준 라이브러리만 사용한다. 출력은 에이전트의 맥락에 들어간다. 종료 코드는 항상 0이다.
 """
 import json
@@ -3050,11 +3053,24 @@ def committed_draft():
     return None
 
 
-def unreflected():
+def run_apply(flag):
     if not APPLY.is_file():
-        return []
-    result = subprocess.run([sys.executable, str(APPLY), "--check"], cwd=ROOT, capture_output=True, text=True)
-    return [line for line in result.stdout.splitlines() if line.strip()] if result.returncode == 0 else []
+        return ""
+    result = subprocess.run([sys.executable, str(APPLY), flag], cwd=ROOT, capture_output=True, text=True)
+    return result.stdout if result.returncode == 0 else ""
+
+
+def unreflected():
+    return [line for line in run_apply("--check").splitlines() if line.strip()]
+
+
+def last_apply():
+    """apply-human-commits --tidy 결과: None 또는 {"state", "applies", "paths"}."""
+    out = run_apply("--tidy").strip()
+    try:
+        return json.loads(out) if out else None
+    except ValueError:
+        return None
 
 
 def main():
@@ -3078,7 +3094,21 @@ def main():
         print("\n".join(lines))
         return 0
 
-    pending = unreflected()
+    apply = last_apply()
+    applying = set()
+    if apply and apply["state"] == "cleaned":
+        lines.append(f"[labgate] 커밋된 반영 기록을 정리했습니다 ({apply['applies']}).")
+    elif apply and apply["state"] == "pending":
+        applying = set(apply["paths"])
+        command = ("scripts/agent-commit -F .lg/pending/APPLY_MSG -- " + " ".join(apply["paths"])
+                   if apply["paths"] else "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG")
+        lines.append(
+            f"[labgate] 사람 커밋({apply['applies']})을 반영했지만 아직 커밋하지 않았습니다. "
+            "이 변경은 에이전트의 것이며, specs/procedures/gate-apply.md 5단계로 먼저 커밋하세요:"
+        )
+        lines.append(f"  {command}")
+
+    pending = [] if apply and apply["state"] == "pending" else unreflected()
     if pending:
         lines.append(
             "[labgate] 상태 필드에 반영되지 않은 사람 커밋이 있습니다. 작업 전에 "
@@ -3086,6 +3116,7 @@ def main():
         )
         lines += [f"  - {p}" for p in pending]
 
+    paths = [p for p in paths if p not in applying]
     record = PENDING / "HUMAN_FILES"
     if paths:
         PENDING.mkdir(parents=True, exist_ok=True)
@@ -3123,6 +3154,7 @@ if __name__ == "__main__":
 사용법:
   scripts/apply-human-commits            가장 오래된 반영되지 않은 사람 커밋 하나를 반영
   scripts/apply-human-commits --check    바꾸지 않고 반영되지 않은 사람 커밋을 나열
+  scripts/apply-human-commits --tidy     지난 반영의 커밋 여부를 JSON 한 줄로 알린다 (session-check가 쓴다)
 """
 import datetime
 import json
@@ -3134,6 +3166,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PENDING = ROOT / ".lg" / "pending"
 APPLY_MSG = PENDING / "APPLY_MSG"
+APPLY_PATHS = PENDING / "APPLY_PATHS"
 
 HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summary>\S.*)$")
 TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
@@ -3211,13 +3244,19 @@ def is_target(ctype, trailers):
     return ctype in ("gate", "respond", "decide") or (ctype == "plan" and "Approve" in trailers)
 
 
+def applied_hashes(history):
+    """모든 커밋의 Applies trailer에 적힌 해시."""
+    applied = set()
+    for _, _, body in history:
+        applied.update(h.lower() for h in split_list(parse(body)[3].get("Applies")) if HASH_RE.match(h.lower()))
+    return applied
+
+
 def unreflected():
     """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer)] (오래된 순)."""
     humans = human_emails()
     history = commits()
-    applied = set()
-    for _, _, body in history:
-        applied.update(h.lower() for h in split_list(parse(body)[3].get("Applies")) if HASH_RE.match(h.lower()))
+    applied = applied_hashes(history)
     pending = []
     for sha, email, body in history:
         ctype, scope, header, trailers = parse(body)
@@ -3420,8 +3459,37 @@ def plan_for(sha, ctype, scope, trailers, today):
     return plan, message
 
 
+def last_apply():
+    """지난 반영(.lg/pending/APPLY_MSG)의 상태: None, ("cleaned", 해시, []), ("pending", 해시, 경로들).
+
+    그 Applies 해시를 담은 커밋이 있으면 반영 커밋이 끝난 것이므로 기록 파일을 지운다.
+    없으면 반영은 했지만 커밋하지 않은 것이다(세션이 중간에 끝난 경우 등).
+    """
+    if not APPLY_MSG.exists():
+        return None
+    short = (parse(APPLY_MSG.read_text(encoding="utf-8"))[3].get("Applies") or "").lower()
+    paths = APPLY_PATHS.read_text(encoding="utf-8").splitlines() if APPLY_PATHS.exists() else []
+    if short and short in applied_hashes(commits()):
+        for f in (APPLY_MSG, APPLY_PATHS):
+            if f.exists():
+                f.unlink()
+        return ("cleaned", short, [])
+    return ("pending", short, [p for p in paths if p])
+
+
+def commit_command(paths):
+    if paths:
+        return "scripts/agent-commit -F .lg/pending/APPLY_MSG -- " + " ".join(paths)
+    return "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG"
+
+
 def main(argv):
     try:
+        if "--tidy" in argv:
+            state = last_apply()
+            if state:
+                print(json.dumps({"state": state[0], "applies": state[1], "paths": state[2]}, ensure_ascii=False))
+            return 0
         pending = unreflected()
         if "--check" in argv:
             for sha, _, _, header, _ in pending:
@@ -3432,6 +3500,11 @@ def main(argv):
             return 0
         if (PENDING / "COMMIT_MSG").exists():
             raise UsageError("사람 커밋 대기 상태입니다(.lg/pending/COMMIT_MSG). 사람이 lg commit 으로 확정한 뒤 실행하세요.")
+        state = last_apply()
+        if state and state[0] == "pending":
+            raise UsageError(
+                f"지난 반영({state[1]})이 아직 커밋되지 않았습니다. 먼저 커밋하세요:\n  {commit_command(state[2])}"
+            )
         sha, ctype, scope, header, trailers = pending[0]
         plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat())
         paths = plan.paths()
@@ -3441,6 +3514,7 @@ def main(argv):
         plan.write()
         PENDING.mkdir(parents=True, exist_ok=True)
         write_lf(APPLY_MSG, message)
+        write_lf(APPLY_PATHS, "".join(p + "\n" for p in paths))
     except CannotApply as e:
         print(f"✗ 반영할 수 없습니다: {e}\n  아무것도 바꾸지 않았습니다. 사람에게 보고하세요.", file=sys.stderr)
         return 1
@@ -3450,11 +3524,13 @@ def main(argv):
 
     print(f"반영: {sha[:7]} {header}")
     print("\n".join(plan.log) if plan.log else "  (바뀐 파일 없음)")
+    if not paths:
+        print("  상태는 이미 반영되어 있습니다. 이 커밋을 가리키는 Applies 기록이 없어(Refs 등 다른 trailer는\n"
+              "  반영 기록으로 보지 않는다) 기록만 남기는 빈 반영 커밋을 만듭니다.")
     if paths:
-        print("커밋: scripts/agent-commit -F .lg/pending/APPLY_MSG -- " + " ".join(paths)
-              + "  (STATUS.md를 고쳤으면 함께)")
+        print("커밋: " + commit_command(paths) + "  (STATUS.md를 고쳤으면 함께)")
     else:
-        print("커밋: scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG  (STATUS.md를 고쳤으면 -- STATUS.md)")
+        print("커밋: " + commit_command(paths) + "  (STATUS.md를 고쳤으면 -- STATUS.md)")
     if len(pending) > 1:
         print(f"남은 사람 커밋 {len(pending) - 1}개: 커밋한 뒤 다시 실행하세요.")
     return 0

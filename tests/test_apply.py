@@ -136,6 +136,7 @@ def test_already_satisfied_records_empty_apply(p):
     p.agent(f"task(M0-T0): start\n\nActor: agent\nTask: M0-T0\nRefs: {sha[:7]}", CARD0)
     result = p.apply()
     assert result.returncode == 0 and "이미 반영됨" in result.stdout and "--allow-empty" in result.stdout
+    assert "Applies 기록이 없어" in result.stdout and "Refs 등 다른 trailer는" in result.stdout
     assert p.git("status", "--porcelain") == ""
     p.commit_apply(result)
     assert p.git("log", "-1", "--format=%(trailers:key=Applies,valueonly)").strip() == sha[:7]
@@ -297,3 +298,46 @@ def test_session_check_keeps_uncommitted_draft(p):
     p.write(".lg/pending/COMMIT_MSG", "exp: not yet\n\nActor: human\n")
     out = p.session_check()
     assert "사람 커밋 대기 상태" in out and (p.root / ".lg/pending/COMMIT_MSG").exists()
+
+
+# ---------------------------------------------------------------- 지난 반영의 정리 (--tidy)
+
+
+def test_tidy_cleans_after_commit(p):
+    p.human("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0")
+    result = p.apply()
+    assert (p.root / ".lg/pending/APPLY_PATHS").read_text(encoding="utf-8").splitlines() == [MILESTONE0, CARD0]
+    p.commit_apply(result)
+    out = p.session_check()
+    assert "커밋된 반영 기록을 정리했습니다" in out
+    assert not (p.root / ".lg/pending/APPLY_MSG").exists() and not (p.root / ".lg/pending/APPLY_PATHS").exists()
+    assert p.session_check() == ""
+
+
+def test_interrupted_apply_is_not_human_change(p):
+    """반영한 뒤 커밋 전에 세션이 끝났다: 그 변경은 사람의 변경이 아니라 커밋 대기 중인 반영이다."""
+    sha = p.human("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0")
+    p.apply()
+    p.write("notes/mine.md", "사람 메모\n")  # 진짜 사람의 변경은 그대로 잡힌다
+    out = p.session_check()
+    assert f"사람 커밋({sha[:7]})을 반영했지만 아직 커밋하지 않았습니다" in out
+    assert f"scripts/agent-commit -F .lg/pending/APPLY_MSG -- {MILESTONE0} {CARD0}" in out
+    assert "반영되지 않은 사람 커밋" not in out
+    assert (p.root / ".lg/pending/HUMAN_FILES").read_text(encoding="utf-8").splitlines() == ["notes/mine.md"]
+
+
+def test_apply_refuses_while_last_apply_uncommitted(p):
+    p.human("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0")
+    p.apply()
+    result = p.apply()
+    assert result.returncode == 2 and "아직 커밋되지 않았습니다" in result.stderr
+    assert "scripts/agent-commit -F .lg/pending/APPLY_MSG --" in result.stderr
+
+
+def test_tidy_reports_json(p):
+    import json
+    assert p.apply("--tidy").stdout == ""
+    sha = p.human("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0")
+    p.apply()
+    state = json.loads(p.apply("--tidy").stdout)
+    assert state == {"state": "pending", "applies": sha[:7], "paths": [MILESTONE0, CARD0]}
