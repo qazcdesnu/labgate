@@ -430,6 +430,8 @@ def success_message(target: Path, config: Config, count: int, commit: Optional[s
     if imported:
         lines += ["", "다음 단계:", f"  1. 가져온 자료 {len(imported)}개가 notes/ 에 있습니다"
                   + (" (stage됨, 첫 승인 커밋에 함께 들어갑니다)." if commit else ".")]
+        if config.project.kind == "ideation":
+            lines.append(f"     plan/criteria.md 의 '가진 자원'을 채우고 기준을 확인하세요 (평가 기준은 {first} 게이트에서 확정·잠금).")
     elif config.project.kind == "ideation":
         lines += ["", "다음 단계:", "  1. notes/ 에 아이디어 메모를 넣고, plan/criteria.md 의 '가진 자원'을 채우세요"
                   f" (평가 기준은 {first} 게이트에서 확정·잠금)."]
