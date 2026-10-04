@@ -57,7 +57,7 @@ def make_old(tmp_path, env, sources, spec, claude_code=True):
     return p
 
 
-def current_files(claude_code=True):
+def current_files(claude_code=True, kind="research"):
     """현재 labgate가 기본 설정으로 만드는 파일 {경로: (내용, 권한)}."""
-    plan = build_plan(parse_config(project_config(claude_code)), datetime.date.today().isoformat())
+    plan = build_plan(parse_config(project_config(claude_code, kind=kind)), datetime.date.today().isoformat())
     return {str(f.path): (f.content, f.mode) for f in plan}

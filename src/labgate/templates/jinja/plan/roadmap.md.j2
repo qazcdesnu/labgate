@@ -8,11 +8,11 @@ updated: {{ today }}
 ---
 # 로드맵: {{ project.name }}
 
-## 연구 질문
+## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}
 
 {{ project.research_question }}
 
-## 가설
+## {% if proposal %}제안 전략과 가정{% else %}가설{% endif %}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
 
@@ -24,7 +24,7 @@ updated: {{ today }}
 | `{{ m.id }}` | {{ m.title }} | planned | [milestone.md](milestones/{{ m.id }}/milestone.md) |
 {% endfor %}
 
-## 공통 실험 원칙
+## {% if proposal %}공통 작업 원칙{% else %}공통 실험 원칙{% endif %}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
 

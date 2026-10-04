@@ -10,13 +10,14 @@
 | labgate 버전 (`lg`) | `lg --version` | 설치·업데이트할 때 |
 | 프로젝트의 spec_version | `.lg/project.yaml`의 `spec_version`, 생성된 `README.md` 맨 아래 | `lg init`으로 만들 때 정해진다. 자동으로 바뀌지 않는다 |
 
-| 프로젝트 spec_version | 만든 버전 | `lg commit`, `lg draft`, `lg status`, `lg answer` (`lg upgrade`로 5까지 올릴 수 있다) |
+| 프로젝트 spec_version | 만든 버전 | `lg commit`, `lg draft`, `lg status`, `lg answer` (`lg upgrade`로 6까지 올릴 수 있다) |
 |---|---|---|
 | 1 | labgate 0.1.x | 쓸 수 없다. `git commit`으로 커밋한다 |
 | 2 | labgate 0.2.x | 쓸 수 있다 (사람 커밋 반영 도구 없음) |
 | 3 | labgate 0.3.x | 쓸 수 있다. 규칙 우선순위, 특별 규칙, `scripts/apply-human-commits` |
 | 4 | labgate 0.4.x | 쓸 수 있다. `lg upgrade`, `.gitignore` 관리 구역 |
 | 5 | labgate 0.5.x | 쓸 수 있다. `lg answer`의 반영 미리보기(`apply-human-commits --preview`), 게이트 요청 전 카드 체크와 `lg verify`, 에이전트 보고의 `lg answer` 안내 |
+| 6 | labgate 0.6.x | 쓸 수 있다. 프로젝트 종류(`--kind proposal`), 원고 폴더 안내에 `deliverables/` |
 
 ## 순서
 
@@ -51,7 +52,7 @@ lg --version
    ```bash
    git diff
    git add -A
-   lg commit          # 타입 spec, 요약 예: upgrade to spec_version 5
+   lg commit          # 타입 spec, 요약 예: upgrade to spec_version 6
    ```
 4. 에이전트 세션을 새로 연다.
 

@@ -49,6 +49,7 @@ def base_context(config: Config, today: str) -> dict[str, Any]:
             {"id": m.id, "index": i, "title": m.title} for i, m in enumerate(config.milestones)
         ],
         "claude_code": config.agent_tools.claude_code,
+        "proposal": config.project.kind == "proposal",  # §25 (템플릿은 문자열로 분기하지 않는다)
         "today": today,
         "labgate_version": __version__,
         "spec_version": SPEC_VERSION,

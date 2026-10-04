@@ -25,8 +25,8 @@ HOOK_NAMES = (
     "MAX_HEADER", "HEADER_RE", "TASK_ID_RE", "DECISION_ID_RE", "parse", "check",
 )
 
-# spec_version 2–5는 커밋 규약(hook의 타입·trailer)이 같다 (설계 문서 §18.3)
-SUPPORTED_SPEC_VERSIONS = (2, 3, 4, 5)
+# spec_version 2–6은 커밋 규약(hook의 타입·trailer)이 같다 (설계 문서 §18.3)
+SUPPORTED_SPEC_VERSIONS = (2, 3, 4, 5, 6)
 
 # 사람이 쓸 수 있는 타입을 보여 줄 순서 (git-commit.md §3 표 순서)
 TYPE_ORDER = ("gate", "decide", "plan", "spec", "respond", "exp", "run", "result", "ref", "log", "chore")

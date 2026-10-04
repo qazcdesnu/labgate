@@ -75,8 +75,10 @@ STUB_TEMPLATE = "specs/doc-types/_stub.spec.md.j2"
 # 빈 폴더를 Git에 남기기 위한 .gitkeep (§7.2)
 GITKEEP_DIRS = (
     "references/library", "experiments/src", "experiments/tests", "runs",
-    "reviews/open", "reviews/closed", "logs", "data", "paper", "notes", "env",
+    "reviews/open", "reviews/closed", "logs", "data", "notes", "env",
 )
+# 산출 원고 폴더: 연구는 논문, 제안서는 제출물 (§25)
+OUTPUT_DIR = {"research": "paper", "proposal": "deliverables"}
 GITKEEP_MILESTONE_DIRS = ("experiments/{m}", "results/{m}/figures", "results/{m}/tables")
 
 
@@ -127,7 +129,7 @@ def build_plan(config: Config, today: str) -> list[PlannedFile]:
     ))
     files.append(PlannedFile(PurePosixPath(".lg/identities.json"), identities_json(config)))
 
-    dirs = list(GITKEEP_DIRS)
+    dirs = [*GITKEEP_DIRS, OUTPUT_DIR[config.project.kind]]
     for m in base["milestones"]:
         dirs += [d.format(m=m["id"]) for d in GITKEEP_MILESTONE_DIRS]
     files += [PlannedFile(PurePosixPath(d) / ".gitkeep", "") for d in dirs]

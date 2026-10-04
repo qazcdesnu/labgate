@@ -28,9 +28,10 @@ BASE = {
 }
 
 
-def make_config(milestones=3, claude_code=True):
+def make_config(milestones=3, claude_code=True, kind="research"):
     data = copy.deepcopy(BASE)
     data["agent_tools"] = {"claude_code": claude_code}
+    data["project"]["kind"] = kind
     data["milestones"] = [
         BASE["milestones"][i] if i < 3 else {"title": f"마일스톤 {i}"} for i in range(milestones)
     ]
@@ -41,10 +42,13 @@ HUMAN_NAME, HUMAN = "H", "h@x.com"
 PROJECT_NAME, PROJECT_SLUG = "Test project", "ptest"
 
 
-def project_config(claude_code=True, milestones=("기반", "검증")):
+def project_config(claude_code=True, milestones=("기반", "검증"), kind=None):
+    project = {"name": PROJECT_NAME, "slug": PROJECT_SLUG, "summary": "s", "research_question": "q?"}
+    if kind:  # 생략하면 research (옛 labgate는 이 필드를 모른다)
+        project["kind"] = kind
     return {
         "schema_version": 1,
-        "project": {"name": PROJECT_NAME, "slug": PROJECT_SLUG, "summary": "s", "research_question": "q?"},
+        "project": project,
         "people": {"humans": [{"name": HUMAN_NAME, "email": HUMAN}]},
         "agent_tools": {"claude_code": claude_code},
         "milestones": [{"title": t} for t in milestones],

@@ -87,11 +87,15 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+KINDS = ("research", "proposal")  # §25: 프로젝트 종류. 연구가 기본
+
+
 class Project(_Model):
     name: ProjectName
     slug: Slug
     summary: Summary
-    research_question: ResearchQuestion
+    research_question: ResearchQuestion  # 제안서(kind: proposal)에서는 제안의 핵심 질문
+    kind: Literal["research", "proposal"] = "research"
 
 
 class Person(_Model):

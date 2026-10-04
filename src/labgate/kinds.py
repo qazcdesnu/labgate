@@ -44,6 +44,7 @@ def classify(path: str) -> str:
 _AGENTS_PROJECT_LINES = (
     (re.compile(r"^- 이름: .*$", re.M), "- 이름: <name>"),
     (re.compile(r"^- 연구 질문: .*$", re.M), "- 연구 질문: <research_question>"),
+    (re.compile(r"^- 제안 핵심 질문: .*$", re.M), "- 제안 핵심 질문: <research_question>"),  # kind: proposal
     (re.compile(r"^- 에이전트 신원: .*$", re.M), "- 에이전트 신원: <agent>"),
 )
 _UPDATED_LINE = re.compile(r"^updated: .*\n", re.M)
@@ -75,8 +76,10 @@ def digest(path: str, text: str) -> str:
     return "sha256:" + hashlib.sha256(normalize(path, text).encode("utf-8")).hexdigest()
 
 
-def variant(claude_code: bool) -> str:
-    return "claude_code" if claude_code else "no_claude_code"
+def variant(claude_code: bool, kind: str = "research") -> str:
+    """해시표의 변형 이름. 연구는 spec_version 2부터 쓰던 이름 그대로, 다른 종류는 앞에 종류를 붙인다 (§25)."""
+    base = "claude_code" if claude_code else "no_claude_code"
+    return base if kind == "research" else f"{kind}_{base}"
 
 
 # ---------------------------------------------------------------- .gitignore 줄 (§22.6)

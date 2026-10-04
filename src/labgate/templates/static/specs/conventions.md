@@ -1,7 +1,7 @@
 ---
 id: conventions
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # 공통 규칙
@@ -37,7 +37,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 
 - 루트 `README.md`: 사람용 입구
 - `AGENTS.md`, 그리고 있다면 `CLAUDE.md`와 `.claude/` 아래 파일: 에이전트 도구가 그대로 읽는 지침
-- `notes/`, `paper/` 아래 파일: 형식 자유
+- `notes/`, `paper/`(제안서 프로젝트는 `deliverables/`) 아래 파일: 형식 자유
 
 `specs/templates/`의 양식은 frontmatter를 갖지만 값이 `<...>` 자리 표시이므로 검증 대상이 아니다.
 
@@ -47,7 +47,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 5). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 6). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |

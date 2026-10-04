@@ -32,13 +32,17 @@ updated: {{ today }}
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
-| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 실험 | `<M>/<Task>_<slug>/` |
+| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 {% if proposal %}PoC·검증{% else %}실험{% endif %} | `<M>/<Task>_<slug>/` |
 | `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |
 | `results/` | task 결과, 마일스톤 보고, 그림, 표 | `<M>/<Task>_result.md`, `<M>/report.md` |
 | `reviews/` | 게이트 요청과 에스컬레이션 (`open/` → `closed/`) | `<Task>_gate-NN.md`, `<Task>_esc-NN.md` |
 | `logs/` | 에이전트 세션 작업 일지 | `YYYY-MM-DD_sNN.md` |
 | `data/` | 데이터 생성 설정, 데이터 설명서 | |
+{% if proposal %}
+| `deliverables/` | 제안서 원고, 그림, 제출본 | |
+{% else %}
 | `paper/` | 원고, 그림, 참고문헌 bib | |
+{% endif %}
 | `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |
 | `scripts/` | 프로젝트 도구 (`agent-commit`, `session-check`) | |
 | `env/` | 환경 설정 | |

@@ -65,12 +65,17 @@ def ask_path() -> Path:
     return Path(raw.strip()).expanduser()
 
 
-def ask_config(target: Path) -> Config:
-    """§6.3 질문 2–12."""
+KIND_CHOICES = {"연구 (research)": "research", "제안서 (proposal)": "proposal"}
+
+
+def ask_config(target: Path, kind: Optional[str] = None) -> Config:
+    """§6.3 질문 2–12. 종류(§25)는 `--kind`가 없을 때 처음에 묻는다."""
+    if kind is None:
+        kind = KIND_CHOICES[select("프로젝트 종류", list(KIND_CHOICES))]
     name = _text("프로젝트 이름", ProjectName)
     slug = _text("slug (영문 소문자·숫자·하이픈)", Slug, default=suggest_slug(target) or "")
     summary = _text("한 줄 요약", Summary)
-    question = _text("핵심 연구 질문", ResearchQuestion)
+    question = _text("제안 핵심 질문" if kind == "proposal" else "핵심 연구 질문", ResearchQuestion)
 
     git_name, git_email = global_identity()
     humans: list[dict[str, str]] = []
@@ -109,7 +114,7 @@ def ask_config(target: Path) -> Config:
 
     return parse_config({
         "schema_version": 1,
-        "project": {"name": name, "slug": slug, "summary": summary, "research_question": question},
+        "project": {"name": name, "slug": slug, "summary": summary, "research_question": question, "kind": kind},
         "people": {"humans": humans, "agent": {"name": agent_name, "email": agent_email}},
         "agent_tools": {"claude_code": claude_code},
         "milestones": milestones,
@@ -127,7 +132,8 @@ def summarize(target: Path, config: Config, git: bool) -> str:
         f"경로: {target}",
         f"프로젝트: {config.project.name} ({config.project.slug})",
         f"요약: {config.project.summary}",
-        f"연구 질문: {config.project.research_question}",
+        f"종류: {'제안서' if config.project.kind == 'proposal' else '연구'}",
+        f"{'제안 핵심 질문' if config.project.kind == 'proposal' else '연구 질문'}: {config.project.research_question}",
         "사람: " + ", ".join(f"{h.name} <{h.email}>" for h in config.humans),
         f"에이전트: {config.agent.name} <{config.agent.email}>",
         f"Claude Code: {'사용' if config.agent_tools.claude_code else '사용 안 함'}",

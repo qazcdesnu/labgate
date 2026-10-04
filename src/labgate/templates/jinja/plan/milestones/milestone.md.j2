@@ -22,6 +22,10 @@ updated: {{ today }}
 
 ## Go / No-go 기준
 
+{% if proposal %}
+> 마일스톤 판정: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단.
+
+{% endif %}
 > TODO: {{ m.id }}-T0에서 작성
 
 ## 관련 결정

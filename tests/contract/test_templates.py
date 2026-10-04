@@ -64,6 +64,7 @@ SCENARIOS = {
     "M3-claude": dict(milestones=3, claude_code=True),
     "M1-noclaude": dict(milestones=1, claude_code=False),
     "M20-claude": dict(milestones=20, claude_code=True),
+    "M3-proposal": dict(milestones=3, claude_code=True, kind="proposal"),
 }
 
 
@@ -291,3 +292,21 @@ def test_conventions_explain_spec_drafts():
     """§24.8: 에이전트는 사양 초안을 번호 붙은 절로 쓰고, 사람이 lg spec adopt로 확정한다."""
     text = read_static("specs/conventions.md")
     assert "`lg spec adopt <초안>`" in text and "`## 3. Frontmatter`" in text
+
+
+def test_kind_changes_only_wording_and_output_folder():
+    """§25: 제안서는 질문·가설·실험 같은 연구 용어와 원고 폴더(deliverables/)만 다르다. 규칙·절차·사양은 같다."""
+    research = {str(f.path): f.content for f in build_plan(make_config(), "2026-10-01")}
+    proposal = {str(f.path): f.content for f in build_plan(make_config(kind="proposal"), "2026-10-01")}
+    assert "paper/.gitkeep" in research and "deliverables/.gitkeep" in proposal
+    assert set(research) - {"paper/.gitkeep"} == set(proposal) - {"deliverables/.gitkeep"}
+    assert "## 제안 핵심 질문" in proposal["README.md"] and "## 연구 질문" in research["README.md"]
+    assert "- 제안 핵심 질문: " in proposal["AGENTS.md"]
+    assert "## 제안 전략과 가정" in proposal["plan/roadmap.md"] and "## 공통 작업 원칙" in proposal["plan/roadmap.md"]
+    assert "go = 다음 단계로 진행(마지막 마일스톤이면 제출)" in proposal["plan/milestones/M0/milestone.md"]
+    t0 = proposal["plan/milestones/M0/tasks/M0-T0.md"]
+    assert "필요한 자료(고객 자료, 공개 자료, 사례)" in t0 and "- 자료 조사, " in t0 and "제안서 본문 작성" in t0
+    assert "| `deliverables/` | 제안서 원고, 그림, 제출본 |" in proposal["FILEMAP.md"]
+    assert "kind: proposal" in proposal[".lg/project.yaml"]
+    same = [p for p in research if p.startswith(("specs/", "scripts/", ".lg/hooks/", ".claude/"))]
+    assert same and all(research[p] == proposal[p] for p in same)
