@@ -17,7 +17,7 @@ from support.configs import project_config, write_config
 from support.env import ROOT
 from support.project import Project
 
-TAGS = {2: "v0.2.1", 3: "v0.3.0", 4: "v0.4.0", 5: "v0.5.0"}
+TAGS = {2: "v0.2.1", 3: "v0.3.0", 4: "v0.4.0", 5: "v0.5.0", 6: "v0.6.0"}
 
 
 def has_tag(tag):

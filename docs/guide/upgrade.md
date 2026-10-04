@@ -24,7 +24,7 @@
 ### `lg` 업데이트 (어느 터미널이든)
 
 ```bash
-pipx install --force git+https://github.com/qazcdesnu/labgate.git@v0.5.0
+pipx install --force git+https://github.com/qazcdesnu/labgate.git@v0.6.0
 lg --version
 ```
 

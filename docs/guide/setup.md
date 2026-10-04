@@ -10,7 +10,7 @@
 Python 3.10 이상과 [pipx](https://pipx.pypa.io)가 필요하다.
 
 ```bash
-pipx install git+https://github.com/qazcdesnu/labgate.git@v0.5.0
+pipx install git+https://github.com/qazcdesnu/labgate.git@v0.6.0
 lg --version
 ```
 
@@ -61,7 +61,7 @@ git config user.email "<.lg/identities.json에 등록된 이메일>"
 ## 확인
 
 ```bash
-lg --version                                   # labgate 0.5.0
+lg --version                                   # labgate 0.6.0
 git log --format='%an <%ae> | %s'              # init 커밋, 작성자가 나
 git config core.hooksPath                      # .lg/hooks
 grep spec_version .lg/project.yaml             # 6
@@ -76,7 +76,7 @@ grep spec_version .lg/project.yaml             # 6
 | `이미 있는 파일과 겹칩니다` | `--force`여도 기존 파일은 덮어쓰지 않는다. 겹치는 파일을 옮긴다 |
 | 커밋할 때 `등록되지 않은 작성자입니다` | 4번(클론 후 설정)을 하지 않았다. `user.email`을 등록된 이메일로 |
 | `lg commit`이 `spec_version 1`이라며 거부 | labgate 0.1로 만든 프로젝트다. [upgrade.md](upgrade.md) |
-| 설치된 `lg`가 예전 버전 | `pipx install --force …@v0.5.0` ([upgrade.md](upgrade.md)) |
+| 설치된 `lg`가 예전 버전 | `pipx install --force …@v0.6.0` ([upgrade.md](upgrade.md)) |
 
 ## 에이전트는 무엇을 하나
 

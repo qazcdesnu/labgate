@@ -1,0 +1,297 @@
+{
+  "filemap": [
+    "---",
+    "id: FILEMAP",
+    "type: filemap",
+    "---",
+    "# 폴더 지도",
+    "이 문서는 \"무엇이 어디에 있는가\"를 설명한다. \"어떻게 써야 하는가\"는 [specs/](specs/README.md)에 있다.",
+    "## 루트 문서",
+    "| 파일 | 역할 | 주로 쓰는 쪽 |",
+    "|---|---|---|",
+    "| `README.md` | 사람용 입구 | 사람 |",
+    "| `FILEMAP.md` | 이 문서 | 공통 |",
+    "| `AGENTS.md` | 에이전트 행동 규칙의 원본 | 사람 (에이전트는 읽기만) |",
+    "| `CLAUDE.md` | Claude Code 연결: `AGENTS.md` 참조 | 사람 |",
+    "| `STATUS.md` | 현재 상태판, 사람 판단 대기 목록 | 에이전트 |",
+    "## 폴더",
+    "| 폴더 | 내용 | 명명 규칙 |",
+    "|---|---|---|",
+    "| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 초안 `COMMIT_MSG`, 사람의 변경 목록 `HUMAN_FILES`, Git 제외) |",
+    "| `.claude/` | Claude Code 설정과 슬래시 커맨드 | |",
+    "| `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식, 에이전트 절차 | `doc-types/<유형>.spec.md`, `procedures/<절차>.md` |",
+    "| `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |",
+    "| `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |",
+    "| `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |",
+    "| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 실험 | `<M>/<Task>_<slug>/` |",
+    "| `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |",
+    "| `results/` | task 결과, 마일스톤 보고, 그림, 표 | `<M>/<Task>_result.md`, `<M>/report.md` |",
+    "| `reviews/` | 게이트 요청과 에스컬레이션 (`open/` → `closed/`) | `<Task>_gate-NN.md`, `<Task>_esc-NN.md` |",
+    "| `logs/` | 에이전트 세션 작업 일지 | `YYYY-MM-DD_sNN.md` |",
+    "| `data/` | 데이터 생성 설정, 데이터 설명서 | |",
+    "| `paper/` | 원고, 그림, 참고문헌 bib | |",
+    "| `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |",
+    "| `scripts/` | 프로젝트 도구 (`agent-commit`, `session-check`) | |",
+    "| `env/` | 환경 설정 | |",
+    "## 마일스톤",
+    "| ID | 제목 | 계획 | 문헌 매핑 | 결과 |",
+    "|---|---|---|---|---|",
+    "## ID가 문서를 잇는 방식",
+    "모든 문서는 ID로 서로를 가리킨다. 규칙은 [specs/conventions.md](specs/conventions.md) §1.",
+    "예: `results/M1/M1-T2_result.md`의 근거가 `M1-T2_run-003`이고, 이 실행은 결정 `D1.1`과 참고문헌 `guo2025-loglinear`를 따른다."
+  ],
+  "files": {
+    ".claude/commands/commit-prep.md": {
+      "claude_code": "sha256:148ee3450b92e80989939988c1ecd5661fbed6b692b73473131823840a7fb08c",
+      "proposal_claude_code": "sha256:148ee3450b92e80989939988c1ecd5661fbed6b692b73473131823840a7fb08c"
+    },
+    ".claude/commands/escalate.md": {
+      "claude_code": "sha256:cf017a8a13fa93b7a6628f6db9fae9d5d52a09985bfa6b03e712010930643a36",
+      "proposal_claude_code": "sha256:cf017a8a13fa93b7a6628f6db9fae9d5d52a09985bfa6b03e712010930643a36"
+    },
+    ".claude/commands/session-close.md": {
+      "claude_code": "sha256:05b6b5bd347ee00a853fe098efe734ddc80794c6b618c5cb2b5ffe93fde0f1a5",
+      "proposal_claude_code": "sha256:05b6b5bd347ee00a853fe098efe734ddc80794c6b618c5cb2b5ffe93fde0f1a5"
+    },
+    ".claude/commands/session-start.md": {
+      "claude_code": "sha256:62f10709ec368e5388fa1e957abecd0643a828ee8eb7049470210f2b6469df8a",
+      "proposal_claude_code": "sha256:62f10709ec368e5388fa1e957abecd0643a828ee8eb7049470210f2b6469df8a"
+    },
+    ".claude/commands/task-gate.md": {
+      "claude_code": "sha256:b4aef9e1472d5357032a7873f2c2d355e39fabe0ca20fbb0466d718c2eab0175",
+      "proposal_claude_code": "sha256:b4aef9e1472d5357032a7873f2c2d355e39fabe0ca20fbb0466d718c2eab0175"
+    },
+    ".claude/commands/task-start.md": {
+      "claude_code": "sha256:de71a2f2ef3877f228b418564ca7cc9ab21fbbc7c32adb9ad70485ba26f7c8c7",
+      "proposal_claude_code": "sha256:de71a2f2ef3877f228b418564ca7cc9ab21fbbc7c32adb9ad70485ba26f7c8c7"
+    },
+    ".claude/settings.json": {
+      "claude_code": "sha256:f76ff7bf05b57e08fef198dd0f3c9b5a8adf1fb56c624cbd2227049c599ecc62",
+      "proposal_claude_code": "sha256:f76ff7bf05b57e08fef198dd0f3c9b5a8adf1fb56c624cbd2227049c599ecc62"
+    },
+    ".lg/hooks/commit-msg": {
+      "claude_code": "sha256:7b48af3211b01f6abfd93ffb845baef9b3b198f6c7fce3c14ba8ce9fd702e04f",
+      "no_claude_code": "sha256:7b48af3211b01f6abfd93ffb845baef9b3b198f6c7fce3c14ba8ce9fd702e04f",
+      "proposal_claude_code": "sha256:7b48af3211b01f6abfd93ffb845baef9b3b198f6c7fce3c14ba8ce9fd702e04f",
+      "proposal_no_claude_code": "sha256:7b48af3211b01f6abfd93ffb845baef9b3b198f6c7fce3c14ba8ce9fd702e04f"
+    },
+    "AGENTS.md": {
+      "claude_code": "sha256:451ee9df1aa75f207481cb44199b06c40b88d7ca73d21d1ce18d35089be6050c",
+      "no_claude_code": "sha256:6150f7b2d3f8a692db909f04bc662bc21ecc63476e2dd4dd2ab3d1822bfc7aea",
+      "proposal_claude_code": "sha256:9c22ee4227ce6f3a46cf9749b1d7357b5dad04354fe9793730a3483ba84e3f9d",
+      "proposal_no_claude_code": "sha256:dd7997cee4a46c7c12edf704287a7e0975b913c1167cf1fb88c27be9228301dd"
+    },
+    "CLAUDE.md": {
+      "claude_code": "sha256:5fe4fab038dfca7505e383657bb1ca6cc186e9e25dde6c9451781c63a1e09e29",
+      "proposal_claude_code": "sha256:5fe4fab038dfca7505e383657bb1ca6cc186e9e25dde6c9451781c63a1e09e29"
+    },
+    "scripts/agent-commit": {
+      "claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "no_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "proposal_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "proposal_no_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b"
+    },
+    "scripts/apply-human-commits": {
+      "claude_code": "sha256:1c65688067fc442287f556c13b5db85faa22a645226f0bb524afcc4cedd68cf1",
+      "no_claude_code": "sha256:1c65688067fc442287f556c13b5db85faa22a645226f0bb524afcc4cedd68cf1",
+      "proposal_claude_code": "sha256:1c65688067fc442287f556c13b5db85faa22a645226f0bb524afcc4cedd68cf1",
+      "proposal_no_claude_code": "sha256:1c65688067fc442287f556c13b5db85faa22a645226f0bb524afcc4cedd68cf1"
+    },
+    "scripts/session-check": {
+      "claude_code": "sha256:87d0f320d8604c6cae9c9099ad2bdf73dffe450b43c656b0bde967d5d7ed47a7",
+      "no_claude_code": "sha256:87d0f320d8604c6cae9c9099ad2bdf73dffe450b43c656b0bde967d5d7ed47a7",
+      "proposal_claude_code": "sha256:87d0f320d8604c6cae9c9099ad2bdf73dffe450b43c656b0bde967d5d7ed47a7",
+      "proposal_no_claude_code": "sha256:87d0f320d8604c6cae9c9099ad2bdf73dffe450b43c656b0bde967d5d7ed47a7"
+    },
+    "specs/README.md": {
+      "claude_code": "sha256:7e2f643775ca4e89aefbcdd22b7c9f337045b8daced3c731a643f4f9bc94f761",
+      "no_claude_code": "sha256:7e2f643775ca4e89aefbcdd22b7c9f337045b8daced3c731a643f4f9bc94f761",
+      "proposal_claude_code": "sha256:7e2f643775ca4e89aefbcdd22b7c9f337045b8daced3c731a643f4f9bc94f761",
+      "proposal_no_claude_code": "sha256:7e2f643775ca4e89aefbcdd22b7c9f337045b8daced3c731a643f4f9bc94f761"
+    },
+    "specs/conventions.md": {
+      "claude_code": "sha256:9bb8857efe0ace88c5a52c01d61d8fe0b35ce6ec8716d39dc450834355f34c69",
+      "no_claude_code": "sha256:9bb8857efe0ace88c5a52c01d61d8fe0b35ce6ec8716d39dc450834355f34c69",
+      "proposal_claude_code": "sha256:9bb8857efe0ace88c5a52c01d61d8fe0b35ce6ec8716d39dc450834355f34c69",
+      "proposal_no_claude_code": "sha256:9bb8857efe0ace88c5a52c01d61d8fe0b35ce6ec8716d39dc450834355f34c69"
+    },
+    "specs/doc-types/catalog.spec.md": {
+      "claude_code": "sha256:0abc00ee09c7f7634217c70a6fc3426a55afb5e7b3696168cc645531c62cb534",
+      "no_claude_code": "sha256:0abc00ee09c7f7634217c70a6fc3426a55afb5e7b3696168cc645531c62cb534",
+      "proposal_claude_code": "sha256:0abc00ee09c7f7634217c70a6fc3426a55afb5e7b3696168cc645531c62cb534",
+      "proposal_no_claude_code": "sha256:0abc00ee09c7f7634217c70a6fc3426a55afb5e7b3696168cc645531c62cb534"
+    },
+    "specs/doc-types/decision.spec.md": {
+      "claude_code": "sha256:a70fafd0123483a28e965a9010e4d0b56bd2c44ed621b0767cd6f16bc170d7b8",
+      "no_claude_code": "sha256:a70fafd0123483a28e965a9010e4d0b56bd2c44ed621b0767cd6f16bc170d7b8",
+      "proposal_claude_code": "sha256:a70fafd0123483a28e965a9010e4d0b56bd2c44ed621b0767cd6f16bc170d7b8",
+      "proposal_no_claude_code": "sha256:a70fafd0123483a28e965a9010e4d0b56bd2c44ed621b0767cd6f16bc170d7b8"
+    },
+    "specs/doc-types/experiment-readme.spec.md": {
+      "claude_code": "sha256:6a2bd0e878bfef73e1148f5189b5483c69abef71a856169091e75f392350b3b0",
+      "no_claude_code": "sha256:6a2bd0e878bfef73e1148f5189b5483c69abef71a856169091e75f392350b3b0",
+      "proposal_claude_code": "sha256:6a2bd0e878bfef73e1148f5189b5483c69abef71a856169091e75f392350b3b0",
+      "proposal_no_claude_code": "sha256:6a2bd0e878bfef73e1148f5189b5483c69abef71a856169091e75f392350b3b0"
+    },
+    "specs/doc-types/milestone-report.spec.md": {
+      "claude_code": "sha256:fca9cde355792b99f7e89da7fd3ba14cc110a986d834d834dd06f24f7505585f",
+      "no_claude_code": "sha256:fca9cde355792b99f7e89da7fd3ba14cc110a986d834d834dd06f24f7505585f",
+      "proposal_claude_code": "sha256:fca9cde355792b99f7e89da7fd3ba14cc110a986d834d834dd06f24f7505585f",
+      "proposal_no_claude_code": "sha256:fca9cde355792b99f7e89da7fd3ba14cc110a986d834d834dd06f24f7505585f"
+    },
+    "specs/doc-types/milestone.spec.md": {
+      "claude_code": "sha256:48c55b79e1333d9f3602b87a266562df931cdb4e23d96221c0601c7b97515fc4",
+      "no_claude_code": "sha256:48c55b79e1333d9f3602b87a266562df931cdb4e23d96221c0601c7b97515fc4",
+      "proposal_claude_code": "sha256:48c55b79e1333d9f3602b87a266562df931cdb4e23d96221c0601c7b97515fc4",
+      "proposal_no_claude_code": "sha256:48c55b79e1333d9f3602b87a266562df931cdb4e23d96221c0601c7b97515fc4"
+    },
+    "specs/doc-types/review.spec.md": {
+      "claude_code": "sha256:47a80222118c7d8c56799c4877a3c9696aef7b7b9969ffcc33bd944959f314ff",
+      "no_claude_code": "sha256:47a80222118c7d8c56799c4877a3c9696aef7b7b9969ffcc33bd944959f314ff",
+      "proposal_claude_code": "sha256:47a80222118c7d8c56799c4877a3c9696aef7b7b9969ffcc33bd944959f314ff",
+      "proposal_no_claude_code": "sha256:47a80222118c7d8c56799c4877a3c9696aef7b7b9969ffcc33bd944959f314ff"
+    },
+    "specs/doc-types/roadmap.spec.md": {
+      "claude_code": "sha256:3ec46f4d8bc2bf3fa1244c5683d489fe326abbc6f4debacc4a58572ee7dd74a8",
+      "no_claude_code": "sha256:3ec46f4d8bc2bf3fa1244c5683d489fe326abbc6f4debacc4a58572ee7dd74a8",
+      "proposal_claude_code": "sha256:3ec46f4d8bc2bf3fa1244c5683d489fe326abbc6f4debacc4a58572ee7dd74a8",
+      "proposal_no_claude_code": "sha256:3ec46f4d8bc2bf3fa1244c5683d489fe326abbc6f4debacc4a58572ee7dd74a8"
+    },
+    "specs/doc-types/run-record.spec.md": {
+      "claude_code": "sha256:8c7f61d0ecf253d09603f846be4bf3bc3ef0a55e1517660a1fb5f2032f5e7f78",
+      "no_claude_code": "sha256:8c7f61d0ecf253d09603f846be4bf3bc3ef0a55e1517660a1fb5f2032f5e7f78",
+      "proposal_claude_code": "sha256:8c7f61d0ecf253d09603f846be4bf3bc3ef0a55e1517660a1fb5f2032f5e7f78",
+      "proposal_no_claude_code": "sha256:8c7f61d0ecf253d09603f846be4bf3bc3ef0a55e1517660a1fb5f2032f5e7f78"
+    },
+    "specs/doc-types/status.spec.md": {
+      "claude_code": "sha256:fc77a66851279af018018263893c7369cff1b8f7cf22e338d403e29c53ff5e6d",
+      "no_claude_code": "sha256:fc77a66851279af018018263893c7369cff1b8f7cf22e338d403e29c53ff5e6d",
+      "proposal_claude_code": "sha256:fc77a66851279af018018263893c7369cff1b8f7cf22e338d403e29c53ff5e6d",
+      "proposal_no_claude_code": "sha256:fc77a66851279af018018263893c7369cff1b8f7cf22e338d403e29c53ff5e6d"
+    },
+    "specs/doc-types/task-card.spec.md": {
+      "claude_code": "sha256:ad0993e457076fcb507b4f65e13b081adc2d36f922942e3fb7dacf871054e274",
+      "no_claude_code": "sha256:ad0993e457076fcb507b4f65e13b081adc2d36f922942e3fb7dacf871054e274",
+      "proposal_claude_code": "sha256:ad0993e457076fcb507b4f65e13b081adc2d36f922942e3fb7dacf871054e274",
+      "proposal_no_claude_code": "sha256:ad0993e457076fcb507b4f65e13b081adc2d36f922942e3fb7dacf871054e274"
+    },
+    "specs/doc-types/task-map.spec.md": {
+      "claude_code": "sha256:19495af96e19c53183b5c8a8507d877ad13f7483c245089c010ea4f0fd020e93",
+      "no_claude_code": "sha256:19495af96e19c53183b5c8a8507d877ad13f7483c245089c010ea4f0fd020e93",
+      "proposal_claude_code": "sha256:19495af96e19c53183b5c8a8507d877ad13f7483c245089c010ea4f0fd020e93",
+      "proposal_no_claude_code": "sha256:19495af96e19c53183b5c8a8507d877ad13f7483c245089c010ea4f0fd020e93"
+    },
+    "specs/doc-types/task-result.spec.md": {
+      "claude_code": "sha256:90da64348633aa00603738622d672133a07948516976c7f3b81a302c4d4efe73",
+      "no_claude_code": "sha256:90da64348633aa00603738622d672133a07948516976c7f3b81a302c4d4efe73",
+      "proposal_claude_code": "sha256:90da64348633aa00603738622d672133a07948516976c7f3b81a302c4d4efe73",
+      "proposal_no_claude_code": "sha256:90da64348633aa00603738622d672133a07948516976c7f3b81a302c4d4efe73"
+    },
+    "specs/doc-types/worklog.spec.md": {
+      "claude_code": "sha256:d7452922ec1a97279dd581f7855ca4d7f08718c23e3d94e41aeac1ee5a105b39",
+      "no_claude_code": "sha256:d7452922ec1a97279dd581f7855ca4d7f08718c23e3d94e41aeac1ee5a105b39",
+      "proposal_claude_code": "sha256:d7452922ec1a97279dd581f7855ca4d7f08718c23e3d94e41aeac1ee5a105b39",
+      "proposal_no_claude_code": "sha256:d7452922ec1a97279dd581f7855ca4d7f08718c23e3d94e41aeac1ee5a105b39"
+    },
+    "specs/git-commit.md": {
+      "claude_code": "sha256:e33be7f0df57692e19f69eaaeb24324856b2c415e82a92097671026e18163572",
+      "no_claude_code": "sha256:e33be7f0df57692e19f69eaaeb24324856b2c415e82a92097671026e18163572",
+      "proposal_claude_code": "sha256:e33be7f0df57692e19f69eaaeb24324856b2c415e82a92097671026e18163572",
+      "proposal_no_claude_code": "sha256:e33be7f0df57692e19f69eaaeb24324856b2c415e82a92097671026e18163572"
+    },
+    "specs/procedures/commit-prep.md": {
+      "claude_code": "sha256:b94262bbaee340fc36d430f45b81b316f28d320d65917ec5b61c510a5113b699",
+      "no_claude_code": "sha256:b94262bbaee340fc36d430f45b81b316f28d320d65917ec5b61c510a5113b699",
+      "proposal_claude_code": "sha256:b94262bbaee340fc36d430f45b81b316f28d320d65917ec5b61c510a5113b699",
+      "proposal_no_claude_code": "sha256:b94262bbaee340fc36d430f45b81b316f28d320d65917ec5b61c510a5113b699"
+    },
+    "specs/procedures/escalate.md": {
+      "claude_code": "sha256:e0b4bc1b31cbf35c13b8d48da66c87f7195f758325821fad1d4648cc683098bf",
+      "no_claude_code": "sha256:e0b4bc1b31cbf35c13b8d48da66c87f7195f758325821fad1d4648cc683098bf",
+      "proposal_claude_code": "sha256:e0b4bc1b31cbf35c13b8d48da66c87f7195f758325821fad1d4648cc683098bf",
+      "proposal_no_claude_code": "sha256:e0b4bc1b31cbf35c13b8d48da66c87f7195f758325821fad1d4648cc683098bf"
+    },
+    "specs/procedures/gate-apply.md": {
+      "claude_code": "sha256:9f315f8167221d31474cdbaf108fdb5b2b8e23b6e068c36ae06dc69d20931371",
+      "no_claude_code": "sha256:9f315f8167221d31474cdbaf108fdb5b2b8e23b6e068c36ae06dc69d20931371",
+      "proposal_claude_code": "sha256:9f315f8167221d31474cdbaf108fdb5b2b8e23b6e068c36ae06dc69d20931371",
+      "proposal_no_claude_code": "sha256:9f315f8167221d31474cdbaf108fdb5b2b8e23b6e068c36ae06dc69d20931371"
+    },
+    "specs/procedures/gate-conversation.md": {
+      "claude_code": "sha256:826d19d7b0c41d76adaa3c541ded3c271512a5b213f85f883f67744cd566f73e",
+      "no_claude_code": "sha256:826d19d7b0c41d76adaa3c541ded3c271512a5b213f85f883f67744cd566f73e",
+      "proposal_claude_code": "sha256:826d19d7b0c41d76adaa3c541ded3c271512a5b213f85f883f67744cd566f73e",
+      "proposal_no_claude_code": "sha256:826d19d7b0c41d76adaa3c541ded3c271512a5b213f85f883f67744cd566f73e"
+    },
+    "specs/procedures/session-close.md": {
+      "claude_code": "sha256:0a6083de37b5ed67c4f8e505ac578801f900ff1b343842cd65ce692a884b3051",
+      "no_claude_code": "sha256:0a6083de37b5ed67c4f8e505ac578801f900ff1b343842cd65ce692a884b3051",
+      "proposal_claude_code": "sha256:0a6083de37b5ed67c4f8e505ac578801f900ff1b343842cd65ce692a884b3051",
+      "proposal_no_claude_code": "sha256:0a6083de37b5ed67c4f8e505ac578801f900ff1b343842cd65ce692a884b3051"
+    },
+    "specs/procedures/session-start.md": {
+      "claude_code": "sha256:4c8520bb6e2326a983a9ca1a3c75ca8cf2f3f9431b3653238a0f6baf63a73225",
+      "no_claude_code": "sha256:4c8520bb6e2326a983a9ca1a3c75ca8cf2f3f9431b3653238a0f6baf63a73225",
+      "proposal_claude_code": "sha256:4c8520bb6e2326a983a9ca1a3c75ca8cf2f3f9431b3653238a0f6baf63a73225",
+      "proposal_no_claude_code": "sha256:4c8520bb6e2326a983a9ca1a3c75ca8cf2f3f9431b3653238a0f6baf63a73225"
+    },
+    "specs/procedures/task-gate.md": {
+      "claude_code": "sha256:3afb474e5f2e8ebe0dd50dc3806cf9aa8e5566a723330724a3942b31ba10fe99",
+      "no_claude_code": "sha256:3afb474e5f2e8ebe0dd50dc3806cf9aa8e5566a723330724a3942b31ba10fe99",
+      "proposal_claude_code": "sha256:3afb474e5f2e8ebe0dd50dc3806cf9aa8e5566a723330724a3942b31ba10fe99",
+      "proposal_no_claude_code": "sha256:3afb474e5f2e8ebe0dd50dc3806cf9aa8e5566a723330724a3942b31ba10fe99"
+    },
+    "specs/procedures/task-start.md": {
+      "claude_code": "sha256:46469a18e41c5c7adb157c38904595b5b0837bcab11ed00acae1451abda72e54",
+      "no_claude_code": "sha256:46469a18e41c5c7adb157c38904595b5b0837bcab11ed00acae1451abda72e54",
+      "proposal_claude_code": "sha256:46469a18e41c5c7adb157c38904595b5b0837bcab11ed00acae1451abda72e54",
+      "proposal_no_claude_code": "sha256:46469a18e41c5c7adb157c38904595b5b0837bcab11ed00acae1451abda72e54"
+    },
+    "specs/templates/review.md": {
+      "claude_code": "sha256:72e97549053d3e1ee907a8287096e87da425327b81a0342bf022505981185cb8",
+      "no_claude_code": "sha256:72e97549053d3e1ee907a8287096e87da425327b81a0342bf022505981185cb8",
+      "proposal_claude_code": "sha256:72e97549053d3e1ee907a8287096e87da425327b81a0342bf022505981185cb8",
+      "proposal_no_claude_code": "sha256:72e97549053d3e1ee907a8287096e87da425327b81a0342bf022505981185cb8"
+    },
+    "specs/templates/task-card.md": {
+      "claude_code": "sha256:586f67933a9dd3614971cd059cb6cf62558ea21f2f56b36c9d92d60f18cfb8db",
+      "no_claude_code": "sha256:586f67933a9dd3614971cd059cb6cf62558ea21f2f56b36c9d92d60f18cfb8db",
+      "proposal_claude_code": "sha256:586f67933a9dd3614971cd059cb6cf62558ea21f2f56b36c9d92d60f18cfb8db",
+      "proposal_no_claude_code": "sha256:586f67933a9dd3614971cd059cb6cf62558ea21f2f56b36c9d92d60f18cfb8db"
+    },
+    "specs/workflow.md": {
+      "claude_code": "sha256:4974cbd0836be2ae8562171444e13a540005798f8094d359afcf66baecdbe7fe",
+      "no_claude_code": "sha256:4974cbd0836be2ae8562171444e13a540005798f8094d359afcf66baecdbe7fe",
+      "proposal_claude_code": "sha256:4974cbd0836be2ae8562171444e13a540005798f8094d359afcf66baecdbe7fe",
+      "proposal_no_claude_code": "sha256:4974cbd0836be2ae8562171444e13a540005798f8094d359afcf66baecdbe7fe"
+    }
+  },
+  "gitignore": [
+    "# 실행 산출물 원본",
+    "runs/*",
+    "!runs/.gitkeep",
+    "# 대화 경로 게이트용 임시 커밋 메시지",
+    ".lg/pending/",
+    "# Claude Code 워크트리 (실험 격리용, main에 병합하지 않음)",
+    ".claude/worktrees/",
+    "# Python",
+    "__pycache__/",
+    "*.py[cod]",
+    ".venv/",
+    "venv/",
+    ".ipynb_checkpoints/",
+    ".pytest_cache/",
+    "# 실험 도구",
+    "wandb/",
+    "mlruns/",
+    "# OS / 편집기",
+    ".DS_Store",
+    "Thumbs.db",
+    ".idea/",
+    ".vscode/",
+    "# 대용량 원본 데이터는 필요 시 아래 주석을 해제",
+    "# data/raw/"
+  ],
+  "labgate_version": "0.6.0",
+  "spec_version": 6
+}
