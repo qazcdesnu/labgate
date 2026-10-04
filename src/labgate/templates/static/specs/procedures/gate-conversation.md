@@ -1,7 +1,7 @@
 ---
 id: gate-conversation
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 대화 경로 판정
 

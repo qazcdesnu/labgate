@@ -1,7 +1,7 @@
 ---
 id: workflow
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # 워크플로우
@@ -109,7 +109,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 - **착수:** 모든 마일스톤은 T0(착수 계획)으로 시작한다. T0의 게이트에서 사람이 task 분해를 승인하면 `Next: <M>-T1`, 마일스톤은 `active`.
 - **종료:** 마지막 task의 게이트 요청에 마일스톤 보고(`results/<M>/report.md`)와 Go/No-go 근거를 포함한다. 사람의 `gate` 커밋에 `Milestone-Verdict:`를 넣고 tag `milestone/<M>-<go|nogo|conditional>`을 만든다(`lg commit`은 자동). 다음 마일스톤 T0의 승인도 같은 커밋 `Next:`로 한다.
-- 마일스톤 종료 게이트에서는 해당 결과를 `paper/` 초안에 반영하는 것을 마일스톤 보고의 일부로 한다.
+- 마일스톤 종료 게이트에서는 해당 결과를 `paper/`(제안서 프로젝트는 `deliverables/`) 초안에 반영하는 것을 마일스톤 보고의 일부로 한다.
 
 ## 9. 계획·사양 변경
 

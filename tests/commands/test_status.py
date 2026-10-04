@@ -1,6 +1,8 @@
 """`lg status` (설계 문서 §24.3): 사람이 할 일, 에이전트 몫, 진행을 파일과 이력에서 모은다. 읽기만 한다."""
 import json
 
+from labgate import SPEC_VERSION
+
 from support.releases import make_old
 
 
@@ -13,7 +15,7 @@ def status(project, *args):
 def test_fresh_project_waits_for_first_approval(project):
     """실사용(연습 프로젝트): 새 프로젝트에서 사람이 할 일은 M0-T0 승인이다."""
     out = status(project)
-    assert out.startswith("ptest · spec_version 5 · M0 (planned)\n")
+    assert out.startswith(f"ptest · spec_version {SPEC_VERSION} · M0 (planned)\n")
     assert "[승인]" in out and "M0-T0  draft, 승인 대기" in out and "lg commit --allow-empty" in out
     assert "에이전트 몫: 없음" in out and "draft       M0-T0" in out
     project.approve_and_start()

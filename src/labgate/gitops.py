@@ -71,7 +71,7 @@ def global_identity() -> tuple[str, str]:
 
 
 def init_message(config: Config) -> str:
-    return f"init: initialize research project\n\n{config.project.name}\n\nActor: human\n"
+    return f"init: initialize {config.project.kind} project\n\n{config.project.name}\n\nActor: human\n"
 
 
 @dataclass(frozen=True)
@@ -80,8 +80,9 @@ class Step:
     args: list[str]
 
 
-def init_repo(target: Path, config: Config) -> str:
-    """§10.1: 저장소 초기화와 사람 신원의 초기 커밋. 초기 커밋의 짧은 해시를 돌려준다."""
+def init_repo(target: Path, config: Config, paths: list[str]) -> str:
+    """§10.1: 저장소 초기화와 사람 신원의 초기 커밋. 초기 커밋의 짧은 해시를 돌려준다.
+    커밋에는 생성한 파일(`paths`)만 넣는다. 폴더에 원래 있던 파일은 커밋하지 않고 남긴다 (§25.4)."""
     human = config.humans[0]
     fd, msg_path = tempfile.mkstemp(prefix="lg-init-", suffix=".txt")
     try:
@@ -93,23 +94,26 @@ def init_repo(target: Path, config: Config) -> str:
             Step("사람 이름 설정", ["config", "user.name", human.name]),
             Step("사람 이메일 설정", ["config", "user.email", human.email]),
             Step("hook 경로 설정", ["config", "core.hooksPath", ".lg/hooks"]),
-            Step("파일 추가", ["add", "-A"]),
+            Step("생성한 파일 추가", ["add", "--", *paths]),
             Step("초기 커밋 (hook 검사 포함)", ["commit", "-q", "-F", msg_path]),
         ]
         for i, step in enumerate(steps):
             result = _run(step.args, cwd=target)
             if result.returncode != 0:
-                raise GitError(_failure(target, step, result, steps[i:]))
+                raise GitError(_failure(target, step, result, steps[i:], config.project.kind))
         return _run(["rev-parse", "--short", "HEAD"], cwd=target).stdout.strip()
     finally:
         os.unlink(msg_path)
 
 
-def _failure(target: Path, step: Step, result: subprocess.CompletedProcess, remaining: list[Step]) -> str:
+def _failure(target: Path, step: Step, result: subprocess.CompletedProcess, remaining: list[Step],
+             kind: str = "research") -> str:
     """§10.2: 실패한 단계, 명령, stderr, 남은 수동 명령."""
     def show(s: Step) -> str:
+        if s.args[:1] == ["add"]:  # 생성한 파일 목록은 길어서 줄인다
+            return "git add -A    # 폴더에 원래 있던 파일이 있으면 생성한 파일만 add 하세요"
         if s.args[:1] == ["commit"]:  # 임시 메시지 파일은 이미 지워지므로 -m 형태로 안내
-            return 'git commit -m "init: initialize research project" -m "Actor: human"'
+            return f'git commit -m "init: initialize {kind} project" -m "Actor: human"'
         return shlex.join(["git", *s.args])
 
     output = (result.stderr or result.stdout).strip()

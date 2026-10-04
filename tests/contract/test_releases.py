@@ -8,6 +8,7 @@ import sys
 import pytest
 
 from labgate import SPEC_VERSION, kinds
+from labgate.config import KINDS
 from labgate.upgrade import MIGRATIONS, load_hashes
 
 from support.env import ROOT
@@ -29,18 +30,19 @@ def test_current_templates_frozen_if_released():
     table = load_hashes(SPEC_VERSION)
     if table is None:
         pytest.skip(f"spec_version {SPEC_VERSION}는 아직 릴리즈 전 (해시표 없음)")
-    for claude in (True, False):
-        var = kinds.variant(claude)
-        for path, (content, _) in current_files(claude).items():
-            if kinds.classify(path) in (kinds.MANAGED, kinds.EDITABLE):
-                assert kinds.digest(path, content) == table["files"][path][var], path
+    for kind in KINDS:
+        for claude in (True, False):
+            var = kinds.variant(claude, kind)
+            for path, (content, _) in current_files(claude, kind).items():
+                if kinds.classify(path) in (kinds.MANAGED, kinds.EDITABLE):
+                    assert kinds.digest(path, content) == table["files"][path][var], (var, path)
 
 
 def test_every_generated_file_is_classified_and_none_lost():
     """모든 생성 파일에 분류가 있고, 지난 버전의 관리 문서가 소리 없이 사라지지 않는다."""
     current = set()
-    for claude in (True, False):
-        for path in current_files(claude):
+    for claude, kind in ((c, k) for c in (True, False) for k in KINDS):
+        for path in current_files(claude, kind):
             kind = kinds.classify(path)
             assert kind in (kinds.MANAGED, kinds.EDITABLE, kinds.GITIGNORE, kinds.RESEARCH, kinds.RECORD, kinds.OTHER)
             if kind in (kinds.MANAGED, kinds.EDITABLE):

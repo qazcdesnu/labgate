@@ -1,7 +1,7 @@
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 5
+spec_version: 6
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft

@@ -142,7 +142,9 @@ def test_force_adds_files_and_keeps_existing(tmp_path, cfg, git_sandbox):
     result = lg("init", target, "--config", cfg, "--force")
     assert result.exit_code == 0, result.output
     assert (target / "notes/plan.md").read_text() == "기존 계획"
-    assert git(target, "status", "--porcelain") == ""
+    # §25.4: 원래 있던 파일은 init 커밋에 넣지 않고 알린다
+    assert git(target, "status", "--porcelain") == "?? notes/plan.md"
+    assert "폴더에 원래 있던 1개는 커밋하지 않았습니다: notes/plan.md" in result.output
 
 
 def test_force_with_conflicting_file(tmp_path, cfg, git_sandbox):
@@ -221,7 +223,7 @@ def test_unexpected_error(tmp_path, cfg, git_sandbox, monkeypatch):
 def answers(*, path=None, claude=ENTER, extra_humans=(), milestones=("기반 구축",), confirm=ENTER):
     """§6.3 질문 순서대로의 입력. 기본값을 받을 곳은 ENTER."""
     seq = [] if path is None else [f"{path}{ENTER}"]
-    seq += ["연구 이름\r", ENTER, "한 줄 요약\r", "연구 질문인가?\r", "홍길동\r", "h@x.com\r"]
+    seq += [ENTER, "연구 이름\r", ENTER, "한 줄 요약\r", "연구 질문인가?\r", "홍길동\r", "h@x.com\r"]
     for name, email in extra_humans:
         seq += ["y", f"{name}\r", f"{email}\r"]
     seq += ["n", ENTER, ENTER, claude]
@@ -249,7 +251,7 @@ def test_interactive_asks_path_and_uses_git_identity(tmp_path, git_sandbox, keys
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(gitconfig))
     target = tmp_path / "proj"
     seq = answers(path=target)
-    seq[5:7] = [ENTER, ENTER]  # 사람 이름·이메일: git 전역 설정 기본값
+    seq[6:8] = [ENTER, ENTER]  # 사람 이름·이메일: git 전역 설정 기본값
     keys(*seq)
     result = lg("init", "--no-git")
     assert result.exit_code == 0, result.output
@@ -260,7 +262,7 @@ def test_interactive_asks_path_and_uses_git_identity(tmp_path, git_sandbox, keys
 def test_interactive_reasks_invalid_answers(tmp_path, git_sandbox, keys):
     target = tmp_path / "proj"
     keys(
-        "연구 이름\r",
+        ENTER, "연구 이름\r",  # 종류: 연구(기본)
         CLEAR, "Bad Slug\r", CLEAR, "good-slug\r",  # slug 규칙 위반 → 다시
         "한 줄 요약\r", "연구 질문?\r", "홍길동\r",
         "not-an-email\r", CLEAR, "h@x.com\r",       # 이메일 형식 → 다시
@@ -290,7 +292,7 @@ def test_interactive_checks_target_before_other_questions(tmp_path, git_sandbox,
 
 
 def test_interactive_ctrl_c(tmp_path, git_sandbox, keys):
-    keys("연구 이름\r", CTRL_C)
+    keys(ENTER, "연구 이름\r", CTRL_C)
     result = lg("init", tmp_path / "proj")
     assert result.exit_code == 130 and "중단했습니다" in result.output
     assert not (tmp_path / "proj").exists()
@@ -314,7 +316,7 @@ def test_interactive_requires_tty(tmp_path, git_sandbox):
 
 
 def test_interactive_input_closed_counts_as_abort(tmp_path, git_sandbox, keys):
-    keys("연구 이름\r")  # 다음 질문에서 입력이 끝남
+    keys(ENTER, "연구 이름\r")  # 다음 질문에서 입력이 끝남
     result = lg("init", tmp_path / "proj")
     assert result.exit_code == 130 and not (tmp_path / "proj").exists()
 
@@ -327,3 +329,63 @@ def test_user_git_identity_env_does_not_leak_into_init_commit(tmp_path, cfg, git
     target = tmp_path / "proj"
     assert lg("init", target, "--config", cfg).exit_code == 0
     assert git(target, "log", "-1", "--format=%ae|%ce") == "gildong@example.com|gildong@example.com"
+
+
+# ---------------------------------------------------------------- 프로젝트 종류와 자료 가져오기 (§25)
+
+
+def test_kind_proposal_from_option(tmp_path, cfg, git_sandbox):
+    target = tmp_path / "proj"
+    result = lg("init", target, "--config", cfg, "--kind", "proposal")
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("✓ 제안서 프로젝트를 만들었습니다")
+    assert yaml.safe_load((target / ".lg/project.yaml").read_text(encoding="utf-8"))["project"]["kind"] == "proposal"
+    assert (target / "deliverables/.gitkeep").exists() and not (target / "paper").exists()
+    assert git(target, "log", "-1", "--format=%s") == "init: initialize proposal project"
+
+
+def test_kind_conflict_and_unknown(tmp_path, git_sandbox):
+    data = dict(CONFIG, project=dict(CONFIG["project"], kind="proposal"))
+    path = tmp_path / "c.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    result = lg("init", tmp_path / "a", "--config", path, "--kind", "research")
+    assert result.exit_code == 2 and "project.kind (proposal)" in result.output  # 명시한 둘이 다르면 거부
+    assert not (tmp_path / "a").exists()
+    assert lg("init", tmp_path / "a", "--config", path).exit_code == 0  # --kind 없이: 설정 파일을 따른다
+    assert (tmp_path / "a/deliverables").exists()
+    assert lg("init", tmp_path / "b", "--config", path, "--kind", "paper").exit_code == 2
+
+
+def test_interactive_asks_kind(tmp_path, git_sandbox, keys):
+    target = tmp_path / "proj"
+    seq = answers()
+    seq[0] = "\x1b[B\r"  # 종류: 제안서
+    keys(*seq)
+    result = lg("init", target, "--no-git")
+    assert result.exit_code == 0, result.output
+    data = yaml.safe_load((target / ".lg/project.yaml").read_text(encoding="utf-8"))
+    assert data["project"]["kind"] == "proposal"
+
+
+def test_import_copies_into_notes_and_stages(tmp_path, cfg, git_sandbox):
+    source = tmp_path / "자료"
+    (source / "고객").mkdir(parents=True)
+    (source / "rfp.md").write_text("RFP")
+    (source / "고객/회의록.md").write_text("회의")
+    target = tmp_path / "proj"
+    result = lg("init", target, "--config", cfg, "--import", source)
+    assert result.exit_code == 0, result.output
+    assert (target / "notes/rfp.md").read_text() == "RFP" and (target / "notes/고객/회의록.md").exists()
+    assert "가져온 자료 2개가 notes/ 에 있습니다 (stage됨" in result.output
+    assert sorted(git(target, "diff", "--cached", "--name-only", "-z").split("\0")[:-1]) == ["notes/rfp.md", "notes/고객/회의록.md"]
+    assert git(target, "rev-list", "--count", "HEAD") == "1"  # init 커밋에는 들어가지 않는다
+
+
+def test_import_rejects_bad_sources(tmp_path, cfg, git_sandbox):
+    assert lg("init", tmp_path / "p", "--config", cfg, "--import", tmp_path / "none").exit_code == 2
+    (tmp_path / "empty").mkdir()
+    assert lg("init", tmp_path / "p", "--config", cfg, "--import", tmp_path / "empty").exit_code == 2
+    (tmp_path / "p/inside").mkdir(parents=True)
+    (tmp_path / "p/inside/x.md").write_text("x")
+    result = lg("init", tmp_path / "p", "--config", cfg, "--force", "--import", tmp_path / "p/inside")
+    assert result.exit_code == 2 and "프로젝트 폴더 안" in result.output

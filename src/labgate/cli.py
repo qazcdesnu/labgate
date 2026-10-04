@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import traceback
 from datetime import date
@@ -19,7 +20,7 @@ from . import spec as spec_module
 from . import status as status_module
 from . import upgrade as upgrade_module
 from . import verify as verify_module
-from .config import Config, ConfigError, load_config
+from .config import KINDS, Config, ConfigError, load_config
 from .errors import EXIT_ABORT, EXIT_ERROR, EXIT_GIT, EXIT_OK, EXIT_TARGET, EXIT_USAGE, Fail
 from .gitops import GitError
 from .plan import EXECUTABLE, PlannedFile, build_plan
@@ -54,10 +55,17 @@ def init(
     dry_run: bool = typer.Option(False, "--dry-run", help="만들 파일 트리와 개수만 출력한다."),
     no_git: bool = typer.Option(False, "--no-git", help="Git 초기화와 초기 커밋을 하지 않는다."),
     yes: bool = typer.Option(False, "--yes", "-y", help="대화형 모드의 마지막 확인을 건너뛴다."),
+    kind: Optional[str] = typer.Option(
+        None, "--kind", help="프로젝트 종류: research(연구, 기본) 또는 proposal(제안서).", show_default=False
+    ),
+    import_dir: Optional[Path] = typer.Option(
+        None, "--import", help="이미 가진 자료 폴더. 내용을 notes/로 복사하고 stage해 둔다 (첫 승인 커밋에 함께).",
+        show_default=False,
+    ),
 ) -> None:
-    """연구 프로젝트 작업 공간을 만든다."""
+    """연구·제안서 프로젝트 작업 공간을 만든다."""
     _guard(
-        lambda: _init(path, config_file, force, dry_run, no_git, yes),
+        lambda: _init(path, config_file, force, dry_run, no_git, yes, kind, import_dir),
         interrupted="\n중단했습니다. 아무것도 만들지 않았습니다.",  # 쓰기 중 중단은 writer가 이미 롤백했다
     )
 
@@ -194,8 +202,11 @@ def _err(message: str) -> None:
 
 
 def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
-          dry_run: bool, no_git: bool, yes: bool) -> int:
+          dry_run: bool, no_git: bool, yes: bool, kind: Optional[str] = None,
+          import_dir: Optional[Path] = None) -> int:
     interactive = config_file is None
+    if kind is not None and kind not in KINDS:
+        raise Fail(EXIT_USAGE, f"✗ --kind 는 {' 또는 '.join(KINDS)} 입니다: {kind}")
 
     # 1. 경로 확정
     if path is None:
@@ -204,6 +215,7 @@ def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
         _require_tty()
         path = prompts.ask_path()
     target = Path(os.path.abspath(path.expanduser()))
+    source = _check_import(import_dir, target) if import_dir else None
 
     # 2–3. 대상 폴더와 Git 사전 검사 (나머지 입력 전에)
     exists = _check_target(target, force, dry_run)
@@ -213,9 +225,13 @@ def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
     # 4. 입력 수집과 검증
     if interactive:
         _require_tty()
-        config = prompts.ask_config(target)
+        config = prompts.ask_config(target, kind)
     else:
         config = load_config(config_file)
+        if kind and kind != config.project.kind:
+            if config.project.kind != "research":  # 설정 파일이 다른 종류를 정했다
+                raise Fail(EXIT_USAGE, f"✗ --kind {kind} 와 설정 파일의 project.kind ({config.project.kind})가 다릅니다.")
+            config = config.model_copy(update={"project": config.project.model_copy(update={"kind": kind})})
 
     # 5. 생성 계획
     plan = build_plan(config, date.today().isoformat())
@@ -244,15 +260,55 @@ def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
     # 8. 파일 쓰기
     write_plan(target, plan)
 
-    # 9. Git
+    # 9. Git: 생성한 파일만 커밋한다 (§25.4)
     try:
-        commit = None if no_git else gitops.init_repo(target, config)
+        commit = None if no_git else gitops.init_repo(target, config, [str(f.path) for f in plan])
     except KeyboardInterrupt:
         raise Fail(EXIT_ABORT, f"\nGit 초기화 중에 중단했습니다. 생성된 파일은 그대로 두었습니다: {target}") from None
+    leftover = _untracked(target) if commit and exists else []
 
-    # 10. 안내
-    typer.echo(success_message(target, config, len(plan), commit))
+    # 10. 자료 가져오기 (§25.5): notes/로 복사하고 stage만 한다
+    imported = _import(source, target, stage=bool(commit)) if source else []
+
+    # 11. 안내
+    typer.echo(success_message(target, config, len(plan), commit, imported, leftover))
     return EXIT_OK
+
+
+def _check_import(import_dir: Path, target: Path) -> Path:
+    source = Path(os.path.abspath(import_dir.expanduser()))
+    if not source.is_dir():
+        raise Fail(EXIT_USAGE, f"✗ --import 폴더가 없습니다: {source}")
+    if source == target or target in source.parents:
+        raise Fail(EXIT_USAGE, "✗ --import 폴더가 프로젝트 폴더 안에 있습니다. 프로젝트 밖의 자료 폴더를 지정하세요.")
+    if not any(source.iterdir()):
+        raise Fail(EXIT_USAGE, f"✗ --import 폴더가 비어 있습니다: {source}")
+    return source
+
+
+def _import(source: Path, target: Path, stage: bool) -> list[str]:
+    """자료 폴더의 내용을 notes/ 아래로 복사한다(같은 이름이 있으면 건너뜀). 복사한 경로 목록 (프로젝트 기준)."""
+    notes = target / "notes"
+    copied: list[str] = []
+    for path in sorted(source.rglob("*")):
+        if path.is_dir() or any(part.startswith(".git") for part in path.relative_to(source).parts):
+            continue
+        dest = notes / path.relative_to(source)
+        if dest.exists():
+            _warn(f"이미 있어서 가져오지 않았습니다: {dest.relative_to(target)}")
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dest)
+        copied.append(dest.relative_to(target).as_posix())
+    if stage and copied:
+        gitops.run(["add", "--", *copied], cwd=target)
+    return copied
+
+
+def _untracked(target: Path) -> list[str]:
+    """init 커밋에 넣지 않은, 폴더에 원래 있던 파일·폴더."""
+    result = gitops.run(["status", "--porcelain", "--untracked-files=normal"], cwd=target)
+    return [l[3:] for l in result.stdout.splitlines() if l.startswith("?? ")]
 
 
 def _require_tty() -> None:
@@ -316,15 +372,25 @@ def format_tree(plan: list[PlannedFile]) -> str:
     return "\n".join(lines)
 
 
-def success_message(target: Path, config: Config, count: int, commit: Optional[str]) -> str:
+def success_message(target: Path, config: Config, count: int, commit: Optional[str],
+                    imported: Optional[list[str]] = None, leftover: Optional[list[str]] = None) -> str:
     """§5.4."""
     first = f"{config.milestones[0].id}-T0"
-    lines = [f"✓ 프로젝트를 만들었습니다: {target}"]
+    label = "제안서" if config.project.kind == "proposal" else "연구"
+    lines = [f"✓ {label} 프로젝트를 만들었습니다: {target}"]
     if commit:
         lines.append(f"  파일 {count}개, 초기 커밋 {commit} (init)")
     else:
         lines.append(f"  파일 {count}개 (Git 초기화 안 함: --no-git)")
-    lines += ["", "다음 단계:", "  1. notes/ 에 기존 계획 자료를 넣으세요."]
+    if leftover:
+        shown = ", ".join(leftover[:5]) + (f" 외 {len(leftover) - 5}개" if len(leftover) > 5 else "")
+        lines.append(f"  폴더에 원래 있던 {len(leftover)}개는 커밋하지 않았습니다: {shown}")
+        lines.append("    notes/ 등 정한 자리로 옮겨 커밋하거나, 필요 없으면 .gitignore 에 넣으세요.")
+    if imported:
+        lines += ["", "다음 단계:", f"  1. 가져온 자료 {len(imported)}개가 notes/ 에 있습니다"
+                  + (" (stage됨, 첫 승인 커밋에 함께 들어갑니다)." if commit else ".")]
+    else:
+        lines += ["", "다음 단계:", "  1. notes/ 에 기존 계획 자료를 넣으세요."]
     if commit:
         lines += [
             f"  2. STATUS.md 를 확인하고, {first} 을 승인하세요:",

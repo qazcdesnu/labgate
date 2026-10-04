@@ -5,7 +5,7 @@
 ## 프로젝트
 
 - 이름: {{ project.name }}
-- 연구 질문: {{ project.research_question }}
+- {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}: {{ project.research_question }}
 - 에이전트 신원: {{ agent.name }} <{{ agent.email }}>
 
 ## 역할

@@ -13,6 +13,7 @@
 
 - 템플릿 원문의 원본은 설계 문서다. `scripts/sync-templates.py`가 부록의 `~~~~` 블록을 `src/labgate/templates/`로 옮기고, `--check`로 차이를 검사한다(`tests/contract/test_templates.py`가 매번 실행). **템플릿을 고칠 때는 설계 문서를 고치고 스크립트를 실행한다.**
 - 템플릿 경로: Jinja는 `jinja/<출력 경로>.j2`, 마일스톤별 T0 카드는 `jinja/plan/milestones/tasks/T0.md.j2`, stub은 `jinja/specs/doc-types/_stub.spec.md.j2`. 점으로 시작하는 경로는 `dot-` 접두어(§8.1).
+- **줄 끝에서 닫는 분기는 `{% endif +%}`로 쓴다.** `trim_blocks`가 줄 끝 `{% endif %}` 뒤의 줄바꿈을 먹어 제목과 본문이 붙는다(테스트 `test_headings_are_followed_by_blank_line`).
 - **템플릿 제어문은 문자열 비교로 분기하지 않는다.** 잔여 문법 검사는 문자열을 모두 `"x"`로 바꾼 검사용 컨텍스트로 렌더링해서 하므로(§9), 문자열로 분기하면 검사가 실제 출력과 달라진다.
 - 생성 파일 표는 `plan.py` 상단 상수(`STATIC_FILES`, `SINGLE_TEMPLATES`, `MILESTONE_TEMPLATES`, `GITKEEP_*`)에 있다. 템플릿을 추가하고 표에 빠뜨리면 테스트가 실패한다.
 

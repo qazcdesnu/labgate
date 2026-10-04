@@ -33,14 +33,20 @@ RENDER = r"""
 import json, sys
 sys.path.insert(0, sys.argv[1])
 from labgate import __version__
-from labgate.config import parse_config
+from labgate.config import parse_config, Project
 from labgate.plan import build_plan
 cfg = json.loads(sys.argv[2])
 out = {"labgate_version": __version__, "variants": {}}
-for claude in (True, False):
-    cfg["agent_tools"] = {"claude_code": claude}
-    plan = build_plan(parse_config(cfg), "2026-01-01")
-    out["variants"]["claude_code" if claude else "no_claude_code"] = {str(f.path): f.content for f in plan}
+# 프로젝트 종류(§25)가 있는 버전이면 종류마다. 이름은 kinds.variant와 같다 (연구는 예전 이름 그대로)
+kinds = ("research", "proposal") if "kind" in Project.model_fields else ("research",)
+for kind in kinds:
+    for claude in (True, False):
+        cfg["agent_tools"] = {"claude_code": claude}
+        if kind != "research":
+            cfg["project"]["kind"] = kind
+        plan = build_plan(parse_config(cfg), "2026-01-01")
+        name = "claude_code" if claude else "no_claude_code"
+        out["variants"][name if kind == "research" else f"{kind}_{name}"] = {str(f.path): f.content for f in plan}
 print(json.dumps(out))
 """
 

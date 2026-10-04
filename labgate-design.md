@@ -1,6 +1,6 @@
-# `labgate` CLI 설계 문서 — v5 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, 프로젝트 도구)
+# `labgate` CLI 설계 문서 — v6 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, `lg spec`, 프로젝트 도구)
 
-> 문서 버전: 5.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 6.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`, `lg commit`, `lg draft`를 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B·C에 있다.
 
 변경 이력은 `git log -- labgate-design.md`로 본다.
@@ -12,7 +12,7 @@
 - §1–3: 무엇을 왜 만드는가 (범위, 확정된 결정, 용어)
 - §4–13: `lg init`을 어떻게 만드는가 (명령, 설정, 생성 결과, 모듈, Git, hook, 오류)
 - §14–15: 무엇으로 완성을 판단하는가 (테스트, 수용 기준), 이후 확장
-- §16–24: v2–v5 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`
+- §16–25: v2–v6 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`·`lg spec adopt`, 프로젝트 종류(`--kind`)와 자료 가져오기
 - 부록 A: 프로젝트 루트·계획·참고문헌 등 생성 문서 템플릿 원문
 - 부록 B: `specs/` 문서 원문 (완성 사양 5종, stub 생성 규칙, 양식, 절차 문서 8종)
 - 부록 C: commit-msg hook, agent-commit, session-check, apply-human-commits 스크립트 원문
@@ -218,7 +218,7 @@ milestones:
 - 생성되는 `.lg/project.yaml`에는 위 내용에 다음이 추가된다:
   ```yaml
   generated:
-    labgate_version: "0.5.0"
+    labgate_version: "0.6.0"
     spec_version: 4
     created: "2026-10-01"
   ```
@@ -453,7 +453,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "labgate"
-version = "0.5.0"
+version = "0.6.0"
 requires-python = ">=3.10"
 dependencies = [
   "typer>=0.15.4",
@@ -1702,6 +1702,76 @@ lg spec adopt DRAFT... [--name NAME]
   - 커밋 뒤 안내는 `spec` 커밋의 것(§18.2 9): 열린 에이전트 세션이 있으면 새로 시작한다.
 - **`lg upgrade`와의 관계:** 채운 stub은 "사람이 채운 것"으로 보고 내용을 유지한다(§22.5). 그래서 확정한 사양은 갱신 때 덮어써지지 않는다.
 
+## 25. 프로젝트 종류 (`--kind`)와 자료 가져오기
+
+v0.6.0, spec_version 6.
+
+### 25.1 목적
+
+labgate의 구조(사람이 게이트에서 판정하고 에이전트가 그 사이를 수행한다, 결정·참고자료·사람 커밋)는 연구가 아닌 일에도 맞는다. 첫 대상은 **사업 제안서**다. 예: 제조기업의 AI 에이전트 구축 제안. 연구용 템플릿에 설정만 바꿔 쓰면 다음 두 가지가 어색하다.
+
+- 용어가 맞지 않는다: 연구 질문, 가설, 실험, 문헌, 논문.
+- 원고 폴더가 `paper/`다.
+
+### 25.2 종류
+
+| | `research` (기본) | `proposal` |
+|---|---|---|
+| 핵심 질문 | 연구 질문 | 제안 핵심 질문 (설정 필드는 같은 `research_question`) |
+| 로드맵 절 | 가설, 공통 실험 원칙 | 제안 전략과 가정, 공통 작업 원칙 |
+| 마일스톤 판정 | Go / No-go | 같은 값(`go`·`nogo`·`conditional`)에 뜻을 적는다: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단 |
+| T0 카드 | 문헌 조사, 실험 코드 제외 | 자료 조사(고객 자료, 공개 자료, 사례), 제안서 본문·PoC 코드 제외 |
+| 원고 폴더 | `paper/` | `deliverables/` (제안서 원고, 그림, 제출본) |
+| `experiments/` | task별 실험 | task별 PoC·검증 |
+
+- **같은 것:** 규칙(`AGENTS.md`의 원칙과 일반 규칙), 절차, 사양, 커밋 규약, hook, 생성 스크립트, 모든 `lg` 명령. 그래서 종류마다 다른 것은 Jinja 템플릿 일곱 개의 문구와 `.gitkeep` 하나뿐이다.
+  - 문구가 바뀌는 템플릿: README, AGENTS의 프로젝트 줄, STATUS, FILEMAP, roadmap, milestone, T0 카드
+  - 정적 문서(conventions §4, workflow §8)는 두 원고 폴더를 함께 적는다.
+- **템플릿 분기:** 문자열이 아니라 불리언 `proposal`로 한다(§9의 잔여 문법 검사 규칙).
+- **기록:** 종류는 `.lg/project.yaml`의 `project.kind`에 남는다. 생략하면 `research`다(spec_version 5 이하 프로젝트).
+- **설정 필드 이름:** `research_question`을 그대로 쓴다. 바꾸면 설정 형식(`schema_version`)이 바뀌어야 하기 때문이다.
+
+### 25.3 입력
+
+- 설정 파일: `project.kind: research | proposal`.
+- 명령: `lg init --kind proposal`.
+  - 설정 파일에 `kind`가 없으면 명령의 값을 쓴다.
+  - 설정 파일이 `research`가 아닌 다른 값을 정했는데 명령이 다른 값이면 오류(코드 2)다.
+- 대화형: `--kind`가 없으면 처음에 묻는다("프로젝트 종류": 연구 / 제안서). 그다음 질문 문구가 종류를 따른다("핵심 연구 질문" / "제안 핵심 질문").
+- 초기 커밋 헤더: `init: initialize <kind> project`.
+
+### 25.4 원래 있던 파일은 init 커밋에 넣지 않는다
+
+실사용: 자료가 이미 있는 폴더에 `--force`로 만들면 자료가 루트에 남았고, `git add -A`라서 init 커밋에 함께 들어갔다. 큰 파일이나 기밀 자료가 의도치 않게 이력에 남는다.
+
+- init 커밋은 **생성한 파일만** stage한다(`git add -- <생성 경로…>`).
+- 원래 있던 파일·폴더는 커밋하지 않은 채 남기고, 안내에 목록(앞의 5개)을 보여 준다: 정한 자리로 옮겨 커밋하거나 `.gitignore`에 넣는다.
+
+### 25.5 `--import DIR`
+
+- **검사:** 자료 폴더는 있어야 하고, 비어 있지 않아야 하며, 프로젝트 폴더 밖이어야 한다. 쓰기 전에 검사한다(코드 2).
+- **복사:** init 커밋 뒤에 폴더 내용을 `notes/` 아래로 같은 구조로 복사한다. 같은 이름이 이미 있으면 건너뛰고 알린다. `.git`으로 시작하는 경로는 뺀다.
+- **stage:** Git을 쓰면 복사한 파일을 stage만 한다. 첫 task 승인 커밋(`plan`+`Approve`)에 함께 들어가고, 이는 §5.4의 안내와 같은 흐름이다. init 커밋은 생성 파일만으로 남는다.
+- **기밀:** 고객 자료처럼 다루는 정책이 있는 자료는 가져오기 전에 확인한다. 도구는 판단하지 않는다.
+
+### 25.6 `lg upgrade`와 해시표
+
+- 해시표의 변형 이름은 `kinds.variant(claude_code, kind)`다.
+  - 연구는 spec_version 2부터 쓰던 이름(`claude_code`, `no_claude_code`) 그대로다. 그래서 옛 해시표와 맞는다.
+  - 다른 종류는 앞에 종류를 붙인다(`proposal_claude_code`).
+- `scripts/hash-templates.py`는 그 버전의 labgate가 `kind`를 알면 종류마다 변형을 만든다. spec_version 6부터 해당한다.
+- `AGENTS.md` 정규화에 `- 제안 핵심 질문:` 줄을 더한다. 연구의 정규화는 바꾸지 않는다.
+- `MIGRATIONS[5] = ()`: 5 → 6은 기본 갱신이다. spec_version 5 이하 프로젝트는 모두 연구다.
+
+### 25.7 결정된 사항
+
+| 질문 | 결정 | 이유 |
+|---|---|---|
+| 옵션 이름 | `--kind` | 종류가 늘어도 같은 옵션. 설정 필드 `project.kind`와 같은 이름 |
+| 시기 | v0.6.0. ideation은 v0.7.0으로 | 사용자가 제안서 프로젝트를 바로 시작한다(2026-10-04) |
+| 정적 사양·절차 | 종류마다 나누지 않음 | 규칙은 같다. 연구 용어가 남는 곳(workflow의 실험 원칙 등)은 실제로 써 보고 v0.6.x에서 고친다 |
+| `Milestone-Verdict` 값 | 그대로 (`go`·`nogo`·`conditional`) | hook·반영 도구·tag를 바꾸지 않는다. 뜻만 마일스톤 문서에 적는다 |
+
 ---
 
 # 부록 A. 생성 문서 템플릿
@@ -1715,7 +1785,7 @@ lg spec adopt DRAFT... [--name NAME]
 
 {{ project.summary }}
 
-## 연구 질문
+## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
@@ -1784,13 +1854,17 @@ updated: {{ today }}
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
-| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 실험 | `<M>/<Task>_<slug>/` |
+| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 {% if proposal %}PoC·검증{% else %}실험{% endif %} | `<M>/<Task>_<slug>/` |
 | `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |
 | `results/` | task 결과, 마일스톤 보고, 그림, 표 | `<M>/<Task>_result.md`, `<M>/report.md` |
 | `reviews/` | 게이트 요청과 에스컬레이션 (`open/` → `closed/`) | `<Task>_gate-NN.md`, `<Task>_esc-NN.md` |
 | `logs/` | 에이전트 세션 작업 일지 | `YYYY-MM-DD_sNN.md` |
 | `data/` | 데이터 생성 설정, 데이터 설명서 | |
+{% if proposal %}
+| `deliverables/` | 제안서 원고, 그림, 제출본 | |
+{% else %}
 | `paper/` | 원고, 그림, 참고문헌 bib | |
+{% endif %}
 | `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |
 | `scripts/` | 프로젝트 도구 (`agent-commit`, `session-check`) | |
 | `env/` | 환경 설정 | |
@@ -1819,7 +1893,7 @@ updated: {{ today }}
 ## 프로젝트
 
 - 이름: {{ project.name }}
-- 연구 질문: {{ project.research_question }}
+- {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}: {{ project.research_question }}
 - 에이전트 신원: {{ agent.name }} <{{ agent.email }}>
 
 ## 역할
@@ -2029,7 +2103,7 @@ updated: {{ today }}
 
 ## 다음 예정
 
-- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 (문헌 정리, task 분해, 기존 계획 이관)
+- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 ({% if proposal %}자료 정리{% else %}문헌 정리{% endif %}, task 분해, 기존 계획 이관)
 ~~~~
 
 ## A.8 `.gitignore` (S)
@@ -2084,11 +2158,11 @@ updated: {{ today }}
 ---
 # 로드맵: {{ project.name }}
 
-## 연구 질문
+## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
-## 가설
+## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
 
@@ -2100,7 +2174,7 @@ updated: {{ today }}
 | `{{ m.id }}` | {{ m.title }} | planned | [milestone.md](milestones/{{ m.id }}/milestone.md) |
 {% endfor %}
 
-## 공통 실험 원칙
+## {% if proposal %}공통 작업 원칙{% else %}공통 실험 원칙{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
 
@@ -2142,6 +2216,10 @@ updated: {{ today }}
 
 ## Go / No-go 기준
 
+{% if proposal %}
+> 마일스톤 판정: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단.
+
+{% endif %}
 > TODO: {{ m.id }}-T0에서 작성
 
 ## 관련 결정
@@ -2176,13 +2254,17 @@ updated: {{ today }}
 
 ## 목표
 
+{% if proposal %}
+{{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 필요한 자료(고객 자료, 공개 자료, 사례)를 정리하고, 마일스톤을 task로 분해하고, task와 자료를 연결한다.
+{% else %}
 {{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 필요한 문헌을 정리하고, 마일스톤을 task로 분해하고, task와 문헌을 연결한다.
+{% endif %}
 
 ## 범위
 
 ### 포함
 
-- 문헌 조사, 원본을 `references/library/`에 저장, `references/catalog.md`에 등록
+- {% if proposal %}자료 조사{% else %}문헌 조사{% endif %}, 원본을 `references/library/`에 저장, `references/catalog.md`에 등록
 - task 분해: `{{ m.id }}-T1` 이후 task 카드를 `draft`로 작성
 - `references/{{ m.id }}/task-map.md` 작성
 - `plan/milestones/{{ m.id }}/milestone.md`의 목표, task 목록, Go/No-go 기준 초안 작성 (마일스톤이 `planned`인 동안 허용)
@@ -2193,7 +2275,11 @@ updated: {{ today }}
 
 ### 제외
 
+{% if proposal %}
+- 제안서 본문 작성, PoC 코드 작성과 실행
+{% else %}
 - 실험 코드 작성과 실행
+{% endif %}
 - 결정 확정
 
 ## 입력
@@ -2222,7 +2308,7 @@ updated: {{ today }}
 - [ ] 모든 새 task 카드가 `specs/doc-types/task-card.spec.md`를 만족한다
 - [ ] 모든 task가 검증 가능한 완료 기준을 하나 이상 갖는다
 - [ ] `task-map.md`에 각 task의 참고문헌, 또는 참고문헌이 없는 이유가 있다
-- [ ] 등록한 모든 문헌의 원본이 `references/library/`에 있고 `catalog.md`에 기재되어 있다
+- [ ] 등록한 모든 {% if proposal %}자료{% else %}문헌{% endif %}의 원본이 `references/library/`에 있고 `catalog.md`에 기재되어 있다
 - [ ] `milestone.md`에 Go/No-go 기준 초안이 있다
 {% if prev is none %}
 - [ ] 기존 계획의 결정 항목이 모두 `decisions/`에 `proposed`로 옮겨졌다
@@ -2370,7 +2456,7 @@ updated: {{ today }}
 ---
 id: conventions
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # 공통 규칙
@@ -2406,7 +2492,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 
 - 루트 `README.md`: 사람용 입구
 - `AGENTS.md`, 그리고 있다면 `CLAUDE.md`와 `.claude/` 아래 파일: 에이전트 도구가 그대로 읽는 지침
-- `notes/`, `paper/` 아래 파일: 형식 자유
+- `notes/`, `paper/`(제안서 프로젝트는 `deliverables/`) 아래 파일: 형식 자유
 
 `specs/templates/`의 양식은 frontmatter를 갖지만 값이 `<...>` 자리 표시이므로 검증 대상이 아니다.
 
@@ -2416,7 +2502,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 5). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 6). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -2472,7 +2558,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ---
 id: workflow
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # 워크플로우
@@ -2580,7 +2666,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 
 - **착수:** 모든 마일스톤은 T0(착수 계획)으로 시작한다. T0의 게이트에서 사람이 task 분해를 승인하면 `Next: <M>-T1`, 마일스톤은 `active`.
 - **종료:** 마지막 task의 게이트 요청에 마일스톤 보고(`results/<M>/report.md`)와 Go/No-go 근거를 포함한다. 사람의 `gate` 커밋에 `Milestone-Verdict:`를 넣고 tag `milestone/<M>-<go|nogo|conditional>`을 만든다(`lg commit`은 자동). 다음 마일스톤 T0의 승인도 같은 커밋 `Next:`로 한다.
-- 마일스톤 종료 게이트에서는 해당 결과를 `paper/` 초안에 반영하는 것을 마일스톤 보고의 일부로 한다.
+- 마일스톤 종료 게이트에서는 해당 결과를 `paper/`(제안서 프로젝트는 `deliverables/`) 초안에 반영하는 것을 마일스톤 보고의 일부로 한다.
 
 ## 9. 계획·사양 변경
 
@@ -2599,7 +2685,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ---
 id: git-commit
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # 커밋 규약
@@ -2769,7 +2855,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 ---
 id: task-card
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # Task 카드 사양
@@ -2788,7 +2874,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `5` |
+| `spec_version` | ✓ | `6` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |
@@ -2846,7 +2932,7 @@ status: complete
 ---
 id: review
 type: spec
-spec_version: 5
+spec_version: 6
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -2869,7 +2955,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `5` |
+| `spec_version` | ✓ | `6` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -3015,7 +3101,7 @@ status: stub
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 5
+spec_version: 6
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft
@@ -3076,7 +3162,7 @@ updated: <YYYY-MM-DD>
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 5
+spec_version: 6
 kind: <gate|escalation>
 task: <Task>
 status: open
@@ -3136,7 +3222,7 @@ updated: <YYYY-MM-DD>
 ---
 id: session-start
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 세션 시작
 
@@ -3168,7 +3254,7 @@ spec_version: 5
 ---
 id: session-close
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 세션 종료
 
@@ -3197,7 +3283,7 @@ spec_version: 5
 ---
 id: commit-prep
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 사람 커밋 준비
 
@@ -3238,7 +3324,7 @@ spec_version: 5
 ---
 id: task-start
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # Task 착수
 
@@ -3265,7 +3351,7 @@ spec_version: 5
 ---
 id: task-gate
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 게이트 요청
 
@@ -3293,7 +3379,7 @@ spec_version: 5
 ---
 id: escalate
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 에스컬레이션
 
@@ -3319,7 +3405,7 @@ spec_version: 5
 ---
 id: gate-conversation
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 대화 경로 판정
 
@@ -3357,7 +3443,7 @@ spec_version: 5
 ---
 id: gate-apply
 type: procedure
-spec_version: 5
+spec_version: 6
 ---
 # 사람 커밋의 반영
 
@@ -3401,7 +3487,7 @@ spec_version: 5
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 5).
+"""labgate commit-msg hook (spec_version 6).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -3677,7 +3763,7 @@ exec git commit "$@"
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 5).
+"""labgate 세션 시작 점검 (spec_version 6).
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
@@ -3838,7 +3924,7 @@ if __name__ == "__main__":
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 5).
+"""labgate 사람 커밋 반영 도구 (spec_version 6).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
