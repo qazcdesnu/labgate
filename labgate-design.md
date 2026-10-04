@@ -1785,7 +1785,7 @@ labgate의 구조(사람이 게이트에서 판정하고 에이전트가 그 사
 
 {{ project.summary }}
 
-## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}
+## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
@@ -2158,11 +2158,11 @@ updated: {{ today }}
 ---
 # 로드맵: {{ project.name }}
 
-## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}
+## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
-## {% if proposal %}제안 전략과 가정{% else %}가설{% endif %}
+## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
 
@@ -2174,7 +2174,7 @@ updated: {{ today }}
 | `{{ m.id }}` | {{ m.title }} | planned | [milestone.md](milestones/{{ m.id }}/milestone.md) |
 {% endfor %}
 
-## {% if proposal %}공통 작업 원칙{% else %}공통 실험 원칙{% endif %}
+## {% if proposal %}공통 작업 원칙{% else %}공통 실험 원칙{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
 

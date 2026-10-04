@@ -310,3 +310,15 @@ def test_kind_changes_only_wording_and_output_folder():
     assert "kind: proposal" in proposal[".lg/project.yaml"]
     same = [p for p in research if p.startswith(("specs/", "scripts/", ".lg/hooks/", ".claude/"))]
     assert same and all(research[p] == proposal[p] for p in same)
+
+
+def test_headings_are_followed_by_blank_line(rendered):
+    """줄 끝의 `{% endif %}`가 trim_blocks로 다음 줄바꿈을 먹으면 제목과 본문이 붙는다 (v0.6.0 개발 중 실제로 생김).
+    줄 끝에서 닫는 분기는 `{% endif +%}`로 쓴다."""
+    for key, text in rendered[0].items():
+        if not key[0].endswith(".md.j2"):
+            continue
+        lines = text.split("\n")
+        for i, line in enumerate(lines[:-1]):
+            if line.startswith("#") and lines[i + 1] != "" and not lines[i + 1].startswith("#"):
+                pytest.fail(f"{key}: {i + 1}행 제목 뒤에 빈 줄이 없습니다: {line!r} / {lines[i + 1]!r}")
