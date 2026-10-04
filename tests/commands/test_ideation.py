@@ -84,7 +84,9 @@ def test_evaluation_before_lock_is_flagged(idea_project):
 def test_lg_ideas_compares_ranks_and_flags(idea_project):
     p = idea_project
     gate(p, "M0-T0")
-    current = p.git("log", "-1", "--format=%h", "--", CRITERIA)
+    current = re.search(r"기준 버전 ([0-9a-f]+)", p.lg("ideas").output).group(1)
+    assert not p.git("log", "-1", "--format=%s", current).startswith("log(M0-T0): apply")
+    assert f"## 평가 (기준 {current})" in p.lg("ideas").output
     write_idea(p, 1, "cost", scores(2, rest=3), current)
     write_idea(p, 2, "expressivity", scores(5, rest=4), current)
     write_idea(p, 3, "scooped", scores(1, rest=5), current)            # C1 결격
@@ -132,7 +134,7 @@ def fill_brief(p, refs=("ref1",)):
 def test_last_gate_selects_drops_and_confirms_brief(idea_project, keys):
     p = idea_project
     gate(p, "M0-T0")
-    current = p.git("log", "-1", "--format=%h", "--", CRITERIA)
+    current = re.search(r"기준 버전 ([0-9a-f]+)", p.lg("ideas").output).group(1)
     write_idea(p, 1, "cost", scores(2), current)
     write_idea(p, 2, "expressivity", scores(5, rest=4), current)
     p.write("ideas/index.md", p.read("ideas/index.md") + "| `I1` | cost | candidate | agent | [I1](I1_cost.md) |\n"

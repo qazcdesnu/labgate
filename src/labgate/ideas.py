@@ -85,15 +85,30 @@ def parse_evaluation(text: str) -> tuple[bool, Optional[str], dict[str, Score]]:
     return True, m.group(1), scores
 
 
+LOCK_LINE = re.compile(r"^(status|locked_commit|updated):.*$", re.M)
+
+
+def criteria_version(project: Project) -> Optional[str]:
+    """기준 버전: 기준 **내용**을 마지막으로 바꾼 커밋. 잠금 반영처럼 `status`·`locked_commit`·`updated`만
+    바꾼 커밋은 건너뛴다 (그래야 잠가도 버전이 바뀌지 않는다)."""
+    log = gitops.run(["log", "--format=%h", "--", CRITERIA], cwd=project.root)
+    if log.returncode != 0:
+        return None
+    for sha in log.stdout.split():
+        after = gitops.run(["show", f"{sha}:{CRITERIA}"], cwd=project.root)
+        before = gitops.run(["show", f"{sha}^:{CRITERIA}"], cwd=project.root)
+        if before.returncode != 0 or LOCK_LINE.sub("", before.stdout) != LOCK_LINE.sub("", after.stdout):
+            return sha
+    return None
+
+
 def criteria_state(project: Project) -> tuple[Optional[str], list[Criterion], Optional[str]]:
-    """(status, 기준, 기준 문서를 마지막으로 바꾼 커밋의 짧은 해시)."""
+    """(status, 기준, 기준 버전)."""
     path = project.root / CRITERIA
     if not path.is_file():
         return None, [], None
     text = path.read_text(encoding="utf-8")
-    result = gitops.run(["log", "-1", "--format=%h", "--", CRITERIA], cwd=project.root)
-    commit = result.stdout.strip() or None if result.returncode == 0 else None
-    return frontmatter_fields(text).get("status"), parse_criteria(text), commit
+    return frontmatter_fields(text).get("status"), parse_criteria(text), criteria_version(project)
 
 
 def evaluation_issues(criteria: list[Criterion], locked: bool, current: Optional[str],
@@ -126,7 +141,7 @@ def evaluation_issues(criteria: list[Criterion], locked: bool, current: Optional
     return issues
 
 
-def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row]]:
+def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row], Optional[str]]:
     status, criteria, current = criteria_state(project)
     if status is None:
         raise Fail(EXIT_USAGE, "✗ plan/criteria.md 가 없습니다. ideation 프로젝트(lg init --kind ideation)에서 씁니다.")
@@ -148,11 +163,13 @@ def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row]
                 if weight:
                     row.total = round(sum(c.weight * agent_scores[c.id] for c in valid) / weight, 2)
         rows.append(row)
-    return status, criteria, rows
+    return status, criteria, rows, current
 
 
-def render(status: Optional[str], criteria: list[Criterion], rows: list[Row]) -> str:
-    lines = [f"평가 기준: plan/criteria.md ({status}) · 후보 {len(rows)}개"]
+def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], version: Optional[str] = None) -> str:
+    lines = [f"평가 기준: plan/criteria.md ({status}) · 기준 버전 {version or '없음'} · 후보 {len(rows)}개"]
+    if status == "locked" and version:
+        lines.append(f"  평가 표 머리: ## 평가 (기준 {version})")
     if status != "locked":
         lines.append("  ! 기준이 잠기기 전입니다. 첫 T0 게이트에서 사람이 확정하면 잠기고, 그 뒤에 평가합니다.")
     if not rows:
@@ -187,8 +204,8 @@ def render(status: Optional[str], criteria: list[Criterion], rows: list[Row]) ->
 
 def run_ideas(as_json: bool = False, cwd: Optional[Path] = None) -> str:
     project = find_project(cwd)
-    status, criteria, rows = compare(project)
+    status, criteria, rows, version = compare(project)
     if as_json:
-        return json.dumps({"criteria_status": status, "criteria": [asdict(c) for c in criteria],
+        return json.dumps({"criteria_status": status, "criteria_version": version, "criteria": [asdict(c) for c in criteria],
                            "ideas": [asdict(r) for r in rows]}, ensure_ascii=False, indent=2)
-    return render(status, criteria, rows)
+    return render(status, criteria, rows, version)
