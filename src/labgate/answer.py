@@ -247,14 +247,21 @@ def _plain(text: str) -> str:
 
 
 def _ask_decisions(project: Project, review: Doc) -> dict[str, str]:
+    """요청서가 확정을 요청한 결정(frontmatter `decisions`)만 묻는다. 요청이 없으면 묻지 않는다
+    (실사용: 제안된 결정 7개가 ID만으로 나와 무엇을 묻는지 알 수 없었다). 다른 결정은 `lg answer <D-ID>`."""
     asked = state.frontmatter_list(review.text, "decisions")
-    candidates = [d.id for d in state.decisions(project) if d.status in OPEN_DECISION]
-    ids = list(dict.fromkeys(asked + candidates))
-    if not ids:
+    docs = {d.id: d for d in state.decisions(project)}
+    open_ids = [d for d in asked if d in docs and docs[d].status in OPEN_DECISION]
+    if not open_ids:
+        if asked:
+            typer.echo(f"요청서가 확정을 요청한 결정({', '.join(asked)})은 이미 확정됐거나 문서가 없습니다.")
         return {}
-    chosen = prompts.checkbox("확정할 결정 (스페이스로 선택, 없으면 그냥 엔터)", ids, set(asked) & set(candidates))
-    return {d: prompts.text(f"{d} 확정 내용 (한 줄)", lambda v: "입력하세요" if not v.strip() else None)
-            for d in chosen}
+    typer.echo("\n요청서가 이 판정과 함께 확정하기를 요청한 결정입니다. 고른 결정은 proposed → confirmed가 되고,"
+               "\n고르지 않으면 지금 상태로 남습니다(나중에 lg answer <D-ID>로 확정할 수 있다).")
+    labels = {f"{d}  {docs[d].fields.get('title', '')} ({docs[d].status})".replace("  (", " ("): d for d in open_ids}
+    chosen = prompts.checkbox("확정할 결정 (스페이스로 선택, 없으면 그냥 엔터)", list(labels), set(labels))
+    return {labels[l]: prompts.text(f"{labels[l]} 확정 내용 (한 줄)", lambda v: "입력하세요" if not v.strip() else None)
+            for l in chosen}
 
 
 # ---------------------------------------------------------------- 응답과 메시지

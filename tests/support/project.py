@@ -130,7 +130,7 @@ class Project:
 
     def add_decision(self, decision_id, status="proposed", title="코어"):
         self.write(f"decisions/{decision_id}_core.md",
-                   f"---\nid: {decision_id}\ntype: decision\nstatus: {status}\nupdated: 2026-01-01\n---\n# {decision_id}\n")
+                   f"---\nid: {decision_id}\ntype: decision\ntitle: \"{title}\"\nstatus: {status}\nupdated: 2026-01-01\n---\n# {decision_id}\n")
         self.write("decisions/index.md", self.read("decisions/index.md")
                    + f"| {decision_id} | {title} | {status} | M0 | – | [문서]({decision_id}_core.md) |\n")
 

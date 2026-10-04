@@ -90,15 +90,31 @@ def test_last_task_asks_milestone_verdict(project, keys):
     assert "### 판정\napprove\n마일스톤 M0: go\n" in project.read(GATE)
 
 
-def test_decisions_are_confirmed_with_text(gate, keys):
+def test_decisions_requested_by_review_are_asked_with_titles(project, keys):
+    project.approve_and_start()
+    project.add_card("M0-T1")
+    project.add_decision("D0.1", title="연구 질문")
+    project.add_decision("D0.2", title="코어")
+    project.agent("propose(M0-T0): add card and decisions\n\nActor: agent", "plan", "decisions")
+    project.request_gate(proposed_next="M0-T1", decisions=("D0.1",))
+    # approve → 다음 task 그대로(M0-T1) → 결정: 요청한 D0.1만, 미리 골라져 있음 → 확정 내용 → 코멘트 → 커밋
+    keys(ENTER, ENTER, ENTER, "Mamba-2로\r", ENTER, ENTER)
+    result = project.lg("answer")
+    assert result.exit_code == 0, result.output
+    assert "요청서가 이 판정과 함께 확정하기를 요청한 결정입니다" in result.output
+    assert "Decisions: D0.1" in project.trailers()
+    assert "### 확정 결정\n- D0.1: Mamba-2로\n" in project.read(GATE)
+
+
+def test_decisions_not_requested_are_not_asked(gate, keys):
+    """실사용: 요청하지 않은 제안 결정 7개가 ID만으로 나와 무엇을 묻는지 알 수 없었다."""
     gate.add_decision("D0.1")
     gate.agent("propose(D0.1): core\n\nActor: agent", "decisions")
-    # approve → 다음 task 그대로(M0-T1) → 결정 D0.1 선택 → 확정 내용 → 코멘트 → 커밋
-    keys(ENTER, ENTER, SPACE, ENTER, "Mamba-2로\r", ENTER, ENTER)
+    keys(ENTER, ENTER, ENTER, ENTER)  # approve → M0-T1 → (결정 질문 없음) 코멘트 → 커밋
     result = gate.lg("answer")
     assert result.exit_code == 0, result.output
-    assert "Decisions: D0.1" in gate.trailers()
-    assert "### 확정 결정\n- D0.1: Mamba-2로\n" in gate.read(GATE)
+    assert "Decisions" not in gate.git("log", "-1", "--format=%(trailers:only,unfold)", "HEAD")
+    assert "### 확정 결정\n없음\n" in gate.read(GATE)
 
 
 def test_edited_response_is_rechecked(gate, keys, monkeypatch):
@@ -156,15 +172,17 @@ def test_escalation_choice_becomes_respond(esc, keys):
     assert "plan/milestones/M0/tasks/M0-T0.md: status blocked → in-progress" in result.output
 
 
-def test_escalation_decision_adds_decide_commit(esc, keys):
-    esc.add_decision("D0.1")
-    esc.agent("propose(D0.1): core\n\nActor: agent", "decisions")
-    # A안 → D0.1 선택 → 확정 내용 → 코멘트 → 요약 → 커밋 (2개)
-    keys(ENTER, SPACE, ENTER, "작게 간다\r", ENTER, ENTER, ENTER)
-    result = esc.lg("answer")
+def test_escalation_decision_adds_decide_commit(project, keys):
+    project.approve_and_start()
+    project.add_decision("D0.1")
+    project.agent("propose(D0.1): core\n\nActor: agent", "decisions")
+    project.escalate(options=("A안: 작게", "B안: 크게"), decisions=("D0.1",))
+    # A안 → D0.1(미리 골라짐) → 확정 내용 → 코멘트 → 요약 → 커밋 (2개)
+    keys(ENTER, ENTER, "작게 간다\r", ENTER, ENTER, ENTER)
+    result = project.lg("answer")
     assert result.exit_code == 0, result.output
-    assert commits_since(esc, 2) == [f"{HUMAN}|respond(M0-T0): A안: 작게", f"{HUMAN}|decide(D0.1): confirm"]
-    assert esc.trailers() == "Actor: human\nDecisions: D0.1\nSource: document"
+    assert commits_since(project, 2) == [f"{HUMAN}|respond(M0-T0): A안: 작게", f"{HUMAN}|decide(D0.1): confirm"]
+    assert project.trailers() == "Actor: human\nDecisions: D0.1\nSource: document"
 
 
 # ---------------------------------------------------------------- 전제 (§24.4.1)

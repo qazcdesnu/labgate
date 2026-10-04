@@ -34,7 +34,7 @@ lg answer <결정 ID>          # 예: lg answer D0.1 (게이트와 별개로 결
      1. 판정(approve / revise / redirect)
      2. approve면 다음 task: 같은 마일스톤의 draft 카드에서 여러 개 고를 수 있다. 요청서의 `proposed_next`를 미리 골라 둔다.
      3. 마일스톤 판정: 그 task가 마일스톤의 마지막일 때만 묻는다(다음 task를 고르지 않았고, 닫히지 않은 다른 task가 없을 때).
-     4. 확정할 결정과 결정마다 확정 내용 한 줄
+     4. 확정할 결정: 요청서가 확정을 요청한 결정(frontmatter `decisions`)만 제목과 함께 나오고 미리 골라져 있다. 요청이 없으면 묻지 않는다. 고른 결정마다 확정 내용 한 줄. 그 밖의 결정은 `lg answer <D-ID>`로 따로 확정한다
      5. 코멘트: revise·redirect면 필수다.
    - 에스컬레이션: 선택지(요청서 `## 선택지`의 항목, 또는 직접 입력), 확정할 결정, 코멘트, 커밋 요약.
 4. **미리보기.** 이 판정이 반영되면 생길 상태 변화를 보여 준다. 예: 카드 `in-review → closed`, 다음 카드 `draft → approved`, T0 승인이면 마일스톤 `planned → active`, review 이동, tag.

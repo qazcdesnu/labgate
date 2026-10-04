@@ -1558,7 +1558,7 @@ lg answer [REVIEW_ID] [--no-tag]
 | 1 | 판정 | approve / revise / redirect | `### 판정` | `Verdict` |
 | 2 | 다음 task (approve일 때) | 같은 마일스톤의 `draft` 카드 여러 개. 요청서의 `proposed_next`를 미리 골라 둔다 | `### 다음 task 승인` (없으면 "없음") | 첫째(`proposed_next`를 골랐으면 그것)는 `Next`, 없으면 `Next: none`. 나머지는 이어지는 `plan` 커밋의 `Approve` |
 | 3 | 마일스톤 판정 (approve이고, 다음 task를 고르지 않았고, 그 마일스톤에 닫히지(`closed`·`redirected`) 않은 다른 task가 없을 때만) | 하지 않음 / go / nogo / conditional | `### 판정`에 `마일스톤 <M>: <판정>` 한 줄 | `Milestone-Verdict` |
-| 4 | 확정할 결정 | 요청서 `decisions`의 ID(proposed·discussing인 것은 미리 골라 둠)와 그 밖의 proposed·discussing 결정. 고른 결정마다 확정 내용 한 줄 | `### 확정 결정` (`- D0.1: 내용`) | `Decisions` |
+| 4 | 확정할 결정 | **요청서 `decisions`에 있고 proposed·discussing인 결정만**, `ID 제목 (상태)`로 보여 주고 미리 골라 둔다. 요청이 없으면 묻지 않는다(실사용: 요청하지 않은 제안 결정 7개가 ID만으로 나와 무엇을 묻는지 알 수 없었다). 그 밖의 결정은 `lg answer <D-ID>`(§24.4.5). 고른 결정마다 확정 내용 한 줄 | `### 확정 결정` (`- D0.1: 내용`) | `Decisions` |
 | 5 | 코멘트 | 한 줄. revise·redirect면 필수 | `### 코멘트` (없으면 "없음") | — |
 
 - 헤더: `gate(<Task>): <verdict>` + (`, next <Next>`, 72자를 넘으면 뺀다).
