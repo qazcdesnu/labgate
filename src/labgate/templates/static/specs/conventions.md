@@ -1,7 +1,7 @@
 ---
 id: conventions
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # 공통 규칙
@@ -47,7 +47,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 4). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 5). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -93,3 +93,5 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ## 8. Stub 사양의 문서를 쓸 때
 
 해당 사양이 `stub`이면 이 문서의 규칙을 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 새로 구조를 정했다면 작업 일지에 적어 둔다(사양 보완 근거가 된다).
+
+사양 보완을 제안할 때는 `notes/`에 사양 하나당 파일 하나로 초안을 쓴다(예: `notes/spec-drafts/catalog.md`). 초안에는 그 사양의 번호 붙은 절(`## 3. Frontmatter` …)만 쓰고, 번호 없는 절은 쓰지 않는다. 사람이 `lg spec adopt <초안>`으로 stub에 합쳐 확정한다. 초안에 있는 절만 바뀌고, 비어 있는(TODO) 절이 남으면 확정할 수 없다.

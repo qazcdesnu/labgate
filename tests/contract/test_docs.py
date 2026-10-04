@@ -5,9 +5,11 @@ import runpy
 import pytest
 import typer.main
 
-from conftest import ROOT
 from labgate import errors
 from labgate.cli import app
+
+from support.env import ROOT
+from support.markdown import section, table_column
 
 DOCS = ROOT / "docs" / "cli"
 STATIC = ROOT / "src" / "labgate" / "templates" / "static"
@@ -15,19 +17,6 @@ EXIT_CODES = {errors.EXIT_OK, errors.EXIT_ERROR, errors.EXIT_USAGE, errors.EXIT_
               errors.EXIT_GIT, errors.EXIT_ABORT}
 
 COMMANDS = typer.main.get_command(app).commands
-
-
-def section(text, heading):
-    """`## heading` 아래부터 다음 `## ` 전까지."""
-    start = text.index(f"\n## {heading}\n")
-    end = text.find("\n## ", start + 1)
-    return text[start: end if end != -1 else len(text)]
-
-
-def table_column(block, column=0):
-    """Markdown 표의 본문 행에서 한 열의 값 (머리·구분선 제외)."""
-    rows = [l for l in block.splitlines() if l.startswith("|")]
-    return [[c.strip() for c in r.strip("|").split("|")][column] for r in rows[2:]]
 
 
 def test_every_command_has_a_page_and_overview_row():
@@ -44,7 +33,9 @@ def test_options_documented(name):
     names = table_column(section((DOCS / f"lg-{name}.md").read_text(encoding="utf-8"), "인자와 옵션"))
     documented = {tok for cell in names for tok in re.findall(r"`([^`]+)`", cell)}
     actual = set()
-    for param in COMMANDS[name].params:
+    command = COMMANDS[name]
+    params = [p for sub in getattr(command, "commands", {}).values() for p in sub.params] or command.params  # lg spec adopt
+    for param in params:
         if param.param_type_name == "argument":
             actual.add(param.name.upper().rstrip("S") if param.nargs == -1 else param.name.upper())
         else:
@@ -54,8 +45,9 @@ def test_options_documented(name):
 
 @pytest.mark.parametrize("name", sorted(COMMANDS))
 def test_exit_codes_documented(name):
-    codes = table_column(section((DOCS / f"lg-{name}.md").read_text(encoding="utf-8"), "종료 코드"))
-    assert {int(c) for c in codes} == EXIT_CODES
+    """명령이 쓰는 코드만 적는다. 공통 체계(README) 밖의 코드는 없고, 0·1·130은 모든 명령에 있다."""
+    codes = {int(c) for c in table_column(section((DOCS / f"lg-{name}.md").read_text(encoding="utf-8"), "종료 코드"))}
+    assert codes <= EXIT_CODES and {errors.EXIT_OK, errors.EXIT_ERROR, errors.EXIT_ABORT} <= codes
 
 
 def test_overview_exit_codes_match_errors_module():

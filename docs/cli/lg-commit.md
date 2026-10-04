@@ -28,7 +28,13 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 3. 메시지를 준비한다.
    - **초안 모드** (`.lg/pending/COMMIT_MSG`가 있을 때): 초안을 읽는다. stage된 변경이 있어야 하고(`--allow-empty` 제외), 초안이 `Actor: human`이어야 한다.
    - **작성 모드:** 아래 [작성 모드의 질문](#작성-모드의-질문).
-4. stage 요약(`git diff --cached --stat`)과 메시지를 보여 주고 **커밋 / 편집기로 수정 / 취소**를 고르게 한다. `gate` 커밋이면 그 Task로 [`lg verify`](lg-verify.md)를 돌려 결과 요약(위반 없음 한 줄, 또는 위반 건수와 커밋, 점검표)을 함께 보여 준다. **막지 않는다**: 위반이 있으면 선택지가 `커밋 (위반 N건 있음)`으로 보일 뿐이다. 검사 자체가 실패해도 커밋 흐름은 계속된다. 편집한 메시지는 커밋 규약을 다시 검사하고, 맞지 않으면 커밋을 고를 수 없다. 편집기는 Git과 같은 규칙으로 고른다(`core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순).
+4. 확인 화면을 보여 주고 **커밋 / 편집기로 수정 / 변경 내용 자세히 보기 (diff) / 취소**를 고르게 한다. `git diff --cached`를 따로 칠 필요가 없게, 다음을 모두 보여 준다.
+   - stage 요약(`git diff --cached --stat`)과 메시지
+   - stage된 review 문서의 `## 응답` 원문: 대화로 판정해 에이전트가 옮겨 적은 내용을 여기서 확인한다
+   - 반영 미리보기: `gate`, `respond`, `decide`, `plan`+`Approve` 커밋이면 다음 세션에 에이전트가 반영할 상태 변화와 tag(spec_version 5 이상, [lg answer](lg-answer.md)와 같다). 반영할 수 없는 커밋이면 이유를 보여 주고 선택지가 `커밋 (반영할 수 없음)`으로 보인다
+   - 자세히 보기: stage된 변경 전체(`git diff --cached`)를 pager로 보여 주고 확인 화면으로 돌아온다
+
+   `gate` 커밋이면 그 Task로 [`lg verify`](lg-verify.md)를 돌려 결과 요약(위반 없음 한 줄, 또는 위반 건수와 커밋, 점검표)을 함께 보여 준다. **막지 않는다**: 위반이 있으면 선택지가 `커밋 (위반 N건 있음)`으로 보일 뿐이다. 검사 자체가 실패해도 커밋 흐름은 계속된다. 편집한 메시지는 커밋 규약을 다시 검사하고, 맞지 않으면 커밋을 고를 수 없다. 편집기는 Git과 같은 규칙으로 고른다(`core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순).
 5. 커밋한다. 커밋할 때 hook이 작성자 신원까지 다시 검사한다.
 6. 정리한다: 초안 모드였으면 초안을 지우고, `.lg/pending/HUMAN_FILES`에서 이번에 커밋된 경로를 뺀다.
 7. tag를 만든다: `gate` + `Verdict: approve`면 `gate/<Task>`, `Milestone-Verdict`가 있으면 `milestone/<M>-<verdict>`. `--no-tag`면 만들지 않는다.
@@ -47,7 +53,8 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 | 3 | scope | 위에서 정해지지 않았을 때. 빈 입력이면 생략 |
 | 4 | Verdict | `gate` |
 | 4 | Source | `gate`, `decide`, `respond` |
-| 4 | Next, Milestone-Verdict | `gate` (둘 다 선택) |
+| 4 | Next | `gate` (선택) |
+| 4 | Milestone-Verdict | `gate`이고 그 마일스톤의 마지막 task일 때만 (Next가 같은 마일스톤이거나, 닫히지 않은 다른 task가 있으면 묻지 않는다) |
 | 4 | Decisions | `decide` |
 | 5 | 요약 한 줄 | 항상. 헤더가 72자를 넘으면 다시 묻는다 |
 

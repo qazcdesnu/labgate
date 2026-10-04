@@ -1,62 +1,42 @@
-import copy
+"""모든 계층이 쓰는 fixture와 계층 표시. 계층 설명은 tests/README.md."""
 import os
-import sys
-from pathlib import Path
+import shutil
 
 import pytest
+from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.output import DummyOutput
 
-from labgate.config import parse_config
+import labgate.cli as cli
+import labgate.commit as commit_module
+import labgate.prompts as prompts
 
-ROOT = Path(__file__).resolve().parent.parent
+from support.configs import make_config
+from support.env import isolated_git_env
+from support.project import init_project
+from support.releases import extract_sources
 
-BASE = {
-    "schema_version": 1,
-    "project": {
-        "name": "Capacity-Driven: \"Adaptive\" 분할",  # 따옴표·콜론·한글
-        "slug": "cap-partition",
-        "summary": "Fenwick 분할을 적응 분할로 대체하는 연구",
-        "research_question": "같은 state 예산에서 recall이 개선되는가?",
-    },
-    "people": {"humans": [{"name": "홍길동", "email": "gildong@example.com"}]},
-    "milestones": [
-        {"title": "기반 구축: 재현"},
-        {"title": "디텍터 신호 \"유효성\" 검증"},
-        {"title": "Split-only 적응 분할"},
-    ],
-}
+LAYERS = ("unit", "contract", "tools", "commands", "e2e")
+NEEDS_GIT = {"tools", "commands", "e2e"}
 
 
-def make_config(milestones=3, claude_code=True):
-    data = copy.deepcopy(BASE)
-    data["agent_tools"] = {"claude_code": claude_code}
-    data["milestones"] = [
-        BASE["milestones"][i] if i < 3 else {"title": f"마일스톤 {i}"} for i in range(milestones)
-    ]
-    return parse_config(data)
+def pytest_collection_modifyitems(config, items):
+    """폴더 이름을 계층 marker로 붙인다 (`pytest -m unit`). Git이 필요한 계층은 git이 없으면 건너뛴다."""
+    no_git = shutil.which("git") is None
+    for item in items:
+        layer = item.path.parent.name
+        if layer in LAYERS:
+            item.add_marker(getattr(pytest.mark, layer))
+            if no_git and layer in NEEDS_GIT:
+                item.add_marker(pytest.mark.skip(reason="git 없음"))
+
+
+# ---------------------------------------------------------------- 설정, 환경
 
 
 @pytest.fixture
 def config():
+    """렌더링이 까다로운 값을 담은 파싱된 설정 (support.configs.BASE)."""
     return make_config()
-
-
-def isolated_git_env(tmp_path):
-    """사용자 Git 설정과 GIT_* 변수를 차단한 환경. hook의 `python3`는 테스트 중인 Python
-    (환경 변수 HOOK_PYTHON이 있으면 그것)으로 실행되게 PATH 맨 앞에 둔다."""
-    bindir = tmp_path / "_bin"
-    bindir.mkdir(exist_ok=True)
-    link = bindir / "python3"
-    if not link.exists():
-        link.symlink_to(Path(os.environ.get("HOOK_PYTHON", sys.executable)))
-    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    env.update(
-        PATH=f"{bindir}{os.pathsep}{env.get('PATH', '')}",
-        HOME=str(tmp_path),  # 사용자 전역 설정(commit.gpgsign 등) 차단
-        GIT_CONFIG_GLOBAL=os.devnull,
-        GIT_CONFIG_NOSYSTEM="1",
-        LC_ALL="C.UTF-8",
-    )
-    return env
 
 
 @pytest.fixture
@@ -69,3 +49,39 @@ def git_sandbox(tmp_path, monkeypatch):
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     return env
+
+
+@pytest.fixture
+def project(tmp_path, git_sandbox):
+    """기본 설정(support.configs.project_config)으로 `lg init`한 프로젝트."""
+    return init_project(tmp_path, git_sandbox)
+
+
+@pytest.fixture(scope="session")
+def old_sources(tmp_path_factory):
+    """릴리즈 tag별 labgate 소스 (support.releases.make_old에 넘긴다)."""
+    return extract_sources(tmp_path_factory)
+
+
+# ---------------------------------------------------------------- 대화형
+
+
+@pytest.fixture
+def tty(monkeypatch):
+    """터미널에서 실행하는 것으로 둔다 (`lg init` 대화형, `lg commit`)."""
+    monkeypatch.setattr(cli, "_require_tty", lambda: None)
+    monkeypatch.setattr(commit_module, "is_tty", lambda: True)
+
+
+@pytest.fixture
+def keys(monkeypatch, tty):
+    """가짜 터미널 입력. keys("abc\\r", ...) 로 입력할 키를 모두 넣고 입력을 닫는다.
+    입력이 모자라면 기다리지 않고 EOF로 끝난다 (중단, 코드 130)."""
+    with create_pipe_input() as pipe:
+        monkeypatch.setattr(prompts, "IO", {"input": pipe, "output": DummyOutput()})
+
+        def send(*parts):
+            pipe.send_text("".join(parts))
+            pipe.pipe.close_write()
+
+        yield send

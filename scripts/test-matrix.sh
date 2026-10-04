@@ -29,11 +29,11 @@ for v in "${VERSIONS[@]}"; do
   done
 done
 
-# 생성되는 hook은 Python ≥ 3.9를 지원한다 (설계 문서 §4): hook·session-check·apply-human-commits 테스트만 3.9 인터프리터로 실행
+# 생성되는 hook과 scripts/는 Python ≥ 3.9를 지원한다 (설계 문서 §4): tools 계층(tests/tools)을 3.9 인터프리터로 실행
 if [[ "${VERSIONS[*]}" == "$DEFAULT" ]]; then
   py39="$(uv python find 3.9 2>/dev/null || { uv python install -q 3.9 && uv python find 3.9; })"
   env="$WORK/${VERSIONS[0]}-highest"
-  if out="$(cd "$ROOT" && HOOK_PYTHON="$py39" "$env/bin/python" -m pytest -q -p no:cacheprovider tests/test_hook.py tests/test_commit.py tests/test_apply.py 2>&1)"; then
+  if out="$(cd "$ROOT" && HOOK_PYTHON="$py39" "$env/bin/python" -m pytest -q -p no:cacheprovider tests/tools 2>&1)"; then
     echo "✓ hook/py3.9: $(tail -1 <<< "$out")"
   else
     echo "✗ hook/py3.9"; tail -20 <<< "$out"; failed+=("hook/py3.9")

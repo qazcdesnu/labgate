@@ -3,7 +3,7 @@
 - 언제: 프로젝트를 만든 직후 첫 task(M0-T0)를 시작하게 할 때. 그 밖에 게이트를 거치지 않고 task를 승인할 때
 - 결과: 사람 신원의 `plan` 커밋 + `Approve: <Task>`. 에이전트가 그 task를 착수할 수 있다
 
-다음 task는 보통 따로 승인하지 않는다. 앞 task의 게이트 판정에서 `Next: <Task>`로 함께 승인한다([judge-gate.md](judge-gate.md)).
+다음 task는 보통 따로 승인하지 않는다. 앞 task의 게이트 판정에서 함께 승인한다. `lg answer`에서 다음 task를 여러 개 고르면 첫째는 `Next`로, 나머지는 이어지는 `plan` 커밋으로 승인된다([judge-gate.md](judge-gate.md)).
 
 ## 순서
 

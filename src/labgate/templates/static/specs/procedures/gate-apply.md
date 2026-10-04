@@ -1,7 +1,7 @@
 ---
 id: gate-apply
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 사람 커밋의 반영
 
@@ -15,6 +15,7 @@ spec_version: 4
 | 대신하는 일반 규칙 | 이 절차에서는 |
 |---|---|
 | G4 (사람 몫의 상태 전이를 하지 않는다) | 사람 커밋이 정한 상태 전이를 커밋한다. 전이는 `scripts/apply-human-commits`가 만든 것만 쓰고, 상태 필드를 직접 편집하지 않는다 |
+| G6 (`plan/roadmap.md`를 바꾸지 않는다) | 로드맵 "마일스톤" 표의 상태 칸은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 로드맵의 다른 내용은 바꾸지 않는다 |
 
 ## 단계
 
@@ -33,4 +34,4 @@ spec_version: 4
 | `revise` | 같은 task 재개. review의 `## 응답`을 읽고 반영 계획을 세운다 |
 | `redirect` | 사람의 `plan` 커밋을 기다린다 |
 | `respond` | 막혔던 task로 돌아간다 |
-| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다 |
+| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다. 확정 내용은 `decide` 커밋 본문(`확정:` 줄)이나 review의 `## 응답`에 있다 |

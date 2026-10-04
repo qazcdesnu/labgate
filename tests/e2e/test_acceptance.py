@@ -1,6 +1,5 @@
 """수용 기준 (설계 문서 §14.3). 설치된 `lg` 실행 파일을 별도 프로세스로 실행해 사람이 쓰는 그대로 확인한다."""
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -8,9 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import isolated_git_env
-
-pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git 없음")
+from support.env import isolated_git_env
 
 LG = Path(sys.executable).with_name("lg")
 NO_FRONTMATTER = {"README.md", "AGENTS.md", "CLAUDE.md"}  # conventions §4 예외 (+ .claude/ 아래)
@@ -147,12 +144,3 @@ def test_worktree_for_experiment_isolation(tmp_path):
     merge = p.sh("GIT_AUTHOR_NAME=research-agent GIT_AUTHOR_EMAIL=agent@cap-partition.local "
                  "git merge --no-ff worktree-exp -m \"Merge branch 'worktree-exp'\"")
     assert merge.returncode != 0 and "에이전트는 병합 커밋을 만들 수 없습니다" in merge.stderr
-
-
-def test_claude_code_attribution_disabled(tmp_path):
-    """시나리오 §6.2: 생성된 Claude Code 설정이 공동 작성자 줄을 끈다."""
-    import json
-
-    p = Project(tmp_path, config_yaml(1, True))
-    settings = json.loads((p.root / ".claude/settings.json").read_text(encoding="utf-8"))
-    assert settings["attribution"]["commit"] == ""

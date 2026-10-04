@@ -1,3 +1,4 @@
+"""템플릿 렌더링과 잔여 문법 검사 (설계 문서 §8, §9, §14.1 `render`)."""
 import pytest
 import yaml
 

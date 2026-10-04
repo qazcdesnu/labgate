@@ -1,6 +1,6 @@
-# `labgate` CLI 설계 문서 — v4 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, 프로젝트 도구)
+# `labgate` CLI 설계 문서 — v5 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, 프로젝트 도구)
 
-> 문서 버전: 4.1 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 5.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`, `lg commit`, `lg draft`를 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B·C에 있다.
 
 변경 이력은 `git log -- labgate-design.md`로 본다.
@@ -12,7 +12,7 @@
 - §1–3: 무엇을 왜 만드는가 (범위, 확정된 결정, 용어)
 - §4–13: `lg init`을 어떻게 만드는가 (명령, 설정, 생성 결과, 모듈, Git, hook, 오류)
 - §14–15: 무엇으로 완성을 판단하는가 (테스트, 수용 기준), 이후 확장
-- §16–23: v2–v4 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`
+- §16–24: v2–v5 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`
 - 부록 A: 프로젝트 루트·계획·참고문헌 등 생성 문서 템플릿 원문
 - 부록 B: `specs/` 문서 원문 (완성 사양 5종, stub 생성 규칙, 양식, 절차 문서 8종)
 - 부록 C: commit-msg hook, agent-commit, session-check, apply-human-commits 스크립트 원문
@@ -218,7 +218,7 @@ milestones:
 - 생성되는 `.lg/project.yaml`에는 위 내용에 다음이 추가된다:
   ```yaml
   generated:
-    labgate_version: "0.4.1"
+    labgate_version: "0.5.0"
     spec_version: 4
     created: "2026-10-01"
   ```
@@ -453,7 +453,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "labgate"
-version = "0.4.1"
+version = "0.5.0"
 requires-python = ">=3.10"
 dependencies = [
   "typer>=0.15.4",
@@ -686,7 +686,7 @@ hook 테스트 사례 (사람 `h@x.com`, 에이전트 `a@x.local`):
 | a | 헤더 73자 이상 | 실패 |
 | h | 통과하는 `gate` 메시지 뒤에 가위 줄과 diff(`+foo: bar` 같은 줄 포함)가 붙음 | 통과 |
 
-v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝트에서):
+v2 (`tests/commands/`, `tests/tools/`, 사람 `h@x.com`, `lg init`으로 만든 프로젝트에서. 테스트 계층은 `tests/README.md`):
 
 | 대상 | 내용 |
 |---|---|
@@ -721,10 +721,10 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 
 ## 15. 향후 확장 (범위 밖, 설계 시 고려만)
 
+`lg gate`(응답 기록과 `gate` 커밋을 한 번에)와 `lg status`는 v0.5.0의 `lg answer`, `lg status`로 만들었다(§24). 상태 반영은 사람 커밋 뒤 에이전트가 `apply-human-commits`로 하고, `STATUS.md`는 에이전트의 서술로 남긴다.
+
 | 명령 | 역할 | 미리 지킬 것 |
 |---|---|---|
-| `lg gate <verdict> <Task>` | review 응답 기록, 카드 상태 변경, 사람 신원 `gate` 커밋, tag 생성을 한 번에. `lg commit`(§18) 위에 만들고, 생기면 `gate` 타입은 `lg gate`로만 받는다 | 상태값·trailer를 사양대로 고정 |
-| `lg status` | frontmatter와 커밋 이력으로 `STATUS.md` 재생성 | 모든 문서에 frontmatter |
 | `lg validate` | 문서를 사양의 검증 규칙으로 검사 | 사양마다 §7 검증 규칙 섹션 유지 |
 | `lg doctor` | hooksPath 등 로컬 설정 점검·복구 | `.lg/` 안에 필요한 정보 보관 |
 | 계획서 가져오기 | Markdown 계획서 → roadmap, milestone, decisions | — |
@@ -770,7 +770,7 @@ v2 (`tests/test_commit.py`, 사람 `h@x.com`, `lg init`으로 만든 프로젝�
 | `task-gate` | task 완료, 게이트 요청 | 없음 | | `/task-gate` |
 | `escalate` | 멈춤 조건 (workflow §7.1) | 없음 | | `/escalate` |
 | `gate-conversation` | 사람이 대화로 판정·결정·응답 | G5 | `lg draft` | — |
-| `gate-apply` | 반영되지 않은 사람 커밋이 있음 | G4 | `apply-human-commits` | — |
+| `gate-apply` | 반영되지 않은 사람 커밋이 있음 | G4, G6 (로드맵의 마일스톤 상태 칸, v0.5.0) | `apply-human-commits` | — |
 
 원문은 부록 B.10. 형식:
 
@@ -874,7 +874,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 2. **TTY 확인.** 표준 입력·출력이 모두 터미널이 아니면 코드 2: "lg commit은 사람이 터미널에서 직접 실행합니다. 에이전트는 lg draft로 초안만 준비합니다."
 3. **신원 확인.** `git config user.email`(소문자)이 `identities.json`의 humans에 없으면 코드 2.
 4. **메시지 준비.** 초안 모드(§18.5) 또는 작성 모드(§18.4).
-5. **확인.** `git diff --cached --stat`과 메시지를 보여 주고 "커밋 / 편집기로 수정 / 취소" 중 고르게 한다. 편집기는 Git과 같은 규칙으로 고른다(`git var GIT_EDITOR`: `core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순)하고 Git처럼 `sh -c '<편집기> "$@"'`로 실행한다. 편집 후에는 hook의 `check(text, check_author=False)`로 다시 검사하고, 오류가 있으면 보여 준 뒤 이 단계를 반복한다. 취소는 코드 130 (stage와 초안은 그대로).
+5. **확인.** 사람이 `git diff --cached`를 따로 치지 않아도 되게 다음을 모두 보여 준다: `git diff --cached --stat`, stage된 review 문서의 `## 응답` 원문(대화 경로에서 에이전트가 옮겨 적은 것), `gate`면 `lg verify` 요약(§23.6), 반영되는 커밋(`gate`, `respond`, `decide`, `plan`+`Approve`)이면 반영 미리보기(§24.5.4, spec_version 5 이상), 메시지. 반영할 수 없는 커밋이면 이유를 보여 주고 선택지를 `커밋 (반영할 수 없음)`으로 표시한다(막지는 않는다). "커밋 / 편집기로 수정 / 변경 내용 자세히 보기 (diff) / 취소" 중 고르게 한다. 자세히 보기는 `git diff --cached` 전체를 pager로 보여 주고 이 단계로 돌아온다. 편집기는 Git과 같은 규칙으로 고른다(`git var GIT_EDITOR`: `core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순)하고 Git처럼 `sh -c '<편집기> "$@"'`로 실행한다. 편집 후에는 hook의 `check(text, check_author=False)`로 다시 검사하고, 오류가 있으면 보여 준 뒤 이 단계를 반복한다. 취소는 코드 130 (stage와 초안은 그대로).
 6. **커밋.** 메시지를 임시 파일에 써서 `git commit -F <파일>`. hook이 거부하면 hook 출력을 그대로 보여 주고 코드 4 (초안은 남긴다).
 7. **정리.** 초안 모드면 `.lg/pending/COMMIT_MSG`를 지운다. `.lg/pending/HUMAN_FILES`가 있으면 아직 커밋되지 않은 경로만 남기고, 남는 것이 없으면 지운다.
 8. **tag.** `gate` + `Verdict: approve`이고 `--no-tag`가 아니면 `gate/<Task>`. `Milestone-Verdict`가 있으면 `milestone/<M>-<verdict>`도 (`<M>`은 Task ID의 마일스톤 부분). tag 실패는 코드 4 (커밋은 남는다).
@@ -902,7 +902,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 1. stage된 변경이 없으면 커밋되지 않은 파일 목록을 체크박스로 보여 주고, 고른 경로를 `git add -A -- <경로>`로 stage한다. 아무것도 고르지 않으면 코드 3. 커밋되지 않은 변경도 없으면 코드 3. `--allow-empty`면 이 단계를 건너뛰고 stage된 것만(없으면 빈 커밋) 커밋한다.
 2. 타입: 사람이 쓸 수 있는 타입 (사람 전용을 먼저).
 3. Task: 타입이 `TASK_REQUIRED`면 `plan/milestones/*/tasks/*.md`의 파일 이름 중 Task ID 형식인 것에서 고른다(없으면 입력). scope는 Task와 같게 정한다. `plan`이면 `Approve`(승인할 task)를 같은 목록에서 여러 개 고르게 하고(고르지 않으면 생략), 하나만 골랐으면 scope도 그 Task ID로 정한다. 그 밖의 경우 scope를 선택 입력으로 묻는다.
-4. 타입별 trailer: `SOURCE_REQUIRED`면 `Source`, `gate`면 `Verdict`, 선택 `Next`(Task ID 또는 `none`)와 `Milestone-Verdict`, `decide`면 `Decisions`.
+4. 타입별 trailer: `SOURCE_REQUIRED`면 `Source`, `gate`면 `Verdict`, 선택 `Next`(Task ID 또는 `none`), `decide`면 `Decisions`. `Milestone-Verdict`는 그 task가 마일스톤의 마지막일 때만 묻는다: `Next`가 같은 마일스톤이거나 닫히지(`closed`·`redirected`) 않은 다른 카드가 있으면 묻지 않는다(v0.5.0. 실사용에서 M0-T0 판정 중 `go`를 고를 뻔했다. 카드를 읽지 못하면 묻는다).
 5. 요약 한 줄. 헤더가 `MAX_HEADER`를 넘으면 다시 묻는다.
 6. `Actor: human`을 넣어 메시지를 만든다. 본문은 5단계(확인)의 편집기에서 쓴다.
 
@@ -1442,6 +1442,266 @@ lg verify: 마지막 게이트 이후 커밋 12개 (abc1234..HEAD)
 5. **반영 누락(P1)은 검사하지 않는다.** `session-check`가 세션마다 알린다.
 6. 다음 마이너 버전(spec_version 5)에서 할 일: hook에서 커밋 순간 막기(G3, G7, 가능하면 G4·G5), `task-gate` 절차에 "`lg verify --task` 통과" 넣기. 검사 로직은 그때 hook에서도 쓸 수 있게 짠다(표준 라이브러리만 쓰는 부분을 분리).
 
+## 24. `lg status`, `lg answer` (터미널에서 판단하기)
+
+v0.5.0, spec_version 5.
+
+### 24.1 목적
+
+`lg init` 이후에도 사람이 **터미널 두 개(`lg`와 에이전트)만으로** 연구를 진행할 수 있게 한다. 이를 위해 사람이 판단해야 할 일을 찾고, 읽고, 답하는 과정을 명령으로 만든다.
+
+v0.4.1까지 실사용(ssm-latent-reasoning M0-T0 게이트)에서 겪은 불편:
+
+| 불편 | 원인 |
+|---|---|
+| 무엇을 판단해야 하는지 알려면 `reviews/open/`, `STATUS.md`, 카드를 직접 열어야 한다 | 판단 대기 목록을 사실에서 모아 주는 도구가 없다. `STATUS.md`는 에이전트가 쓰는 문서다 |
+| 같은 판정을 두 번 쓴다: 요청서 `## 응답`에 글로, `lg commit`에서 trailer로 | 응답 문서와 커밋 trailer를 따로 만든다. 둘이 어긋나도 아무도 모른다 |
+| 다음 task 넷을 함께 승인하려면 따로 `plan`+`Approve` 커밋이 필요하다는 것을 사람이 알아야 한다 | `Next`에는 Task 하나만 쓴다 |
+| "M0 active 전환에 `plan` 커밋이 필요하다"는 에이전트의 틀린 안내를 걸러 낼 수 없었다 | 판정이 만들 상태 변화를 판정 전에 보여 주는 곳이 없다 |
+| 카드의 완료 기준이 0/7 체크인데 요청서 표에는 모두 ✓다 | 절차 task-gate에 카드 체크 단계가 없다 |
+
+| 명령 | 누가 | 하는 일 |
+|---|---|---|
+| `lg spec adopt` | 사람 (터미널에서만) | 에이전트가 쓴 사양 초안을 stub 사양에 합쳐 `spec` 커밋으로 확정한다 (§24.8) |
+| `lg status` | 사람, 에이전트 (읽기만) | 사람이 할 일, 에이전트 몫, 진행을 파일과 이력에서 모아 보여 준다 |
+| `lg answer [ID]` | 사람 (터미널에서만) | 열린 review를 보여 주고 판정을 한 번 묻는다(결정 ID면 그 결정을 확정한다, §24.4.5). 그 답으로 `## 응답`, frontmatter, 사람 커밋을 **한 번에** 만든다. 판정이 만들 상태 변화를 먼저 보여 준다 |
+
+요청서에 직접 쓰는 길(문서 경로)과 대화로 판정하는 길(절차 gate-conversation)은 그대로 둔다. `lg answer`는 세 번째 길이고, 안내는 이것을 기본으로 한다.
+
+### 24.2 원칙
+
+- **사실에서 모은다.** `lg status`는 `STATUS.md`를 읽지 않는다. frontmatter, `.lg/pending/`, 커밋 이력에서 계산한다.
+- **규칙의 원본은 프로젝트다 (§23.3).**
+  - 판정이 만들 상태 변화는 프로젝트의 `scripts/apply-human-commits --preview`가 계산한다(§24.5.4). 그래서 `lg`와 반영 규칙이 어긋나지 않는다.
+  - 커밋 규약은 프로젝트의 hook을 따른다.
+- **`## 응답`은 사람만 쓴다 (G5).** `lg answer`는 `lg commit`처럼 표준 입력·출력이 모두 터미널일 때만 쓴다. 그래서 에이전트는 실행할 수 없다(Claude Code deny도 있다). 응답은 사람이 썼다는 것을 도구가 보장한다.
+- **사람이 우선이다.** 사람이 이미 손댄 응답이나 stage는 덮어쓰지 않는다. 멈추고 알린다.
+- **확인 전에는 쓰지 않는다.** 취소하거나 반영할 수 없는 판정이면 아무것도 바뀌지 않는다.
+
+### 24.3 `lg status`
+
+```
+lg status [--json]
+```
+
+읽기만 한다. 사람과 에이전트 모두 실행할 수 있다. 종료 코드는 0이고, 프로젝트가 아니면 2.
+
+| 묶음 | 항목 | 출처 | 안내 |
+|---|---|---|---|
+| 사람이 할 일 | 열린 gate·escalation review (`status: open`) | `reviews/open/*.md` frontmatter | `lg answer <ID>` |
+| | 요청서에 응답을 쓰는 중 (커밋되지 않은 변경) | `git status` | `lg commit` |
+| | 닫힌 review의 사본 (`reviews/closed/`에 같은 ID가 있음) | 파일 이름 | 내용을 확인하고 지우기 (`rm`) |
+| | 사람 커밋 대기 (초안) | `.lg/pending/COMMIT_MSG` | `lg commit` |
+| | task 승인 대기: 현재 마일스톤에 진행 중인 task가 없고 draft 카드만 있음 (첫 task, 게이트에서 다음 task를 고르지 않았을 때). 사람의 다른 할 일이나 에이전트 몫이 있으면 보이지 않는다 | 카드 frontmatter | `lg commit --allow-empty` (타입 `plan`, Approve) |
+| | 커밋되지 않은 내 변경 | `.lg/pending/HUMAN_FILES` | `lg commit` |
+| 에이전트 몫 | 반영되지 않은 사람 커밋 | 프로젝트의 `scripts/apply-human-commits --check` | 다음 세션에서 자동 |
+| | 반영했지만 커밋 전 | `scripts/apply-human-commits --tidy` | 다음 세션에서 자동 |
+| 진행 | 현재 마일스톤(active인 첫 것, 없으면 planned인 첫 것), 그 task의 상태별 목록, proposed·discussing 결정 | frontmatter | — |
+
+- `HUMAN_FILES`가 없으면 커밋되지 않은 변경의 수만 "진행"에 적는다(요청서는 빼고). 누구의 것인지는 `session-check`가 기록한다.
+- 사람이 할 일이 없고 에이전트 몫만 있으면 "에이전트 세션을 시작하면 이어서 진행합니다"로 끝난다.
+- spec_version 2 프로젝트에는 반영 도구가 없으므로 에이전트 몫은 알 수 없다고 적는다.
+- 한글이 섞인 열은 터미널 칸 수(한글 두 칸)로 맞춘다.
+- `lg status`를 `session-check`에 연결하지 않는다. `session-check`는 `lg` 없이(표준 라이브러리, Python 3.9) 도는 것이 원칙이고, 겹치는 정보는 이미 있다.
+
+### 24.4 `lg answer`
+
+```
+lg answer [REVIEW_ID] [--no-tag]
+```
+
+#### 24.4.1 전제
+
+`REVIEW_ID`를 생략하면 다음과 같이 고른다.
+
+- 열린(`open`) review가 하나면 그것을 쓴다.
+- 여럿이면 목록에서 고른다.
+- 없으면 코드 3으로 끝난다.
+
+터미널과 사람 신원 검사는 `lg commit`과 같다(§18.2 2–3, `commit.require_human_terminal`). 추가로 다음을 확인한다.
+
+| 확인 | 실패 시 |
+|---|---|
+| `reviews/closed/`에 같은 ID가 없다 | 코드 3. 남은 사본이다(반영 도구가 옮긴 뒤 편집기가 다시 저장한 경우 등). 지우라고 안내. 고를 목록에서도 뺀다 |
+| 사람 커밋 대기 상태가 아니다 | 코드 3. 대화로 판정해 초안이 있으면 `lg commit`으로 확정하라고 안내 |
+| review가 `open`이다 | 코드 3. `answered`면 `lg commit` 안내 |
+| 그 review에 커밋되지 않은 변경이 없다 | 코드 3. 사람이 응답을 쓰는 중이다. 덮어쓰지 않고 `lg commit`을 안내 |
+| review 외의 stage된 변경이 없다 | 코드 2 (응답 커밋에 다른 변경이 섞이지 않게) |
+| `kind`가 gate·escalation이고 `task`가 Task ID 형식이다 | 코드 2 |
+
+#### 24.4.2 흐름
+
+1. **보여 주기.** review에서 `## 응답` 위의 에이전트 섹션을 rich Markdown(typer와 함께 설치됨)으로 렌더링한다.
+   - gate면 `lg verify --task <Task>`의 요약(§23.6의 `summary_for_commit`: 위반 수, 완료 기준 체크 수, 근거 경로)을 붙인다.
+   - 터미널보다 길면 pager(`pydoc.pager`: `MANPAGER`, `PAGER`, 없으면 `less`)로 연다.
+2. **묻기** (§24.4.3, §24.4.4).
+3. **메시지 만들기와 검사.** 만든 커밋 메시지를 프로젝트 hook으로 검사한다. 어긋나면 labgate 버그로 보고 코드 2.
+4. **미리보기** (§24.5.4). 메시지마다 `scripts/apply-human-commits --preview`를 돌려 반영될 변화를 보여 준다.
+   - 반영할 수 없는 판정이면 코드 3으로 멈춘다(아무것도 쓰지 않음).
+   - spec_version 4 이하이거나 스크립트가 없으면 미리보기 대신 커밋할 trailer를 보여 주고 `lg upgrade`를 권한다.
+   - gate 승인이면 만들 tag도 보여 준다.
+5. **확인.** 응답 원문과 커밋 메시지를 보여 주고 고른다: 커밋 / 편집기로 응답 수정 / 취소.
+   - 편집기는 `lg commit`과 같다(`git var GIT_EDITOR`).
+   - 고친 응답을 다시 검사한다: 첫 줄이 `## 응답`, 하위 섹션 넷이 모두 있음, 판정이 비어 있지 않음, gate 판정이 고른 것과 같음(판정을 바꾸려면 취소하고 다시 한다. trailer와 어긋나지 않게).
+6. **쓰기와 커밋.**
+   - review의 `## 응답` 절을 바꾼다.
+   - frontmatter에 사람 몫 필드를 채운다(review.spec §5): `status: answered`, `answered`, `verdict`(gate만), `source: document`, `updated`. 키가 없으면 더한다.
+   - review 하나만 stage하고 첫 커밋을 만든다.
+   - tag를 만든다(`--no-tag`면 생략). `lg commit`의 `_tag`를 쓴다.
+   - 이어지는 커밋(`plan`, `decide`)은 빈 커밋이다. 실패하면 첫 커밋은 그대로 두고 코드 4로 끝내며, 남은 메시지를 보여 준다.
+7. **안내.** `lg commit`의 커밋 뒤 안내(§18.2 9)와 같다.
+
+#### 24.4.3 gate 질문과 커밋
+
+| # | 질문 | 선택지·기본값 | 응답 | trailer |
+|---|---|---|---|---|
+| 1 | 판정 | approve / revise / redirect | `### 판정` | `Verdict` |
+| 2 | 다음 task (approve일 때) | 같은 마일스톤의 `draft` 카드 여러 개. 요청서의 `proposed_next`를 미리 골라 둔다 | `### 다음 task 승인` (없으면 "없음") | 첫째(`proposed_next`를 골랐으면 그것)는 `Next`, 없으면 `Next: none`. 나머지는 이어지는 `plan` 커밋의 `Approve` |
+| 3 | 마일스톤 판정 (approve이고, 다음 task를 고르지 않았고, 그 마일스톤에 닫히지(`closed`·`redirected`) 않은 다른 task가 없을 때만) | 하지 않음 / go / nogo / conditional | `### 판정`에 `마일스톤 <M>: <판정>` 한 줄 | `Milestone-Verdict` |
+| 4 | 확정할 결정 | **요청서 `decisions`에 있고 proposed·discussing인 결정만**, `ID 제목 (상태)`로 보여 주고 미리 골라 둔다. 요청이 없으면 묻지 않는다(실사용: 요청하지 않은 제안 결정 7개가 ID만으로 나와 무엇을 묻는지 알 수 없었다). 그 밖의 결정은 `lg answer <D-ID>`(§24.4.5). 고른 결정마다 확정 내용 한 줄 | `### 확정 결정` (`- D0.1: 내용`) | `Decisions` |
+| 5 | 코멘트 | 한 줄. revise·redirect면 필수 | `### 코멘트` (없으면 "없음") | — |
+
+- 헤더: `gate(<Task>): <verdict>` + (`, next <Next>`, 72자를 넘으면 뺀다).
+- trailer 순서: `Actor`, `Task`, `Verdict`, `Source: document`, `Next`, `Milestone-Verdict`, `Decisions`, `Review: <ID>`. `Review`는 hook이 허용하고, `apply-human-commits`가 이것으로 닫을 review를 찾는다.
+- 다음 task가 둘 이상이면 `plan: approve <나머지>` + `Approve`. 72자를 넘으면 `plan: approve <n> tasks after <Task> gate`.
+- 다음 task를 여럿 승인하려고 `Next`에 목록을 허용하지 않는다. 커밋 규약을 그대로 두고, 두 커밋은 도구가 만든다.
+
+#### 24.4.4 escalation 질문과 커밋
+
+| # | 질문 | 선택지 | 응답 |
+|---|---|---|---|
+| 1 | 선택 | 요청서 `## 선택지`의 항목 + "직접 입력". 항목은 `### 제목`들, 없으면 맨 바깥 목록 항목(`-`, `*`, `1.`)의 첫 줄(굵게 표시는 뗀다). 항목이 없으면 직접 입력만 | `### 판정` |
+| 2 | 확정할 결정 | gate의 4와 같음 | `### 확정 결정` |
+| 3 | 코멘트 | 한 줄 | `### 코멘트` |
+| 4 | 커밋 요약 | 기본값은 고른 선택지의 앞부분 (헤더 72자 안) | — |
+
+- 커밋: `respond(<Task>): <요약>` + `Task`, `Source: document`, `Review: <ID>`. `### 다음 task 승인`은 "없음", frontmatter `verdict`는 `null` 그대로.
+- 결정을 골랐으면 이어서 빈 `decide` 커밋을 만든다. 결정이 하나면 `decide(<D>): confirm`, 여럿이면 `decide: confirm <D, …>`. 본문은 `<review ID> 응답에서 확정.`, trailer는 `Decisions`, `Source: document`. `respond` 커밋에 `Decisions`를 허용하지 않는 지금 규약을 그대로 쓴다.
+
+#### 24.4.5 결정 확정 (`lg answer <D-ID>`)
+
+게이트와 별개로 결정 하나를 확정한다(결정 ID가 hook의 `DECISION_ID_RE`에 맞으면 이 모드).
+
+- 전제:
+  - 결정 문서가 `decisions/<ID>_*.md` 하나다.
+  - `status`가 `proposed`나 `discussing`이다.
+  - 사람 커밋 대기 상태가 아니다.
+  - 결정 문서에 커밋되지 않은 변경이 없다.
+  - stage된 변경이 없다.
+  - 어긋나면 코드 3(stage는 2).
+- 흐름: 결정 문서를 보여 준다 → 묻는다(확정 내용 한 줄(필수), 근거·코멘트(선택), 커밋 요약(기본값 `confirm <확정 내용>`)) → 미리보기 → 커밋 / 취소.
+- 커밋: 빈 커밋 `decide(<ID>): <요약>`. 본문은 `확정: <내용>`(+ 빈 줄과 코멘트), trailer는 `Decisions: <ID>`, `Source: document`.
+- 결정 문서는 고치지 않는다. 결정 문서의 양식은 프로젝트가 채우는 stub 사양(`decision`)이라 labgate가 구조를 모른다. 확정 내용은 커밋 본문에 남고, 상태(`confirmed`)와 결정 목록은 다음 세션에 반영 도구가 바꾼다. 절차 gate-apply의 "다음 할 일" 표가 확정 내용의 위치를 알려 준다.
+
+### 24.5 생성되는 프로젝트의 변경 (spec_version 5)
+
+`lg status`와 `lg answer`는 지금의 review 양식과 trailer만으로 동작한다(spec_version 2–4에서도 쓸 수 있다). 다만 아래는 생성되는 파일을 바꿔야 해결되므로 spec_version을 5로 올린다. 4 → 5는 기본 갱신만으로 된다(`MIGRATIONS[4] = ()`, §22.6).
+
+#### 24.5.1 절차 task-gate (부록 B)
+
+- 1단계: 충족한 완료 기준은 카드에서 `- [x]`로 바꾼다.
+- 3단계(새로): `lg`가 있으면 작업을 커밋한 뒤 `lg verify --task <Task>`를 실행한다. 고칠 수 있는 위반은 고치고, 이미 커밋되어 고칠 수 없는 것은 요청서 "예상과 달랐던 점"에 적는다.
+- 마지막 단계(보고): 판정하는 방법으로 `lg answer <review id>`를 쓴다(요청서에 직접 쓰거나 대화로 판정해도 된다).
+
+#### 24.5.2 절차 escalate (부록 B)
+
+- 보고 단계: 응답하는 방법으로 `lg answer <review id>`를 쓴다.
+
+#### 24.5.3 `.claude/settings.json`, `CLAUDE.md` (부록 A.4, A.5)
+
+- deny에 `Bash(lg answer *)`를 더한다. 터미널 검사로 이미 막히지만 `lg commit`과 같게 둔다.
+- `CLAUDE.md`의 차단 목록에 `lg answer`를 더한다.
+
+#### 24.5.4 `scripts/apply-human-commits --preview` (부록 C)
+
+- 표준 입력으로 아직 커밋하지 않은 사람 커밋 메시지 하나를 받는다. 반영 대상이면 `미리보기: <헤더>`와 반영 계획(`Plan.log`의 줄들)을 출력하고, 아무것도 쓰지 않는다. 반영 대상이 아니면 `반영할 것이 없습니다: <헤더>`.
+- 계획은 반영과 같은 `plan_for`로 만든다. 해시 자리에는 `(새 커밋)`을 쓴다.
+- 반영할 수 없으면 코드 1과 `✗ 이 커밋은 반영할 수 없습니다: <이유>`. 예: 카드가 `in-review`가 아님, 다음 카드가 `draft`가 아님.
+
+#### 24.5.5 로드맵 표의 마일스톤 상태 (부록 C, 절차 gate-apply)
+
+- 실사용: M0-T0 승인 뒤 마일스톤 문서는 `active`가 됐지만 `plan/roadmap.md`의 "마일스톤" 표는 `planned`로 남았다.
+- `apply-human-commits`가 마일스톤을 바꿀 때(`planned → active`, `active → closed`) 로드맵 표에서 그 행의 상태 칸도 바꾼다(`Plan.milestone`).
+- G6은 에이전트가 로드맵을 바꾸지 못하게 하므로, 절차 gate-apply의 특별 규칙에 G6을 더한다: 도구가 바꾼 상태 칸만 커밋하고 로드맵의 다른 내용은 바꾸지 않는다. `AGENTS.md`의 절차 표도 `G4, G6`.
+
+#### 24.5.6 사양 초안 (부록 B.2 conventions §8, stub 템플릿, A.4, A.5)
+
+- conventions §8: 사양 보완은 `notes/`에 사양 하나당 파일 하나로, 그 사양의 번호 붙은 절만 쓴다. 사람이 `lg spec adopt`로 확정한다(§24.8).
+- stub 안내 문단: "확정은 사람이 한다(`lg spec adopt`, `spec` 커밋)".
+- deny에 `Bash(lg spec *)`, `CLAUDE.md`의 차단 목록에 `lg spec`.
+
+#### 24.5.7 README 템플릿 (부록 A.1)
+
+- "사람이 하는 일"에 `lg status`, `lg answer`를 쓴다.
+- README는 연구 문서로 분류되므로(§22.3) 기존 프로젝트에서는 `lg upgrade`가 바꾸지 않는다. 새 프로젝트에만 들어간다.
+
+### 24.6 문서와 테스트
+
+- 명령 설명서: `docs/cli/lg-status.md`, `docs/cli/lg-answer.md`, `README.md` 표, `project-scripts.md`의 `--preview`. 명령 설명서의 종료 코드 표는 그 명령이 쓰는 코드만 적는다(0, 1, 130은 모두에 있다).
+- 작업 설명서:
+  - `judge-gate.md`, `respond-escalation.md`: `lg answer`가 방법 1이다. 요청서에 직접 쓰는 방법과 대화는 방법 2·3이다.
+  - `daily-loop.md`: `lg status`
+  - `approve-task.md`: 다음 task 여럿
+  - `upgrade.md`: spec_version 5
+- 루트 `README.md` "사용": 터미널 A의 명령, 한 task의 흐름, 사람이 쓰는 명령 표.
+- 테스트 (`tests/README.md`의 계층):
+
+| 계층 | 파일 | 내용 |
+|---|---|---|
+| unit | `test_answer_parts.py` | 응답 만들기(하위 섹션 순서, "없음"), 고친 응답 검사, 선택지 읽기, 커밋 메시지(헤더 줄이기, plan·decide 커밋) |
+| tools | `test_apply.py` | `--preview`: 변화 출력, 아무것도 쓰지 않음, 반영 불가 → 1, 반영 대상 아님 (Python 3.9 포함) |
+| commands | `test_status.py` | 새 프로젝트, 열린 gate, 응답 작성 중(두 번 세지 않음), 초안·내 변경, 반영 대기와 반영 후 커밋 전, 결정과 `--json`, spec_version 2 |
+| commands | `test_answer.py` | approve(다음 task 여럿 → plan 커밋, tag, 응답·frontmatter), 미리보기 = 실제 반영 결과, revise 코멘트 필수, 마지막 task의 마일스톤 판정, 결정 확정, 고친 응답 재검사, 취소, 반영할 수 없는 판정, escalation(respond, decide), 전제 실패, spec_version 4 프로젝트(v0.4.0 tag로 만듦, 미리보기 없음) |
+| unit | `test_spec_merge.py` | 사양 초안 합치기: 초안의 절만 바뀜, 초안 frontmatter 무시, 거부(TODO가 남음, 번호 없는 절, 없는 절, 절 없음) |
+| commands | `test_spec.py` | `lg spec adopt`: 합치기·색인·커밋, 여러 초안과 frontmatter의 이름, 거부, 취소, 덮어쓰지 않음, 터미널 |
+| commands | `test_answer.py` (결정) | `lg answer D0.1`: 확정 커밋과 본문, 미리보기, 반영 뒤 confirmed, 거부 |
+| contract | `test_templates.py` | 절차의 `- [x]`·`lg verify`·`lg answer` 안내, conventions §8의 `lg spec adopt`, deny |
+| contract | `test_releases.py` | spec_version 4 해시표 유지, 5는 릴리즈 뒤 동결 |
+
+### 24.7 결정된 사항
+
+| 질문 | 결정 | 이유 |
+|---|---|---|
+| 명령 이름 | `lg answer` | `review`는 에이전트 전용 커밋 타입 `review(...)`(게이트 요청)와 이름이 같다. `judge`는 에스컬레이션 응답에 맞지 않는다. `answer`는 문서의 `## 응답`과 같은 말이다 |
+| spec_version 5 범위 | §24.5 전부 | 미리보기가 실사용의 혼란을 직접 막고, 카드 체크는 실제로 겪은 문제다. 열린 세션 자동 감지 hook(UserPromptSubmit)과 커밋 순간 G3·G7 차단은 에이전트 쪽 강제라 성격이 다르고 근거가 적어 다음 마이너로 미룬다 |
+| 다음 task 여럿 | gate + `plan` 두 커밋 | 커밋 규약을 바꾸지 않는다 |
+| escalation에서 결정 확정 | 이어지는 `decide` 커밋 | `respond`에 `Decisions`를 허용하지 않는 지금 규약 그대로 |
+| `lg status`와 `session-check` | 연결하지 않음 | `session-check`는 `lg` 없이 돈다 |
+| 결정 따로 확정 | `lg answer <D-ID>`. 결정 문서는 고치지 않고 확정 내용은 커밋 본문에 | 결정 문서의 양식은 프로젝트가 채우는 stub 사양이다 |
+| 사양 초안 확정 | v0.5.0에 `lg spec adopt` (§24.8) | 연구 프로젝트에 확정을 기다리는 초안 9종이 있다. 미루지 않기로 했다 |
+
+### 24.8 `lg spec adopt` (사양 초안 확정)
+
+```
+lg spec adopt DRAFT... [--name NAME]
+```
+
+실사용: M0-T0에서 에이전트가 stub 사양 9종의 초안(§3–§7)을 `notes/spec-drafts/`에 썼다. 확정하려면 사람이 초안을 `specs/doc-types/`로 옮기며 stub의 frontmatter·§1–§2와 합치고, `status`를 바꾸고, `specs/README.md` 표를 고쳐야 했다.
+
+- **사람만, 터미널에서만.** 규칙 문서는 사람만 고친다(G7). `lg commit`과 같은 검사를 하고, Claude Code deny도 있다.
+- **이름:**
+  - 초안 frontmatter의 `id`, 없으면 파일 이름(`catalog.md`, `catalog.spec.md`), 또는 `--name`(초안 하나일 때).
+  - stub 사양 11종(`labgate.stubs.STUBS`) 중 하나여야 한다.
+  - 한 번에 같은 사양에 초안 둘을 줄 수 없다.
+- **합치기 (`spec.merge`):**
+  - 초안의 frontmatter와 첫 `## N.` 앞부분(초안 제목)은 버린다.
+  - 대상의 절 가운데 초안에 있는 번호의 절만 내용을 바꾼다. 절 제목은 대상의 것을 쓴다.
+  - 초안에 번호 없는 `## ` 절이 있거나, 대상에 없는 번호의 절이 있으면 오류다(내용을 소리 없이 버리지 않는다).
+  - 합친 뒤 비어 있는(`> TODO`) 절이 남으면 오류다. `complete`라고 표시된 불완전한 사양이 생기지 않게 하기 위해서다.
+  - 머리 부분: `status: stub` → `complete`, 제목의 ` (stub)`과 stub 안내 문단(`> 이 사양은 아직 공통 구조만 있다.`로 시작)을 지운다. `spec_version`은 그대로 둔다.
+  - 이미 `complete`인 사양에도 쓸 수 있다(개정).
+- **색인:** `specs/README.md`의 사양 표에서 그 행의 마지막 칸 `stub` → `complete`.
+- **전제:**
+  - 사람 커밋 대기 상태가 아니다(코드 3).
+  - 대상 사양·색인에 커밋되지 않은 변경이 없다(코드 3, 덮어쓰지 않음).
+  - stage된 변경이 없다(코드 2).
+- **확인과 커밋:**
+  - 파일마다 unified diff(지금 → 확정)와 메시지를 보여 주고 고른다: 커밋 / 취소. 확인 전에는 쓰지 않는다.
+  - 커밋: 대상들과 색인만 stage한 `spec: adopt <이름…> spec(s)`. 72자를 넘으면 `spec: adopt <n> doc-type specs`. 본문은 `초안: <경로…>`.
+  - 초안 파일은 지우지 않는다.
+  - 커밋 뒤 안내는 `spec` 커밋의 것(§18.2 9): 열린 에이전트 세션이 있으면 새로 시작한다.
+- **`lg upgrade`와의 관계:** 채운 stub은 "사람이 채운 것"으로 보고 내용을 유지한다(§22.5). 그래서 확정한 사양은 갱신 때 덮어써지지 않는다.
+
 ---
 
 # 부록 A. 생성 문서 템플릿
@@ -1469,7 +1729,7 @@ lg verify: 마지막 게이트 이후 커밋 12개 (abc1234..HEAD)
 
 ## 사람이 하는 일
 
-- `STATUS.md`의 "사람 판단 대기"를 확인하고 `reviews/open/`의 요청에 응답한다.
+- 터미널에서 `lg status`로 내가 할 일(열린 요청, 커밋 대기)을 보고, 요청에는 `lg answer <ID>`로 응답한다. 요청서를 터미널에 보여 주고, 판정을 물어 `## 응답`과 사람 커밋을 함께 만든다. 요청서(`reviews/open/`)에 직접 써도 된다.
 - 판정과 확정은 사람 신원의 커밋으로 남긴다. 사람 전용 커밋 타입: `gate`, `decide`, `plan`, `spec`, `respond` ([specs/git-commit.md](specs/git-commit.md)).
 - 커밋은 터미널에서 `lg commit`으로 한다. 타입과 필수 trailer를 물어 메시지를 만들고, 게이트 승인이면 tag `gate/<Task>`도 남긴다. `git commit`을 직접 써도 되며, 그때 tag는 `git tag gate/<Task>`로 남긴다.
 - 코드·문서를 직접 고쳤다면 에이전트가 작업하기 전에 커밋한다(`exp`, `result` 등 공통 타입 사용 가능). 에이전트에게 초안을 부탁하면 에이전트가 `lg draft`로 준비하고, `lg commit`으로 확인해 확정한다 ([specs/workflow.md](specs/workflow.md) §4).
@@ -1482,7 +1742,7 @@ git config user.name "<이름>"
 git config user.email "<.lg/identities.json에 등록된 이메일>"
 ```
 
-`lg commit`을 쓰려면 labgate(spec_version {{ spec_version }} 지원 버전)를 설치한다. 없어도 `git commit`으로 커밋할 수 있다.
+`lg`(`lg status`, `lg answer`, `lg commit`)를 쓰려면 labgate(spec_version {{ spec_version }} 지원 버전)를 설치한다. 없어도 `git commit`으로 커밋할 수 있다.
 
 <sub>labgate {{ labgate_version }}로 {{ today }}에 초기화됨 · spec_version {{ spec_version }}</sub>
 ~~~~
@@ -1613,7 +1873,7 @@ updated: {{ today }}
 | task 완료, 게이트 요청 | [task-gate](specs/procedures/task-gate.md) | 없음 |
 | G9의 멈춤 조건 | [escalate](specs/procedures/escalate.md) | 없음 |
 | 사람이 대화로 판정·결정·응답 | [gate-conversation](specs/procedures/gate-conversation.md) | G5 |
-| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4 |
+| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4, G6 |
 
 ## 참고
 
@@ -1633,7 +1893,7 @@ updated: {{ today }}
 
 ## Claude Code 고유 사항
 
-- 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit` 직접 실행은 `.claude/settings.json`에서 차단되어 있다.
+- 커밋은 `scripts/agent-commit`으로만 한다. `git commit`, `lg commit`, `lg answer`, `lg spec` 직접 실행은 `.claude/settings.json`에서 차단되어 있다.
 - 세션이 시작될 때(재개, `/clear`, compact 포함) hook이 `scripts/session-check`를 실행한다. 출력이 있으면 그 내용이 절차 `session-start`의 1단계 결과다.
 - 절차는 슬래시 커맨드로 시작할 수 있다:
   - `/session-start`: 세션 시작
@@ -1646,7 +1906,7 @@ updated: {{ today }}
 
 ## A.5 `.claude/settings.json` (S, claude_code)
 
-규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다. `Bash(lg commit *)`는 에이전트가 사람 신원으로 커밋하는 것을 막고, `Bash(lg upgrade *)`는 에이전트가 규칙 파일을 갱신하는 것을 막는다(G7). 준비 명령 `lg draft`는 이 규칙에 일치하지 않는다 (§17.3).
+규칙 문법은 Claude Code 문서(code.claude.com/docs/en/permissions)의 `Bash(<prefix> *)` 형식이다 (2026-10 확인. `:*` 형식도 같은 뜻이지만 공백 형식이 표준). 복합 명령(`cd x && git commit …`)은 하위 명령마다 검사되므로 막힌다. 그러나 `git -C . commit`처럼 프로그램과 하위 명령 사이에 옵션을 넣으면 일치하지 않는다. 즉 이 파일은 실수 방지 장치이고 보안 경계가 아니다. 실제 강제는 commit-msg hook(신원·타입 검사)이 한다. 끝의 ` *`는 옵션 없는 명령에도 일치한다(`Bash(git add -A *)`는 `git add -A`도 막는다). `git add` 일괄 stage와 `git stash`를 막는 것은 사람의 미커밋 변경이 에이전트 커밋에 섞이거나 치워지는 것을 막기 위해서다 (workflow.md §4.1). `Bash(git add . *)`는 `git add .`을 막고 `git add ./path`는 막지 않는다. `Bash(lg commit *)`, `Bash(lg answer *)`, `Bash(lg spec *)`는 에이전트가 사람 신원으로 커밋하는 것을 막고(`lg answer`는 사람의 응답을, `lg spec adopt`는 규칙 문서를 쓴다, §24), `Bash(lg upgrade *)`는 에이전트가 규칙 파일을 갱신하는 것을 막는다(G7). 준비 명령 `lg draft`는 이 규칙에 일치하지 않는다 (§17.3).
 
 `hooks.SessionStart`는 세션 시작·재개·`/clear`·compact 때 `scripts/session-check`를 실행해 그 출력을 에이전트 맥락에 넣는다 (§17.3). `args`가 없으므로 셸 형식으로 실행되어 `"$CLAUDE_PROJECT_DIR"`가 확장된다.
 
@@ -1671,6 +1931,8 @@ updated: {{ today }}
       "Bash(git add . *)",
       "Bash(git stash *)",
       "Bash(lg commit *)",
+      "Bash(lg answer *)",
+      "Bash(lg spec *)",
       "Bash(lg upgrade *)"
     ]
   },
@@ -2108,7 +2370,7 @@ updated: {{ today }}
 ---
 id: conventions
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # 공통 규칙
@@ -2154,7 +2416,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 4). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 5). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -2200,6 +2462,8 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ## 8. Stub 사양의 문서를 쓸 때
 
 해당 사양이 `stub`이면 이 문서의 규칙을 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 새로 구조를 정했다면 작업 일지에 적어 둔다(사양 보완 근거가 된다).
+
+사양 보완을 제안할 때는 `notes/`에 사양 하나당 파일 하나로 초안을 쓴다(예: `notes/spec-drafts/catalog.md`). 초안에는 그 사양의 번호 붙은 절(`## 3. Frontmatter` …)만 쓰고, 번호 없는 절은 쓰지 않는다. 사람이 `lg spec adopt <초안>`으로 stub에 합쳐 확정한다. 초안에 있는 절만 바뀌고, 비어 있는(TODO) 절이 남으면 확정할 수 없다.
 ~~~~
 
 ## B.3 `specs/workflow.md` (S)
@@ -2208,7 +2472,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ---
 id: workflow
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # 워크플로우
@@ -2335,7 +2599,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ---
 id: git-commit
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # 커밋 규약
@@ -2505,7 +2769,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 ---
 id: task-card
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # Task 카드 사양
@@ -2524,7 +2788,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `4` |
+| `spec_version` | ✓ | `5` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |
@@ -2582,7 +2846,7 @@ status: complete
 ---
 id: review
 type: spec
-spec_version: 4
+spec_version: 5
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -2605,7 +2869,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `4` |
+| `spec_version` | ✓ | `5` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -2714,7 +2978,7 @@ status: stub
 ---
 # {{ stub.title }} 사양 (stub)
 
-> 이 사양은 아직 공통 구조만 있다. 이 유형의 문서를 쓸 때는 [conventions.md](../conventions.md)를 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 보완은 M0 진행 중에 하고, 확정은 사람의 `spec` 커밋으로 한다.
+> 이 사양은 아직 공통 구조만 있다. 이 유형의 문서를 쓸 때는 [conventions.md](../conventions.md)를 지키고, 초기화 때 생성된 같은 유형의 문서가 있으면 그 구조를 따른다. 보완은 M0 진행 중에 하고, 확정은 사람이 한다(`lg spec adopt`, `spec` 커밋).
 
 ## 1. 목적
 
@@ -2751,7 +3015,7 @@ status: stub
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 4
+spec_version: 5
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft
@@ -2812,7 +3076,7 @@ updated: <YYYY-MM-DD>
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 4
+spec_version: 5
 kind: <gate|escalation>
 task: <Task>
 status: open
@@ -2872,7 +3136,7 @@ updated: <YYYY-MM-DD>
 ---
 id: session-start
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 세션 시작
 
@@ -2904,7 +3168,7 @@ spec_version: 4
 ---
 id: session-close
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 세션 종료
 
@@ -2933,7 +3197,7 @@ spec_version: 4
 ---
 id: commit-prep
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 사람 커밋 준비
 
@@ -2959,7 +3223,7 @@ spec_version: 4
    1. 이번 세션에 자기가 바꾼 파일이 있으면 먼저 `scripts/agent-commit`으로 커밋한다(경로 지정).
    2. 사람의 변경을 `git diff`로 읽고 타입과 요약을 정한다. 타입은 사람이 쓸 수 있는 것 중 내용에 맞는 것이다: 사양·규칙 문서는 `spec`, 로드맵·마일스톤은 `plan`, 실험 코드는 `exp`, 결과 문서는 `result`, 참고문헌은 `ref`, 그 밖은 `chore`.
    3. 초안을 만든다: `lg draft --type <타입> --summary "<요약>" [--body "<무엇을 왜>"] [--trailer Task=<Task>]`. 감지된 변경이면 경로를 생략한다(`HUMAN_FILES`의 경로만 stage된다). 사람이 알려 준 변경이면 그 경로를 붙인다.
-   4. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 이제 사람 커밋 대기 상태다.
+   4. 사람에게 터미널에서 `lg commit` 실행을 요청하고 멈춘다(확인 화면이 stage된 변경과 메시지를 보여 준다). 이제 사람 커밋 대기 상태다.
 4. 사람이 커밋했다고 알리면 `git log -1 --format='%an <%ae>%n%s'`로 사람 신원의 커밋인지 확인하고 원래 작업으로 돌아간다.
 
 ## 멈추는 경우
@@ -2974,7 +3238,7 @@ spec_version: 4
 ---
 id: task-start
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # Task 착수
 
@@ -3001,7 +3265,7 @@ spec_version: 4
 ---
 id: task-gate
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 게이트 요청
 
@@ -3014,12 +3278,13 @@ spec_version: 4
 
 ## 단계
 
-1. 완료 기준을 하나씩 점검한다. 충족하지 못한 기준이 있으면 게이트 대신 계속 작업할지 사람에게 묻는다.
+1. 완료 기준을 하나씩 점검한다. 충족한 기준은 카드의 `## 완료 기준`에서 `- [x]`로 바꾼다. 충족하지 못한 기준이 있으면 게이트 대신 계속 작업할지 사람에게 묻는다.
 2. task 결과 문서 `results/<M>/<Task>_result.md`를 쓴다. 마일스톤의 마지막 task면 마일스톤 보고 `results/<M>/report.md`와 Go/No-go 근거도 쓴다 ([workflow.md](../workflow.md) §8).
-3. `specs/templates/review.md`로 `reviews/open/<Task>_gate-NN.md`를 쓴다 (`kind: gate`, [review.spec.md](../doc-types/review.spec.md)).
-4. 카드를 `in-review`로 바꾸고, `STATUS.md`의 "사람 판단 대기"에 항목을 추가한다.
-5. `review(<Task>): request gate` 커밋 (`Actor: agent`, `Task: <Task>`, `Review: <review id>`).
-6. 사람에게 무엇을 판정해야 하는지 요약해 보고하고 멈춘다.
+3. `lg`가 설치되어 있으면 지금까지의 작업을 커밋한 뒤 `lg verify --task <Task>`를 실행한다(읽기만 한다). 위반이 있으면 고칠 수 있는 것은 고치고, 이미 커밋되어 고칠 수 없는 것은 요청서의 "예상과 달랐던 점"에 적는다.
+4. `specs/templates/review.md`로 `reviews/open/<Task>_gate-NN.md`를 쓴다 (`kind: gate`, [review.spec.md](../doc-types/review.spec.md)).
+5. 카드를 `in-review`로 바꾸고, `STATUS.md`의 "사람 판단 대기"에 항목을 추가한다.
+6. `review(<Task>): request gate` 커밋 (`Actor: agent`, `Task: <Task>`, `Review: <review id>`).
+7. 사람에게 무엇을 판정해야 하는지 요약해 보고하고 멈춘다. 판정하는 방법을 끝에 쓴다: 터미널에서 `lg answer <review id>` (요청서에 직접 쓰거나 대화로 판정해도 된다).
 ~~~~
 
 `escalate.md`
@@ -3028,7 +3293,7 @@ spec_version: 4
 ---
 id: escalate
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 에스컬레이션
 
@@ -3044,7 +3309,7 @@ spec_version: 4
 1. `specs/templates/review.md`로 `reviews/open/<Task>_esc-NN.md`를 쓴다 (`kind: escalation`): 무엇이 막혔는지, 선택지, 각 선택지의 영향, 추천안.
 2. 카드를 `blocked`로 바꾸고, `STATUS.md`의 "막힘"과 "사람 판단 대기"를 갱신한다.
 3. `review(<Task>): escalate <요약>` 커밋 (`Actor: agent`, `Task: <Task>`).
-4. 사람에게 질문을 요약해 보고하고 멈춘다.
+4. 사람에게 질문을 요약해 보고하고 멈춘다. 응답하는 방법을 끝에 쓴다: 터미널에서 `lg answer <review id>` (요청서에 직접 쓰거나 대화로 답해도 된다).
 5. 사람의 응답은 `respond` 커밋으로 온다. 대화로 답하면 절차 [gate-conversation](gate-conversation.md), 커밋 이후에는 절차 [gate-apply](gate-apply.md).
 ~~~~
 
@@ -3054,7 +3319,7 @@ spec_version: 4
 ---
 id: gate-conversation
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 대화 경로 판정
 
@@ -3077,7 +3342,7 @@ spec_version: 4
    - 게이트: `lg draft --type gate --summary "<verdict>, next <Next>" --trailer Task=<Task> --trailer Verdict=<verdict> --trailer Source=conversation [--trailer Next=<Task|none>] [--trailer Milestone-Verdict=<go|nogo|conditional>] [--trailer Decisions=<D-ID,…>] <review 경로>`
    - 결정 확정: `lg draft --type decide --summary "<요약>" --trailer Decisions=<D-ID,…> --trailer Source=conversation <review 경로 또는 결정 문서 경로>`
    - 에스컬레이션 응답: `lg draft --type respond --summary "<요약>" --trailer Task=<Task> --trailer Source=conversation <review 경로>`
-4. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 내용이 다르면 사람이 `lg commit`의 편집 단계에서 고친다. 게이트 승인이면 `lg commit`이 tag를 만든다.
+4. 사람에게 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 확인 화면이 옮겨 적은 응답, 반영 미리보기, 메시지를 보여 준다. 내용이 다르면 사람이 `lg commit`의 편집 단계에서 고친다. 게이트 승인이면 `lg commit`이 tag를 만든다.
 5. 사람이 커밋했다고 알리면 절차 [gate-apply](gate-apply.md).
 
 ## 멈추는 경우
@@ -3092,7 +3357,7 @@ spec_version: 4
 ---
 id: gate-apply
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 사람 커밋의 반영
 
@@ -3106,6 +3371,7 @@ spec_version: 4
 | 대신하는 일반 규칙 | 이 절차에서는 |
 |---|---|
 | G4 (사람 몫의 상태 전이를 하지 않는다) | 사람 커밋이 정한 상태 전이를 커밋한다. 전이는 `scripts/apply-human-commits`가 만든 것만 쓰고, 상태 필드를 직접 편집하지 않는다 |
+| G6 (`plan/roadmap.md`를 바꾸지 않는다) | 로드맵 "마일스톤" 표의 상태 칸은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 로드맵의 다른 내용은 바꾸지 않는다 |
 
 ## 단계
 
@@ -3124,7 +3390,7 @@ spec_version: 4
 | `revise` | 같은 task 재개. review의 `## 응답`을 읽고 반영 계획을 세운다 |
 | `redirect` | 사람의 `plan` 커밋을 기다린다 |
 | `respond` | 막혔던 task로 돌아간다 |
-| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다 |
+| 결정 확정 | 그 결정에 의존하던 작업을 이어 간다. 확정 내용은 `decide` 커밋 본문(`확정:` 줄)이나 review의 `## 응답`에 있다 |
 ~~~~
 
 ---
@@ -3135,7 +3401,7 @@ spec_version: 4
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 4).
+"""labgate commit-msg hook (spec_version 5).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -3411,7 +3677,7 @@ exec git commit "$@"
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 4).
+"""labgate 세션 시작 점검 (spec_version 5).
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
@@ -3572,7 +3838,7 @@ if __name__ == "__main__":
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 4).
+"""labgate 사람 커밋 반영 도구 (spec_version 5).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -3581,6 +3847,7 @@ if __name__ == "__main__":
   scripts/apply-human-commits            가장 오래된 반영되지 않은 사람 커밋 하나를 반영
   scripts/apply-human-commits --check    바꾸지 않고 반영되지 않은 사람 커밋을 나열
   scripts/apply-human-commits --tidy     지난 반영의 커밋 여부를 JSON 한 줄로 알린다 (session-check가 쓴다)
+  scripts/apply-human-commits --preview  표준 입력의 커밋 메시지가 반영되면 생길 변화를 출력한다. 쓰지 않는다 (lg answer가 쓴다)
 """
 import datetime
 import json
@@ -3741,6 +4008,12 @@ class Plan:
             self.table_row(f"plan/milestones/{milestone}/milestone.md", task_id, 2, target)
         return card
 
+    def milestone(self, milestone, label, sources, target, satisfied):
+        """마일스톤 문서의 상태와, 로드맵 "마일스톤" 표의 그 행을 함께 바꾼다."""
+        mfile = f"plan/milestones/{milestone}/milestone.md"
+        if self.transition(mfile, f"마일스톤 {milestone} {label}", sources, target, satisfied):
+            self.table_row("plan/roadmap.md", milestone, 2, target)
+
     def table_row(self, rel, row_id, column, value, column2=None, value2=None):
         """표에서 첫 칸이 row_id인 행의 칸을 바꾼다. 행이 없으면 그대로 둔다."""
         if not (ROOT / rel).is_file() and rel not in self.texts:
@@ -3856,11 +4129,10 @@ def plan_for(sha, ctype, scope, trailers, today):
         if nxt and nxt != "none":
             plan.task(nxt, f"다음 task {nxt}", {"draft"}, "approved", NOT_DRAFT)
         milestone = f"M{TASK_ID_RE.match(task).group(1)}"
-        mfile = f"plan/milestones/{milestone}/milestone.md"
         if verdict == "approve" and task.endswith("-T0"):
-            plan.transition(mfile, f"마일스톤 {milestone} 착수", {"planned"}, "active", {"active", "closed"})
+            plan.milestone(milestone, "착수", {"planned"}, "active", {"active", "closed"})
         if trailers.get("Milestone-Verdict"):
-            plan.transition(mfile, f"마일스톤 {milestone} 판정", {"active"}, "closed", {"closed"})
+            plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
         for d in split_list(trailers.get("Decisions")):
             plan.decision(d, short)
         plan.history(card, f"- {today} gate {verdict} `{short}`", short)
@@ -3909,6 +4181,22 @@ def commit_command(paths):
     return "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG"
 
 
+def preview(message):
+    """아직 커밋하지 않은 사람 커밋 메시지 하나의 반영 계획 (§24.5.4). 아무것도 쓰지 않는다."""
+    ctype, scope, header, trailers = parse(message)
+    if not is_target(ctype, trailers):
+        print(f"반영할 것이 없습니다: {header}")
+        return 0
+    try:
+        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat())
+    except CannotApply as e:
+        print(f"✗ 이 커밋은 반영할 수 없습니다: {e}", file=sys.stderr)
+        return 1
+    print(f"미리보기: {header}")
+    print("\n".join(plan.log) if plan.log else "  (바뀐 파일 없음)")
+    return 0
+
+
 def main(argv):
     try:
         if "--tidy" in argv:
@@ -3916,6 +4204,8 @@ def main(argv):
             if state:
                 print(json.dumps({"state": state[0], "applies": state[1], "paths": state[2]}, ensure_ascii=False))
             return 0
+        if "--preview" in argv:
+            return preview(sys.stdin.read())
         pending = unreflected()
         if "--check" in argv:
             for sha, _, _, header, _ in pending:

@@ -1,3 +1,4 @@
+"""설정 파일 검사와 기본값 (설계 문서 §6, §14.1 `config`)."""
 import copy
 
 import pytest

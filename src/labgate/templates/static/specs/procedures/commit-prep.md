@@ -1,7 +1,7 @@
 ---
 id: commit-prep
 type: procedure
-spec_version: 4
+spec_version: 5
 ---
 # 사람 커밋 준비
 
@@ -27,7 +27,7 @@ spec_version: 4
    1. 이번 세션에 자기가 바꾼 파일이 있으면 먼저 `scripts/agent-commit`으로 커밋한다(경로 지정).
    2. 사람의 변경을 `git diff`로 읽고 타입과 요약을 정한다. 타입은 사람이 쓸 수 있는 것 중 내용에 맞는 것이다: 사양·규칙 문서는 `spec`, 로드맵·마일스톤은 `plan`, 실험 코드는 `exp`, 결과 문서는 `result`, 참고문헌은 `ref`, 그 밖은 `chore`.
    3. 초안을 만든다: `lg draft --type <타입> --summary "<요약>" [--body "<무엇을 왜>"] [--trailer Task=<Task>]`. 감지된 변경이면 경로를 생략한다(`HUMAN_FILES`의 경로만 stage된다). 사람이 알려 준 변경이면 그 경로를 붙인다.
-   4. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 이제 사람 커밋 대기 상태다.
+   4. 사람에게 터미널에서 `lg commit` 실행을 요청하고 멈춘다(확인 화면이 stage된 변경과 메시지를 보여 준다). 이제 사람 커밋 대기 상태다.
 4. 사람이 커밋했다고 알리면 `git log -1 --format='%an <%ae>%n%s'`로 사람 신원의 커밋인지 확인하고 원래 작업으로 돌아간다.
 
 ## 멈추는 경우

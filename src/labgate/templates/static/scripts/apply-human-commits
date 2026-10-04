@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 4).
+"""labgate 사람 커밋 반영 도구 (spec_version 5).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -8,6 +8,7 @@
   scripts/apply-human-commits            가장 오래된 반영되지 않은 사람 커밋 하나를 반영
   scripts/apply-human-commits --check    바꾸지 않고 반영되지 않은 사람 커밋을 나열
   scripts/apply-human-commits --tidy     지난 반영의 커밋 여부를 JSON 한 줄로 알린다 (session-check가 쓴다)
+  scripts/apply-human-commits --preview  표준 입력의 커밋 메시지가 반영되면 생길 변화를 출력한다. 쓰지 않는다 (lg answer가 쓴다)
 """
 import datetime
 import json
@@ -168,6 +169,12 @@ class Plan:
             self.table_row(f"plan/milestones/{milestone}/milestone.md", task_id, 2, target)
         return card
 
+    def milestone(self, milestone, label, sources, target, satisfied):
+        """마일스톤 문서의 상태와, 로드맵 "마일스톤" 표의 그 행을 함께 바꾼다."""
+        mfile = f"plan/milestones/{milestone}/milestone.md"
+        if self.transition(mfile, f"마일스톤 {milestone} {label}", sources, target, satisfied):
+            self.table_row("plan/roadmap.md", milestone, 2, target)
+
     def table_row(self, rel, row_id, column, value, column2=None, value2=None):
         """표에서 첫 칸이 row_id인 행의 칸을 바꾼다. 행이 없으면 그대로 둔다."""
         if not (ROOT / rel).is_file() and rel not in self.texts:
@@ -283,11 +290,10 @@ def plan_for(sha, ctype, scope, trailers, today):
         if nxt and nxt != "none":
             plan.task(nxt, f"다음 task {nxt}", {"draft"}, "approved", NOT_DRAFT)
         milestone = f"M{TASK_ID_RE.match(task).group(1)}"
-        mfile = f"plan/milestones/{milestone}/milestone.md"
         if verdict == "approve" and task.endswith("-T0"):
-            plan.transition(mfile, f"마일스톤 {milestone} 착수", {"planned"}, "active", {"active", "closed"})
+            plan.milestone(milestone, "착수", {"planned"}, "active", {"active", "closed"})
         if trailers.get("Milestone-Verdict"):
-            plan.transition(mfile, f"마일스톤 {milestone} 판정", {"active"}, "closed", {"closed"})
+            plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
         for d in split_list(trailers.get("Decisions")):
             plan.decision(d, short)
         plan.history(card, f"- {today} gate {verdict} `{short}`", short)
@@ -336,6 +342,22 @@ def commit_command(paths):
     return "scripts/agent-commit --allow-empty -F .lg/pending/APPLY_MSG"
 
 
+def preview(message):
+    """아직 커밋하지 않은 사람 커밋 메시지 하나의 반영 계획 (§24.5.4). 아무것도 쓰지 않는다."""
+    ctype, scope, header, trailers = parse(message)
+    if not is_target(ctype, trailers):
+        print(f"반영할 것이 없습니다: {header}")
+        return 0
+    try:
+        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat())
+    except CannotApply as e:
+        print(f"✗ 이 커밋은 반영할 수 없습니다: {e}", file=sys.stderr)
+        return 1
+    print(f"미리보기: {header}")
+    print("\n".join(plan.log) if plan.log else "  (바뀐 파일 없음)")
+    return 0
+
+
 def main(argv):
     try:
         if "--tidy" in argv:
@@ -343,6 +365,8 @@ def main(argv):
             if state:
                 print(json.dumps({"state": state[0], "applies": state[1], "paths": state[2]}, ensure_ascii=False))
             return 0
+        if "--preview" in argv:
+            return preview(sys.stdin.read())
         pending = unreflected()
         if "--check" in argv:
             for sha, _, _, header, _ in pending:

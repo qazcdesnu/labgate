@@ -1,4 +1,5 @@
-"""Typer 앱: `lg init` (설계 문서 §5), `lg commit` (§18), `lg draft` (§19)."""
+"""Typer 앱: `lg init` (설계 문서 §5), `lg commit` (§18), `lg draft` (§19), `lg upgrade` (§22), `lg verify` (§23),
+`lg status`, `lg answer` (§24)."""
 from __future__ import annotations
 
 import os
@@ -12,7 +13,10 @@ import typer
 
 from . import __version__, gitops, prompts
 from . import commit as commit_module  # 명령 함수 commit, draft와 이름이 겹치지 않게
+from . import answer as answer_module
 from . import draft as draft_module
+from . import spec as spec_module
+from . import status as status_module
 from . import upgrade as upgrade_module
 from . import verify as verify_module
 from .config import Config, ConfigError, load_config
@@ -116,6 +120,38 @@ def verify(
         typer.echo(verify_module.render(report))
         return EXIT_TARGET if report.findings else EXIT_OK
     _guard(run, interrupted="\n중단했습니다.")
+
+
+@app.command()
+def status(
+    as_json: bool = typer.Option(False, "--json", help="같은 내용을 JSON으로 출력한다."),
+) -> None:
+    """사람이 할 일, 에이전트 몫, 진행 상황을 보여 준다. 읽기만 한다."""
+    _guard(lambda: _echo(status_module.run_status(as_json)), interrupted="\n중단했습니다.")
+
+
+@app.command()
+def answer(
+    review_id: Optional[str] = typer.Argument(
+        None, help="응답할 review ID, 또는 확정할 결정 ID(D0.1). 생략하면 열린 review에서 고른다.", show_default=False
+    ),
+    no_tag: bool = typer.Option(False, "--no-tag", help="gate 승인이어도 tag를 만들지 않는다."),
+) -> None:
+    """열린 review에 응답하거나 결정을 확정한다. 응답 문서와 사람 커밋을 함께 만든다. 사람이 터미널에서 직접 실행한다."""
+    _guard(lambda: _echo(answer_module.run_answer(review_id, no_tag)), interrupted="\n중단했습니다. 아무것도 바꾸지 않았습니다.")
+
+
+spec_app = typer.Typer(no_args_is_help=True, help="사양 문서를 다룬다. 사람이 터미널에서 직접 실행한다.")
+app.add_typer(spec_app, name="spec")
+
+
+@spec_app.command("adopt")
+def spec_adopt(
+    drafts: List[str] = typer.Argument(..., help="사양 초안 파일 (notes/ 의 번호 붙은 절). 여러 개 쓸 수 있다.", show_default=False),
+    name: Optional[str] = typer.Option(None, "--name", help="합칠 stub 사양 이름. 생략하면 초안의 id 또는 파일 이름.", show_default=False),
+) -> None:
+    """사양 초안을 stub 사양에 합쳐 spec 커밋으로 확정한다."""
+    _guard(lambda: _echo(spec_module.run_adopt(drafts, name)), interrupted="\n중단했습니다. 아무것도 바꾸지 않았습니다.")
 
 
 def _echo(message: str) -> int:

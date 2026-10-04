@@ -6,7 +6,6 @@ from pathlib import PurePosixPath
 import pytest
 import yaml
 
-from conftest import ROOT, make_config
 from labgate.config import parse_config
 from labgate.plan import (
     MILESTONE_TEMPLATES,
@@ -16,6 +15,9 @@ from labgate.plan import (
     build_plan,
     output_path,
 )
+
+from support.configs import make_config
+from support.env import ROOT
 
 TODAY = "2026-10-01"
 
@@ -109,19 +111,6 @@ def test_text_files_end_with_single_newline():
         else:
             assert f.content.endswith("\n") and not f.content.endswith("\n\n"), f.path
             assert "\r" not in f.content, f.path
-
-
-def test_markdown_frontmatter_parses():
-    """frontmatter가 있는 모든 .md는 YAML로 파싱되고 공통 필드를 갖는다 (§14.1)."""
-    no_frontmatter = {"README.md", "AGENTS.md", "CLAUDE.md"}
-    for f in plan_for():
-        if f.path.suffix != ".md":
-            continue
-        if f.content.startswith("---\n"):
-            fm = yaml.safe_load(f.content[4 : f.content.index("\n---\n", 4)])
-            assert isinstance(fm, dict) and {"id", "type", "spec_version"} <= fm.keys(), f.path
-        else:
-            assert str(f.path) in no_frontmatter or f.path.parts[0] == ".claude", f.path
 
 
 def test_task_card_ids_match_paths():
