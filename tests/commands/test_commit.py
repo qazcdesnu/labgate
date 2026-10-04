@@ -67,7 +67,7 @@ def test_commit_no_tag(proj, keys):
 def test_commit_cancel_keeps_draft(proj, keys):
     proj.write("a.py")
     lg("draft", "--type", "exp", "--summary", "x", "a.py")
-    keys(DOWN, DOWN, ENTER)  # 취소
+    keys(DOWN, DOWN, DOWN, ENTER)  # 취소 (커밋, 편집, 자세히 보기, 취소)
     result = lg("commit")
     assert result.exit_code == 130 and "그대로 두었습니다" in result.output
     assert (proj / ".lg/pending/COMMIT_MSG").exists()
@@ -236,3 +236,37 @@ def test_compose_gate_asks_milestone_verdict_for_last_task(proj, keys):
     result = lg("commit")
     assert result.exit_code == 0, result.output
     assert "Milestone-Verdict: go" in proj.trailers()
+
+
+# ---------------------------------------------------------------- 확인 화면: git diff --cached 없이 (§18.2 5, §24)
+
+
+def test_confirm_shows_staged_response_and_preview(proj, keys):
+    """대화 경로: 에이전트가 옮겨 적은 응답과 반영 미리보기를 lg commit 화면에서 바로 본다."""
+    proj.approve_and_start()
+    proj.add_card("M0-T1")
+    proj.agent("propose(M0-T0): add card\n\nActor: agent", "plan")
+    review = proj.request_gate(proposed_next="M0-T1")
+    path = f"reviews/open/{review}.md"
+    proj.write(path, proj.read(path).replace("### 판정\n", "### 판정\napprove\n"))
+    proj.git("add", path)
+    proj.write(".lg/pending/COMMIT_MSG", "gate(M0-T0): approve, next M0-T1\n\nActor: human\nTask: M0-T0\n"
+               "Verdict: approve\nSource: conversation\nNext: M0-T1\n")
+    keys(DOWN, DOWN, ENTER, ENTER)  # 자세히 보기 → 커밋
+    result = lg("commit")
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert f"{path} 의 응답:\n  │ ### 판정\n  │ approve" in out
+    assert "이 커밋이 반영되면" in out and "M0-T1.md: status draft → approved" in out
+    assert "tag: gate/M0-T0" in out
+    assert "+approve" in out  # 자세히 보기: stage된 diff
+
+
+def test_confirm_warns_when_it_cannot_be_applied(proj, keys):
+    proj.write("r.md")
+    proj.git("add", "r.md")
+    proj.write(".lg/pending/COMMIT_MSG", "plan(M9-T9): approve\n\nActor: human\nApprove: M9-T9\n")
+    keys(DOWN, DOWN, DOWN, ENTER)  # 취소
+    result = lg("commit")
+    assert result.exit_code == 130
+    assert "파일이 없습니다" in result.output and "에이전트가 반영하지 못하고 멈춥니다" in result.output

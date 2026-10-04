@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import pydoc
 import subprocess
 import sys
 import tempfile
@@ -11,11 +12,13 @@ from typing import Optional
 import typer
 
 from . import gitops, prompts, state
+from . import preview as preview_module
 from .errors import EXIT_ABORT, EXIT_GIT, EXIT_TARGET, EXIT_USAGE, Fail
 from . import verify as verify_module
 from .project import Project, build_message, find_project
 
 COMMIT, EDIT, CANCEL = "커밋", "편집기로 수정", "취소"
+SHOW_DIFF = "변경 내용 자세히 보기 (diff)"
 NONE = "(없음)"
 
 
@@ -203,28 +206,62 @@ def _gate_check(project: Project, message: str) -> tuple[list[str], int]:
 
 
 def _confirm(project: Project, message: str) -> str:
-    """§18.2 5: stage 요약과 메시지를 보여 주고 커밋 / 편집 / 취소. gate면 lg verify 요약도 (§23.6)."""
-    checked_for, check, violations = None, [], 0
+    """§18.2 5: 커밋하기 전에 확인할 것을 모두 보여 주고 커밋 / 편집 / 자세히 보기 / 취소.
+    stage 요약, stage된 review의 `## 응답` 원문, gate면 lg verify 요약(§23.6), 반영되는 커밋이면
+    반영 미리보기(§24.5.4), 메시지. `git diff --cached`를 따로 칠 필요가 없게 한다."""
+    responses = _staged_responses(project)
+    checked_for, check, violations, effects, unappliable = None, [], 0, [], None
     while True:
         if checked_for != message:
             check, violations = _gate_check(project, message)
+            effects, unappliable = preview_module.preview(project, [message])
             checked_for = message
         typer.echo("\n" + project.git("diff", "--cached", "--stat").rstrip())
+        for path, response in responses:
+            typer.echo(f"\n{path} 의 응답:\n" + "\n".join(f"  │ {l}" for l in response.split("\n")))
         if check:
             typer.echo("\n" + "\n".join(check))
-        typer.echo("\n" + "\n".join(f"  │ {l}" for l in message.rstrip("\n").split("\n")) + "\n")
+        if effects:
+            typer.echo("\n" + "\n".join(effects))
+        if unappliable:
+            typer.echo(f"✗ {unappliable}\n  이대로 커밋하면 에이전트가 반영하지 못하고 멈춥니다.", err=True)
+        typer.echo("\n" + "\n".join(f"  ┊ {l}" for l in message.rstrip("\n").split("\n")) + "\n")
         errors = project.check_message(message)
         if errors:
             typer.echo("✗ 커밋 규약에 맞지 않습니다:\n" + "\n".join(f"  - {e}" for e in errors), err=True)
-        commit_label = f"{COMMIT} (위반 {violations}건 있음)" if violations else COMMIT
-        choice = prompts.select("어떻게 할까요?", ([] if errors else [commit_label]) + [EDIT, CANCEL])
+        notes = [f"위반 {violations}건 있음"] * bool(violations) + ["반영할 수 없음"] * bool(unappliable)
+        commit_label = f"{COMMIT} ({', '.join(notes)})" if notes else COMMIT
+        choice = prompts.select("어떻게 할까요?", ([] if errors else [commit_label]) + [EDIT, SHOW_DIFF, CANCEL])
         if choice == commit_label:
             return message
         if choice == CANCEL:
             raise Fail(EXIT_ABORT, "취소했습니다. stage된 변경과 초안은 그대로 두었습니다.")
+        if choice == SHOW_DIFF:
+            _page(project.git("diff", "--cached") or "(stage된 변경 없음)\n")
+            continue
         edited = _edit(project, message)
         if edited is not None:
             message = edited.rstrip("\n") + "\n"
+
+
+def _staged_responses(project: Project) -> list[tuple[str, str]]:
+    """stage된 review 문서의 `## 응답` 원문 (stage된 내용 기준). 대화 경로에서 에이전트가 옮겨 적은 것을 확인한다."""
+    out = []
+    for path in project.staged_paths():
+        if path.startswith("reviews/") and path.endswith(".md"):
+            result = gitops.run(["show", f":{path}"], cwd=project.root)
+            response = verify_module.section(result.stdout, "응답") if result.returncode == 0 else ""
+            if response:
+                out.append((path, response))
+    return out
+
+
+def _page(text: str) -> None:
+    """터미널이면 pager(MANPAGER, PAGER, 없으면 less)로, 아니면 그대로."""
+    if sys.stdout.isatty():
+        pydoc.pager(text)
+    else:
+        typer.echo(text)
 
 
 def _edit(project: Project, message: str) -> Optional[str]:

@@ -874,7 +874,7 @@ lg commit [--pending | --no-pending] [--no-tag] [--allow-empty]
 2. **TTY 확인.** 표준 입력·출력이 모두 터미널이 아니면 코드 2: "lg commit은 사람이 터미널에서 직접 실행합니다. 에이전트는 lg draft로 초안만 준비합니다."
 3. **신원 확인.** `git config user.email`(소문자)이 `identities.json`의 humans에 없으면 코드 2.
 4. **메시지 준비.** 초안 모드(§18.5) 또는 작성 모드(§18.4).
-5. **확인.** `git diff --cached --stat`과 메시지를 보여 주고 "커밋 / 편집기로 수정 / 취소" 중 고르게 한다. 편집기는 Git과 같은 규칙으로 고른다(`git var GIT_EDITOR`: `core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순)하고 Git처럼 `sh -c '<편집기> "$@"'`로 실행한다. 편집 후에는 hook의 `check(text, check_author=False)`로 다시 검사하고, 오류가 있으면 보여 준 뒤 이 단계를 반복한다. 취소는 코드 130 (stage와 초안은 그대로).
+5. **확인.** 사람이 `git diff --cached`를 따로 치지 않아도 되게 다음을 모두 보여 준다: `git diff --cached --stat`, stage된 review 문서의 `## 응답` 원문(대화 경로에서 에이전트가 옮겨 적은 것), `gate`면 `lg verify` 요약(§23.6), 반영되는 커밋(`gate`, `respond`, `decide`, `plan`+`Approve`)이면 반영 미리보기(§24.5.4, spec_version 5 이상), 메시지. 반영할 수 없는 커밋이면 이유를 보여 주고 선택지를 `커밋 (반영할 수 없음)`으로 표시한다(막지는 않는다). "커밋 / 편집기로 수정 / 변경 내용 자세히 보기 (diff) / 취소" 중 고르게 한다. 자세히 보기는 `git diff --cached` 전체를 pager로 보여 주고 이 단계로 돌아온다. 편집기는 Git과 같은 규칙으로 고른다(`git var GIT_EDITOR`: `core.editor`, `GIT_EDITOR`, `VISUAL`, `EDITOR` 순)하고 Git처럼 `sh -c '<편집기> "$@"'`로 실행한다. 편집 후에는 hook의 `check(text, check_author=False)`로 다시 검사하고, 오류가 있으면 보여 준 뒤 이 단계를 반복한다. 취소는 코드 130 (stage와 초안은 그대로).
 6. **커밋.** 메시지를 임시 파일에 써서 `git commit -F <파일>`. hook이 거부하면 hook 출력을 그대로 보여 주고 코드 4 (초안은 남긴다).
 7. **정리.** 초안 모드면 `.lg/pending/COMMIT_MSG`를 지운다. `.lg/pending/HUMAN_FILES`가 있으면 아직 커밋되지 않은 경로만 남기고, 남는 것이 없으면 지운다.
 8. **tag.** `gate` + `Verdict: approve`이고 `--no-tag`가 아니면 `gate/<Task>`. `Milestone-Verdict`가 있으면 `milestone/<M>-<verdict>`도 (`<M>`은 Task ID의 마일스톤 부분). tag 실패는 코드 4 (커밋은 남는다).
@@ -3223,7 +3223,7 @@ spec_version: 5
    1. 이번 세션에 자기가 바꾼 파일이 있으면 먼저 `scripts/agent-commit`으로 커밋한다(경로 지정).
    2. 사람의 변경을 `git diff`로 읽고 타입과 요약을 정한다. 타입은 사람이 쓸 수 있는 것 중 내용에 맞는 것이다: 사양·규칙 문서는 `spec`, 로드맵·마일스톤은 `plan`, 실험 코드는 `exp`, 결과 문서는 `result`, 참고문헌은 `ref`, 그 밖은 `chore`.
    3. 초안을 만든다: `lg draft --type <타입> --summary "<요약>" [--body "<무엇을 왜>"] [--trailer Task=<Task>]`. 감지된 변경이면 경로를 생략한다(`HUMAN_FILES`의 경로만 stage된다). 사람이 알려 준 변경이면 그 경로를 붙인다.
-   4. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 이제 사람 커밋 대기 상태다.
+   4. 사람에게 터미널에서 `lg commit` 실행을 요청하고 멈춘다(확인 화면이 stage된 변경과 메시지를 보여 준다). 이제 사람 커밋 대기 상태다.
 4. 사람이 커밋했다고 알리면 `git log -1 --format='%an <%ae>%n%s'`로 사람 신원의 커밋인지 확인하고 원래 작업으로 돌아간다.
 
 ## 멈추는 경우
@@ -3342,7 +3342,7 @@ spec_version: 5
    - 게이트: `lg draft --type gate --summary "<verdict>, next <Next>" --trailer Task=<Task> --trailer Verdict=<verdict> --trailer Source=conversation [--trailer Next=<Task|none>] [--trailer Milestone-Verdict=<go|nogo|conditional>] [--trailer Decisions=<D-ID,…>] <review 경로>`
    - 결정 확정: `lg draft --type decide --summary "<요약>" --trailer Decisions=<D-ID,…> --trailer Source=conversation <review 경로 또는 결정 문서 경로>`
    - 에스컬레이션 응답: `lg draft --type respond --summary "<요약>" --trailer Task=<Task> --trailer Source=conversation <review 경로>`
-4. 사람에게 `git diff --cached` 확인과 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 내용이 다르면 사람이 `lg commit`의 편집 단계에서 고친다. 게이트 승인이면 `lg commit`이 tag를 만든다.
+4. 사람에게 터미널에서 `lg commit` 실행을 요청하고 멈춘다. 확인 화면이 옮겨 적은 응답, 반영 미리보기, 메시지를 보여 준다. 내용이 다르면 사람이 `lg commit`의 편집 단계에서 고친다. 게이트 승인이면 `lg commit`이 tag를 만든다.
 5. 사람이 커밋했다고 알리면 절차 [gate-apply](gate-apply.md).
 
 ## 멈추는 경우

@@ -9,7 +9,6 @@ import io
 import pydoc
 import re
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
@@ -19,6 +18,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from . import commit as commit_module
+from . import preview as preview_module
 from . import prompts, state
 from . import verify as verify_module
 from .errors import EXIT_ABORT, EXIT_GIT, EXIT_TARGET, EXIT_USAGE, Fail
@@ -32,7 +32,6 @@ OWN_CHOICE = "직접 입력"
 COMMIT, EDIT, CANCEL = "커밋", "편집기로 응답 수정", "취소"
 DONE_TASK = ("closed", "redirected")
 OPEN_DECISION = ("proposed", "discussing")
-PREVIEW_SPEC = 5  # apply-human-commits --preview가 있는 첫 spec_version
 SUBSECTIONS = ("판정", "코멘트", "확정 결정", "다음 task 승인")
 
 
@@ -330,25 +329,11 @@ def build_messages(project: Project, ans: Answer) -> list[str]:
 
 
 def _preview(project: Project, messages: list[str]) -> str:
-    """§24.5.4: 프로젝트의 apply-human-commits --preview로 반영 결과를 계산한다. 반영할 수 없으면 멈춘다."""
-    script = project.root / "scripts" / "apply-human-commits"
-    if state.spec_version(project) < PREVIEW_SPEC or not script.is_file():
-        trailers = "\n".join(f"  {k}: {v}" for m in messages for k, v in project.trailers(m).items() if k != "Actor")
-        return ("\n반영 미리보기는 spec_version 5 이상에서 됩니다 (lg upgrade). 커밋할 trailer:\n" + trailers + "\n")
-    out = ["", "이 판정이 반영되면 (다음 세션에서 에이전트가):"]
-    for m in messages:
-        result = subprocess.run([sys.executable, str(script), "--preview"], input=m, cwd=project.root,
-                                capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Fail(EXIT_TARGET, (result.stderr or result.stdout).strip()
-                       + "\n  아무것도 바꾸지 않았습니다. 카드 상태를 확인하세요 (lg status).")
-        out += [l for l in result.stdout.splitlines() if l.startswith("  ")]
-    trailers = project.trailers(messages[0])
-    if trailers.get("Verdict") == "approve":
-        out.append(f"  tag: gate/{trailers['Task']}")
-    if trailers.get("Milestone-Verdict"):
-        out.append(f"  tag: milestone/{state.milestone_of(trailers['Task'])}-{trailers['Milestone-Verdict']}")
-    return "\n".join(out) + "\n"
+    """§24.5.4: 반영할 수 없는 판정이면 아무것도 쓰기 전에 멈춘다."""
+    lines, error = preview_module.preview(project, messages)
+    if error:
+        raise Fail(EXIT_TARGET, error + "\n  아무것도 바꾸지 않았습니다. 카드 상태를 확인하세요 (lg status).")
+    return ("\n" + "\n".join(lines) + "\n") if lines else ""
 
 
 def _confirm(project: Project, ans: Answer, response: str, messages: list[str]) -> str:
