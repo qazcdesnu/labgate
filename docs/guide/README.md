@@ -9,6 +9,7 @@
 | 하려는 일 | 문서 |
 |---|---|
 | labgate를 설치하고 프로젝트를 만든다, 클론한 프로젝트를 설정한다 | [setup.md](setup.md) |
+| 무엇을 연구할지 정한다: 후보를 만들고 미리 정한 기준으로 평가해 방향을 고른다 | [ideation.md](ideation.md) |
 | 에이전트와 하루 작업을 한다 (세션 시작부터 끝까지) | [daily-loop.md](daily-loop.md) |
 | task를 승인한다 (첫 task, 다음 task) | [approve-task.md](approve-task.md) |
 | 에이전트의 게이트 요청을 판정한다 | [judge-gate.md](judge-gate.md) |

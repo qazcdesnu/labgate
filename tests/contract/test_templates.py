@@ -240,16 +240,25 @@ def test_gitignore_excludes_claude_worktrees():
 
 
 def test_rules_match_agents_md():
-    """§23.3: verify의 G4 전이와 G7 보호 경로가 현재 AGENTS.md의 G4·G7과 같은 내용이다."""
+    """§23.3: verify의 G4 전이와 G7 보호 경로가 AGENTS.md의 G4·G7과 같은 내용이다.
+    ideation 전용 규칙(후보·기준·방향 확정, plan/criteria.md)은 ideation 프로젝트의 AGENTS.md에만 있다."""
     from labgate.verify import PROTECTED
-    agents = {str(f.path): f.content for f in build_plan(make_config(), "2026-10-01")}["AGENTS.md"]
-    g4 = next(l for l in agents.splitlines() if l.startswith("- **G4.**"))
-    g7 = next(l for l in agents.splitlines() if l.startswith("- **G7.**"))
+
+    def rules(kind):
+        agents = {str(f.path): f.content for f in build_plan(make_config(kind=kind), "2026-10-01")}["AGENTS.md"]
+        return (next(l for l in agents.splitlines() if l.startswith("- **G4.**")),
+                next(l for l in agents.splitlines() if l.startswith("- **G7.**")))
+
+    g4, g7 = rules("research")
+    ig4, ig7 = rules("ideation")
     for path in PROTECTED:
-        assert f"`{path}`" in g7, path
+        assert f"`{path}`" in ig7, path
+        assert (f"`{path}`" in g7) is (path != "plan/criteria.md"), path
     for transition in ("`draft → approved`", "`in-review → closed | revise | redirected`", "`→ confirmed`",
                        "`planned → active → closed`"):
-        assert transition in g4, transition
+        assert transition in g4 and transition in ig4, transition
+    for transition in ("`→ selected | dropped`", "`draft → locked`"):
+        assert transition in ig4 and transition not in g4, transition
 
 
 # ---------------------------------------------------------------- 패키징

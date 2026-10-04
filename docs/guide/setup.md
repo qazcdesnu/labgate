@@ -25,6 +25,8 @@ lg init ~/research/my-study --config my-study.yaml
 
 설정 파일 형식은 [lg init](../cli/lg-init.md#설정-파일)에 있다. 연구 질문이 아직 잠정적이어도 괜찮다. 첫 마일스톤을 "문헌 검토와 연구 질문 확정"으로 두고, 확정되면 `plan` 커밋으로 고친다.
 
+**아이디어 탐색:** 무엇을 연구할지 아직 정하지 않았다면 `--kind ideation`으로 시작한다([ideation.md](ideation.md)). 방향을 확정한 뒤 `lg init <새 폴더> --from <ideation 폴더>`로 연구 프로젝트를 만든다.
+
 **종류:** 연구가 기본이다. 사업 제안서처럼 연구가 아닌 일이면 `--kind proposal`을 붙인다(또는 설정 파일에 `project.kind: proposal`). 용어(연구 질문 → 제안 핵심 질문, 가설 → 제안 전략과 가정, 문헌 → 자료)와 원고 폴더(`paper/` 대신 `deliverables/`)만 다르고, 게이트·결정·`lg` 명령은 같다.
 
 ```bash
@@ -64,7 +66,7 @@ git config user.email "<.lg/identities.json에 등록된 이메일>"
 lg --version                                   # labgate 0.6.0
 git log --format='%an <%ae> | %s'              # init 커밋, 작성자가 나
 git config core.hooksPath                      # .lg/hooks
-grep spec_version .lg/project.yaml             # 6
+grep spec_version .lg/project.yaml             # 7
 ```
 
 ## 잘 안 될 때

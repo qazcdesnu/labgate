@@ -19,6 +19,9 @@ updated: {{ today }}
 | `CLAUDE.md` | Claude Code 연결: `AGENTS.md` 참조 | 사람 |
 {% endif %}
 | `STATUS.md` | 현재 상태판, 사람 판단 대기 목록 | 에이전트 |
+{% if ideation %}
+| `brief.md` | 방향 확정 문서: 확정 질문, 가설, 마일스톤, 근거 문헌, 버린 후보 (`lg init --from`이 읽는다) | 에이전트 (확정은 사람) |
+{% endif %}
 
 ## 폴더
 
@@ -31,6 +34,9 @@ updated: {{ today }}
 | `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식, 에이전트 절차 | `doc-types/<유형>.spec.md`, `procedures/<절차>.md` |
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
+{% if ideation %}
+| `ideas/` | 아이디어 후보와 목록 (평가 기준은 `plan/criteria.md`) | `I<n>_<slug>.md` |
+{% endif %}
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
 | `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 {% if proposal %}PoC·검증{% else %}실험{% endif %} | `<M>/<Task>_<slug>/` |
 | `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |
@@ -40,7 +46,7 @@ updated: {{ today }}
 | `data/` | 데이터 생성 설정, 데이터 설명서 | |
 {% if proposal %}
 | `deliverables/` | 제안서 원고, 그림, 제출본 | |
-{% else %}
+{% elif not ideation %}
 | `paper/` | 원고, 그림, 참고문헌 bib | |
 {% endif %}
 | `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |

@@ -1,0 +1,101 @@
+# 아이디어 탐색하기 (ideation)
+
+- 언제: 무엇을 연구할지 아직 정하지 않았을 때. 주제는 있지만 후보 방향이 여럿이고, 어느 쪽이 논문이 될지 근거와 함께 고르고 싶을 때
+- 결과: 근거와 함께 확정한 방향 문서(`brief.md`). 그것으로 만든 연구 프로젝트(`lg init --from`). 고른 후보와 버린 후보와 그 이유가 모두 기록에 남는다
+
+방향이 이미 정해졌으면 이 과정 없이 바로 연구 프로젝트를 만든다([setup.md](setup.md)).
+
+## 흐름
+
+```
+lg init my-idea --kind ideation          탐색 주제만으로 시작
+  M0-T0 게이트   평가 기준(plan/criteria.md)을 확정하고 잠근다  ← 후보를 보기 전에
+  M0             문헌·동향 지형, 후보(ideas/I1, I2 …)
+  M1             잠근 기준으로 모든 후보를 근거와 함께 평가 → lg ideas 비교표
+                 → 고르기·버리기, brief.md 작성 → 게이트 (Milestone-Verdict go)
+lg init my-study --from my-idea          확정한 방향으로 연구 프로젝트
+```
+
+## 순서
+
+### 1. 만들기 (터미널 A)
+
+```bash
+lg init ~/research/my-idea --kind ideation      # 대화형: 탐색 주제, 사람, 마일스톤(생략하면 기본 두 개)
+# 또는 이미 가진 메모가 있으면
+lg init ~/research/my-idea --kind ideation --import ~/메모폴더
+```
+
+**탐색 주제**는 질문이 아니어도 된다. 예: "Mamba 계열 SSM의 메모리를 latent reasoning에 결합".
+
+### 2. 평가 기준 정하기 (M0-T0 게이트 전, 터미널 A)
+
+`plan/criteria.md`를 연다.
+
+- **가진 자원:** GPU, 기간, 목표 학회와 마감, 실행 가능성의 결격 배수를 채운다.
+- **기준 확인:** 기본 기준을 보고 필요하면 고친다. 기본 기준은 학회 리뷰의 독창성·중요도·타당성에 박사과정의 선점 위험·실행 가능성·결과의 견고성·연구자 적합성을 더한 C1–C8이다. 기준마다 1–5점의 근거 조건이 있다.
+
+에이전트는 이 문서를 고치지 못하고, 고칠 점을 `notes/criteria-proposal.md`에 제안한다.
+
+M0-T0을 승인하고(`lg status` → `lg commit --allow-empty`, 타입 `plan`, Approve) 에이전트가 착수 계획을 내면, **그 게이트를 승인하는 순간 기준이 잠긴다**(`status: locked`). 기준을 손봤으면 게이트 전에 커밋해 둔다(`lg commit`, 타입 `plan`).
+
+**왜 먼저 잠그나:** 후보를 본 뒤에 기준을 정하면 마음에 드는 후보에 맞춘 기준이 되기 쉽다. 잠근 뒤에 기준을 바꾸면(사람의 `plan` 커밋) 이미 매긴 평가는 모두 "기준 변경 전"이 되고, 에이전트가 모든 후보를 다시 매긴다.
+
+### 3. 후보 만들기 (M0)
+
+- **후보 문서:** 에이전트가 `ideas/I<n>_<slug>.md`에 후보를 쓴다. 한 줄 주장, 가설, 최소 실험, 가까운 선행 연구와 차이, 새로움 위험을 담는다.
+- **사람의 아이디어:** 대화로 낸 아이디어도 후보 문서로 옮겨진다(`origin: conversation`).
+- **버린 후보:** 지우지 않는다.
+
+### 4. 평가와 비교 (M1)
+
+- **평가:** 에이전트는 잠근 기준으로 **모든 후보를 같은 task에서, 기준별로** 매긴다. 점수마다 근거(참고문헌 ID와 위치, 검색 기록, 결과 문서)와 확신(상·중·하)을 적고, 근거 없는 점수는 무효다.
+- **사람 몫:** 연구자 적합성(C8)은 사람이 매긴다. 후보 문서의 그 칸을 채우고 커밋한다.
+- **비교:** `lg ideas`로 비교표를 본다. 가중 평균, 순위, 결격, 근거 없는 점수, 다시 매겨야 할 평가를 보여 준다. 합계와 순위는 도구가 계산한다.
+
+### 5. 고르기와 방향 확정 (M1 마지막 게이트, 터미널 A)
+
+에이전트가 `brief.md`(확정 질문, 가설, 실행 프로젝트의 마일스톤, 넘길 참고문헌, 버린 후보와 이유)를 쓰고 게이트를 요청하면:
+
+```bash
+lg ideas                 # 비교표
+lg answer                # 판정 approve → 마일스톤 판정 go → 고를 후보 → 버릴 후보와 이유 → 커밋
+```
+
+- 고른 후보는 `selected`, 버린 후보는 `dropped`가 되고(`Select`·`Drop` trailer), `brief.md`가 `confirmed`가 된다. 다음 세션에 에이전트가 반영한다.
+- 순위와 다른 후보를 골라도 된다. 이유를 코멘트에 남긴다.
+
+### 6. 연구 프로젝트 만들기
+
+```bash
+lg init ~/research/my-study --from ~/research/my-idea     # 이름과 slug만 묻는다
+```
+
+- **설정에서 오는 것:** 질문, 요약, 마일스톤, 사람 신원은 `brief.md`와 ideation 프로젝트에서 온다.
+- **옮겨지는 것:** brief와 고른 후보는 `notes/`로, 넘길 참고문헌은 `references/`로 옮겨지고 stage된다. 첫 승인 커밋에 함께 들어간다.
+- **출발점 기록:** `.lg/project.yaml`의 `origin`과 README에 남는다.
+- **M0-T0:** 새 프로젝트의 M0-T0은 brief를 출발점으로 검증·정리한다. 처음부터 다시 조사하지 않는다.
+
+## 확인
+
+```bash
+lg ideas                                     # 비교표
+grep -m1 '^status' plan/criteria.md          # locked
+grep -m1 '^status' brief.md                  # confirmed (방향 확정 뒤)
+```
+
+## 잘 안 될 때
+
+| 증상 | 원인과 해결 |
+|---|---|
+| `lg ideas`가 "기준이 잠기기 전"이라고 함 | M0-T0 게이트를 아직 승인하지 않았다. 승인하면 반영 때 잠긴다 |
+| 모든 평가가 "기준 변경 전" | 잠근 뒤 기준을 바꿨다. 에이전트에게 모든 후보를 다시 평가하게 한다 |
+| `lg verify`가 V4로 `plan/criteria.md`를 지적 | 에이전트가 기준 문서를 고쳤다. 되돌리고, 제안은 `notes/criteria-proposal.md`로 받는다 ([mistakes.md](mistakes.md)) |
+| `lg init --from`이 "확정되지 않았습니다" | 마지막 게이트를 Milestone-Verdict `go`로 판정하고, 에이전트가 반영한 뒤에 한다 |
+| `lg init --from`이 "커밋되지 않은 변경" | ideation 프로젝트를 먼저 커밋한다(넘기는 것은 커밋된 내용이어야 한다) |
+
+## 에이전트는 무엇을 하나
+
+- 착수 계획(지형 조사, 기준 조정 제안, 후보 만들기): ideation 프로젝트의 M0-T0 카드
+- 후보·평가 형식: `specs/doc-types/idea.spec.md`, `criteria.spec.md`, `brief.spec.md`
+- 고르기·잠그기·확정의 반영: `scripts/apply-human-commits` (절차 `gate-apply`)

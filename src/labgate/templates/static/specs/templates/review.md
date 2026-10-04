@@ -1,7 +1,7 @@
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 6
+spec_version: 7
 kind: <gate|escalation>
 task: <Task>
 status: open

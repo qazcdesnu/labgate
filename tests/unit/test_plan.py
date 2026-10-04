@@ -8,6 +8,8 @@ import yaml
 
 from labgate.config import parse_config
 from labgate.plan import (
+    IDEATION_STATIC,
+    IDEATION_TEMPLATES,
     MILESTONE_TEMPLATES,
     SINGLE_TEMPLATES,
     STATIC_FILES,
@@ -151,8 +153,8 @@ def test_every_template_is_used():
     jinja = {p.relative_to(tdir / "jinja").as_posix() for p in (tdir / "jinja").rglob("*.j2")}
     static = {p.relative_to(tdir / "static").as_posix() for p in (tdir / "static").rglob("*") if p.is_file()}
     used_jinja = {t for t, _ in SINGLE_TEMPLATES} | {t for t, _ in MILESTONE_TEMPLATES} | {STUB_TEMPLATE}
-    assert used_jinja == jinja
-    assert {s for s, _, _ in STATIC_FILES} == static
+    assert used_jinja | set(IDEATION_TEMPLATES) == jinja
+    assert {s for s, _, _ in STATIC_FILES} | set(IDEATION_STATIC) == static
 
 
 @pytest.mark.parametrize(

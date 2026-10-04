@@ -1,6 +1,6 @@
 # lg init
 
-연구 또는 제안서 프로젝트의 작업 공간을 한 번에 만든다: 폴더 구조, 문서 사양, 에이전트 규칙, 커밋 규약 검사 hook, 사람 신원의 초기 커밋.
+연구, 아이디어 탐색(ideation), 제안서 프로젝트의 작업 공간을 한 번에 만든다: 폴더 구조, 문서 사양, 에이전트 규칙, 커밋 규약 검사 hook, 사람 신원의 초기 커밋.
 
 - 누가: 사람
 - 언제: 프로젝트마다 한 번
@@ -9,7 +9,7 @@
 ## 형식
 
 ```
-lg init [PATH] [--config FILE] [--kind research|proposal] [--import DIR] [--force] [--dry-run] [--no-git] [--yes]
+lg init [PATH] [--config FILE] [--kind research|ideation|proposal] [--from IDEATION] [--import DIR] [--force] [--dry-run] [--no-git] [--yes]
 ```
 
 ## 인자와 옵션
@@ -18,7 +18,8 @@ lg init [PATH] [--config FILE] [--kind research|proposal] [--import DIR] [--forc
 |---|---|---|---|
 | `PATH` | 경로 | 생략하면 묻는다 | 만들 프로젝트 폴더. 없으면 만든다(상위 폴더 포함). `--config`를 쓰면 필수 |
 | `--config` | 파일 | 없음 (대화형) | 설정 파일(YAML)로 모든 입력을 받는다. 질문하지 않는다. 형식은 아래 [설정 파일](#설정-파일) |
-| `--kind` | `research` 또는 `proposal` | `research` (설정 파일의 `project.kind`) | 프로젝트 종류. 대화형이면 생략할 때 처음에 묻는다. 설정 파일이 다른 종류를 정했으면 오류 |
+| `--kind` | `research`, `ideation`, `proposal` | `research` (설정 파일의 `project.kind`) | 프로젝트 종류. 대화형이면 생략할 때 처음에 묻는다. 설정 파일이 다른 종류를 정했으면 오류 |
+| `--from` | ideation 프로젝트 폴더 | 없음 | 그 프로젝트에서 확정한 방향(`brief.md`, `status: confirmed`)으로 만든다. 질문·요약·마일스톤·사람 신원은 거기서 오고, 이름과 slug만 새로 정한다(대화형이면 묻고, `--config`면 그 값이 우선). brief를 `notes/ideation-brief.md`, 고른 후보를 `notes/ideation/`, 넘길 참고문헌을 `references/`로 옮겨 stage하고, 출발점을 `.lg/project.yaml`의 `origin`과 README에 남긴다. ideation 프로젝트는 작업 트리가 깨끗해야 하고 읽기만 한다 |
 | `--import` | 폴더 | 없음 | 이미 가진 자료 폴더. 내용을 `notes/` 아래로 복사하고(같은 이름은 건너뜀, `.git*` 제외) stage해 둔다. init 커밋에는 넣지 않고, 첫 task 승인 커밋에 함께 들어간다. 프로젝트 폴더 안의 폴더나 빈 폴더는 안 된다 |
 | `--force` | — | 꺼짐 | 비어 있지 않은 폴더에도 만든다. **기존 파일은 덮어쓰지 않는다.** 만들 파일과 같은 경로의 파일이 하나라도 있으면 실패한다. 원래 있던 파일은 초기 커밋에 넣지 않고 목록으로 알린다(정한 자리로 옮겨 커밋하거나 `.gitignore`에) |
 | `--dry-run` | — | 꺼짐 | 만들 파일 트리와 개수만 출력하고 아무것도 쓰지 않는다. 폴더·Git 검사 실패는 오류 대신 경고로 출력한다 |
@@ -62,7 +63,7 @@ project:
   slug: ssm-latent-reasoning                     # 영문 소문자·숫자·하이픈, 40자 이하
   summary: "한 줄 요약"                           # 1–200자
   research_question: "핵심 연구 질문"             # 1–500자. 제안서면 제안의 핵심 질문
-  kind: research                                 # research(기본) 또는 proposal
+  kind: research                                 # research(기본), ideation, proposal
 people:
   humans:                                        # 1명 이상. 첫 번째 사람이 초기 커밋 작성자
     - name: "홍길동"
@@ -79,6 +80,7 @@ milestones:                                      # 1–20개. ID(M0, M1 …)는 
 
 - 모든 문자열은 한 줄이어야 한다. 이메일은 소문자로 바뀌고, 사람끼리 겹치거나 에이전트 이메일이 사람과 같으면 안 된다.
 - `milestones`에 `id`를 적으면 순서와 맞는지 검사한다.
+- `kind: ideation`(아이디어 탐색)이면 `research_question`이 탐색 주제다(질문이 아니어도 된다). `milestones`를 생략하면 기본 두 개(지형 파악과 후보 생성, 후보 검증과 방향 선택)를 쓴다. 평가 기준 `plan/criteria.md`, 후보 목록 `ideas/`, 방향 확정 문서 `brief.md`와 그 사양이 더 생기고 원고 폴더는 없다([아이디어 탐색하기](../guide/ideation.md)).
 - `kind: proposal`(제안서)이면 용어와 원고 폴더만 다르다: 연구 질문 → 제안 핵심 질문, 가설 → 제안 전략과 가정, 공통 실험 원칙 → 공통 작업 원칙, 문헌 → 자료, 마일스톤 판정의 뜻(go = 다음 단계로, 마지막이면 제출), `paper/` 대신 `deliverables/`. 규칙, 절차, 사양, 커밋 규약, `lg` 명령은 같다.
 - 만든 프로젝트의 `.lg/project.yaml`에는 이 내용과 함께 만든 labgate 버전, spec_version, 날짜가 기록된다.
 

@@ -17,7 +17,7 @@ from .errors import EXIT_USAGE, Fail
 from .gitops import GitError
 from .project import Project, find_project
 
-PROTECTED = ("specs/", "AGENTS.md", "CLAUDE.md", ".claude/", ".lg/")
+PROTECTED = ("specs/", "AGENTS.md", "CLAUDE.md", ".claude/", ".lg/", "plan/criteria.md")
 PASSTHROUGH = ("Revert ", "fixup! ", "squash! ", "amend! ")
 VERDICT_STATE = {"approve": "closed", "revise": "revise", "redirect": "redirected"}
 SEP = "\x1e"
@@ -159,6 +159,12 @@ def human_transition(doc_type: str, before: Optional[str], after: Optional[str])
         return after == "confirmed"
     if doc_type == "milestone":
         return (before, after) in (("planned", "active"), ("active", "closed"))
+    if doc_type == "idea":  # ideation (§26)
+        return after in ("selected", "dropped")
+    if doc_type == "criteria":
+        return (before, after) == ("draft", "locked")
+    if doc_type == "brief":
+        return after == "confirmed"
     return False
 
 
@@ -181,6 +187,13 @@ def justifies(doc_type: str, doc_id: str, after: str, ctype: str, trailers: dict
         if after == "active":
             return ctype == "gate" and in_milestone and task.endswith("-T0") and trailers.get("Verdict") == "approve"
         return ctype == "gate" and in_milestone and bool(trailers.get("Milestone-Verdict"))
+    if doc_type == "idea":
+        key = "Select" if after == "selected" else "Drop"
+        return ctype in ("gate", "decide") and doc_id in items(key)
+    if doc_type == "criteria":
+        return ctype == "gate" and task == "M0-T0" and trailers.get("Verdict") == "approve"
+    if doc_type == "brief":
+        return ctype == "gate" and trailers.get("Milestone-Verdict") == "go"
     return False
 
 
@@ -220,7 +233,7 @@ def project_rules(root: Path) -> dict:
         if len(row) > 1:
             statuses[row[0].strip("`")] = set(re.findall(r"`([a-z-]+)`", row[1]))
     required: dict[str, list[str]] = {}
-    for doc_type in ("task-card", "review"):
+    for doc_type in ("task-card", "review", "idea", "criteria", "brief"):  # 완성 사양 (뒤 셋은 ideation에만)
         spec = root / "specs" / "doc-types" / f"{doc_type}.spec.md"
         if spec.is_file():
             names = []
@@ -352,8 +365,19 @@ def _check_response(project: Project, c: Commit, changes, report: Report) -> Non
             report.findings.append(Finding("V3", c.short, c.header, f"{path}: ## 응답 이 바뀜"))
 
 
+LOCK_FIELDS = re.compile(r"^(status|locked_commit|updated):.*$", re.M)
+
+
+def _only_lock_fields(project: Project, c: Commit, path: str) -> bool:
+    """반영 커밋이 평가 기준 문서의 status·locked_commit·updated만 바꿨나 (gate-apply의 G7 특별 규칙, §26)."""
+    before, after = _show(project.root, f"{c.sha}^", path), _show(project.root, c.sha, path)
+    return before is not None and after is not None and LOCK_FIELDS.sub("", before) == LOCK_FIELDS.sub("", after)
+
+
 def _check_protected(project: Project, c: Commit, changes, report: Report) -> None:
     touched = sorted({p for _, a, b in changes for p in (a, b) if protected(p)})
+    if "plan/criteria.md" in touched and _applies(project, c) and _only_lock_fields(project, c, "plan/criteria.md"):
+        touched.remove("plan/criteria.md")
     if not touched:
         return
     trailers = project.trailers(c.body)
@@ -415,10 +439,25 @@ def _check_documents(project: Project, report: Report) -> None:
         for name in rules["required"].get(doc_type, []):
             if name not in data:
                 report.findings.append(Finding("V5", "", "", f"{path}: 필수 필드 없음 ({name})"))
-        if doc_type in rules["required"] and str(data.get("id")) != Path(path).stem:
+        stem = Path(path).stem
+        if doc_type in rules["required"] and str(data.get("id")) != stem \
+                and not (doc_type == "idea" and stem.startswith(f"{data.get('id')}_")):
             report.findings.append(Finding("V5", "", "", f"{path}: id({data.get('id')})가 파일 이름과 다름"))
+        if doc_type == "idea":
+            _check_evaluation(project, path, text, report)
     if outdated:
         report.notices.append(f"V5: 갱신 전 문서 {outdated}개 (spec_version < {spec_version}, lg upgrade 참고)")
+
+
+def _check_evaluation(project: Project, path: str, text: str, report: Report) -> None:
+    """§26.6: 후보의 평가표가 잠근 기준을 따르고 근거가 있는가."""
+    from . import ideas  # ideas가 이 모듈의 함수를 쓰므로 여기서 읽는다
+    has_eval, commit, scores = ideas.parse_evaluation(text)
+    if not has_eval:
+        return
+    status, criteria, current = ideas.criteria_state(project)
+    for issue in ideas.evaluation_issues(criteria, status == "locked", current, commit, scores):
+        report.findings.append(Finding("V5", "", "", f"{path}: {issue}"))
 
 
 def _spec_version(root: Path) -> int:

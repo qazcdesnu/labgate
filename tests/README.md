@@ -55,6 +55,7 @@ commands 계층도 커밋할 때 hook을 거치고, `approve_and_start`처럼 �
 | `unit/test_verify_rules.py` | `lg verify`의 전이·근거 판정, 근거 경로 판별 | §23 |
 | `unit/test_answer_parts.py` | `lg answer`의 응답 만들기·검사, 선택지 읽기, 커밋 메시지 | §24.4 |
 | `unit/test_spec_merge.py` | `lg spec adopt`의 사양 초안 합치기 규칙 | §24.8 |
+| `unit/test_ideas.py` | ideation 평가 기준·평가표 읽기와 검사 | §26.6 |
 | `contract/test_templates.py` | 템플릿 = 설계 문서 부록, 렌더링 결과 규약, 절차 문서 링크·특별 규칙, verify 규칙 = AGENTS.md, wheel 내용 | 부록 A–C, §16, §23.3 |
 | `contract/test_docs.py` | `docs/cli/`의 옵션 표·종료 코드 = CLI, `docs/guide/` 링크 | — |
 | `contract/test_releases.py` | 해시표 = 릴리즈 tag의 템플릿, 릴리즈된 spec_version 동결, 모든 생성 파일 분류 | §22.2.2, §22.4 |
@@ -70,6 +71,7 @@ commands 계층도 커밋할 때 hook을 거치고, `approve_and_start`처럼 �
 | `commands/test_status.py` | `lg status` | §24.3 |
 | `commands/test_answer.py` | `lg answer` (gate, escalation, 결정 확정, 미리보기 = 실제 반영, 전제, spec_version 4) | §24.4 |
 | `commands/test_spec.py` | `lg spec adopt` | §24.8 |
+| `commands/test_ideation.py` | ideation 흐름: 기준 잠그기, 평가, `lg ideas`, 고르기, brief 확정, `lg init --from` | §26 |
 | `e2e/test_acceptance.py` | §14.3 수용 기준, entry point, 워크트리 | §14.3 |
 
 각 파일 첫 줄 docstring에 대상과 설계 문서 절을 적는다. 설계 문서의 절이 바뀌면 이 표와 docstring을 함께 고친다.

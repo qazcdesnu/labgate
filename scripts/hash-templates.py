@@ -34,11 +34,15 @@ import json, sys
 sys.path.insert(0, sys.argv[1])
 from labgate import __version__
 from labgate.config import parse_config, Project
+try:
+    from labgate.config import KINDS
+except ImportError:
+    KINDS = ("research", "proposal")
 from labgate.plan import build_plan
 cfg = json.loads(sys.argv[2])
 out = {"labgate_version": __version__, "variants": {}}
 # 프로젝트 종류(§25)가 있는 버전이면 종류마다. 이름은 kinds.variant와 같다 (연구는 예전 이름 그대로)
-kinds = ("research", "proposal") if "kind" in Project.model_fields else ("research",)
+kinds = KINDS if "kind" in Project.model_fields else ("research",)
 for kind in kinds:
     for claude in (True, False):
         cfg["agent_tools"] = {"claude_code": claude}

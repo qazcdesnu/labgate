@@ -87,15 +87,17 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-KINDS = ("research", "proposal")  # §25: 프로젝트 종류. 연구가 기본
+KINDS = ("research", "proposal", "ideation")  # §25, §26: 프로젝트 종류. 연구가 기본
+# ideation에서 마일스톤을 생략하면 쓰는 기본 두 개 (§26)
+IDEATION_MILESTONES = ("지형 파악과 후보 생성", "후보 검증과 방향 선택")
 
 
 class Project(_Model):
     name: ProjectName
     slug: Slug
     summary: Summary
-    research_question: ResearchQuestion  # 제안서(kind: proposal)에서는 제안의 핵심 질문
-    kind: Literal["research", "proposal"] = "research"
+    research_question: ResearchQuestion  # 제안서는 제안의 핵심 질문, ideation은 탐색 주제
+    kind: Literal["research", "proposal", "ideation"] = "research"
 
 
 class Person(_Model):
@@ -117,6 +119,13 @@ class Milestone(_Model):
     title: MilestoneTitle
 
 
+class Origin(_Model):
+    """`lg init --from`으로 만든 프로젝트의 출발점 (§26.8)."""
+    path: str
+    commit: str
+    brief: str = "brief.md"
+
+
 class Generated(_Model):
     labgate_version: str
     spec_version: int
@@ -129,6 +138,7 @@ class Config(_Model):
     people: People
     agent_tools: AgentTools = Field(default_factory=AgentTools)
     milestones: list[Milestone] = Field(min_length=1, max_length=MAX_MILESTONES)
+    origin: Optional[Origin] = None  # lg init --from 으로 만들었을 때
     generated: Optional[Generated] = None  # .lg/project.yaml에만 있다
 
     @model_validator(mode="after")
@@ -277,6 +287,9 @@ def _format_errors(exc: ValidationError) -> list[str]:
 def parse_config(data: Any) -> Config:
     if not isinstance(data, dict):
         raise ConfigError(["(최상위): 키: 값 형식의 YAML 문서여야 합니다"])
+    project = data.get("project")
+    if isinstance(project, dict) and project.get("kind") == "ideation" and not data.get("milestones"):
+        data = {**data, "milestones": [{"title": t} for t in IDEATION_MILESTONES]}
     try:
         return Config.model_validate(data)
     except ValidationError as e:
@@ -310,6 +323,7 @@ def dump_project_yaml(config: Config, labgate_version: str, spec_version: int, c
         },
         "agent_tools": config.agent_tools.model_dump(),
         "milestones": [m.model_dump() for m in config.milestones],
+        **({"origin": config.origin.model_dump()} if config.origin else {}),
         "generated": {
             "labgate_version": labgate_version,
             "spec_version": spec_version,

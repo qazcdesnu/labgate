@@ -31,4 +31,4 @@ updated: {{ today }}
 
 ## 다음 예정
 
-- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 ({% if proposal %}자료 정리{% else %}문헌 정리{% endif %}, task 분해, 기존 계획 이관)
+- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 ({% if ideation %}지형 파악, 평가 기준 제안, 아이디어 메모를 후보로{% elif proposal %}자료 정리{% else %}문헌 정리{% endif %}, task 분해{% if not ideation %}, 기존 계획 이관{% endif %})

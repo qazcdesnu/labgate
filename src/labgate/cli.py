@@ -11,16 +11,19 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, List, Optional
 
 import typer
+import yaml
 
 from . import __version__, gitops, prompts
 from . import commit as commit_module  # 명령 함수 commit, draft와 이름이 겹치지 않게
 from . import answer as answer_module
 from . import draft as draft_module
+from . import ideas as ideas_module
+from . import origin as origin_module
 from . import spec as spec_module
 from . import status as status_module
 from . import upgrade as upgrade_module
 from . import verify as verify_module
-from .config import KINDS, Config, ConfigError, load_config
+from .config import KINDS, Config, ConfigError, load_config, parse_config
 from .errors import EXIT_ABORT, EXIT_ERROR, EXIT_GIT, EXIT_OK, EXIT_TARGET, EXIT_USAGE, Fail
 from .gitops import GitError
 from .plan import EXECUTABLE, PlannedFile, build_plan
@@ -56,16 +59,21 @@ def init(
     no_git: bool = typer.Option(False, "--no-git", help="Git 초기화와 초기 커밋을 하지 않는다."),
     yes: bool = typer.Option(False, "--yes", "-y", help="대화형 모드의 마지막 확인을 건너뛴다."),
     kind: Optional[str] = typer.Option(
-        None, "--kind", help="프로젝트 종류: research(연구, 기본) 또는 proposal(제안서).", show_default=False
+        None, "--kind", help="프로젝트 종류: research(연구, 기본), ideation(아이디어 탐색), proposal(제안서).",
+        show_default=False,
     ),
     import_dir: Optional[Path] = typer.Option(
         None, "--import", help="이미 가진 자료 폴더. 내용을 notes/로 복사하고 stage해 둔다 (첫 승인 커밋에 함께).",
         show_default=False,
     ),
+    from_dir: Optional[Path] = typer.Option(
+        None, "--from", help="확정한 방향을 가져올 ideation 프로젝트. 질문·요약·마일스톤·근거 문헌을 넘겨받는다.",
+        show_default=False,
+    ),
 ) -> None:
     """연구·제안서 프로젝트 작업 공간을 만든다."""
     _guard(
-        lambda: _init(path, config_file, force, dry_run, no_git, yes, kind, import_dir),
+        lambda: _init(path, config_file, force, dry_run, no_git, yes, kind, import_dir, from_dir),
         interrupted="\n중단했습니다. 아무것도 만들지 않았습니다.",  # 쓰기 중 중단은 writer가 이미 롤백했다
     )
 
@@ -149,6 +157,14 @@ def answer(
     _guard(lambda: _echo(answer_module.run_answer(review_id, no_tag)), interrupted="\n중단했습니다. 아무것도 바꾸지 않았습니다.")
 
 
+@app.command()
+def ideas(
+    as_json: bool = typer.Option(False, "--json", help="같은 내용을 JSON으로 출력한다."),
+) -> None:
+    """ideation 후보를 잠근 평가 기준으로 비교한다: 점수, 가중 평균, 순위, 결격. 읽기만 한다."""
+    _guard(lambda: _echo(ideas_module.run_ideas(as_json)), interrupted="\n중단했습니다.")
+
+
 spec_app = typer.Typer(no_args_is_help=True, help="사양 문서를 다룬다. 사람이 터미널에서 직접 실행한다.")
 app.add_typer(spec_app, name="spec")
 
@@ -203,10 +219,13 @@ def _err(message: str) -> None:
 
 def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
           dry_run: bool, no_git: bool, yes: bool, kind: Optional[str] = None,
-          import_dir: Optional[Path] = None) -> int:
+          import_dir: Optional[Path] = None, from_dir: Optional[Path] = None) -> int:
     interactive = config_file is None
     if kind is not None and kind not in KINDS:
-        raise Fail(EXIT_USAGE, f"✗ --kind 는 {' 또는 '.join(KINDS)} 입니다: {kind}")
+        raise Fail(EXIT_USAGE, f"✗ --kind 는 {', '.join(KINDS)} 중 하나입니다: {kind}")
+    if from_dir and kind == "ideation":
+        raise Fail(EXIT_USAGE, "✗ --from 은 ideation에서 확정한 방향으로 연구·제안서 프로젝트를 만듭니다 (--kind ideation 과 함께 쓰지 않음).")
+    ideation = origin_module.read_source(from_dir) if from_dir else None
 
     # 1. 경로 확정
     if path is None:
@@ -223,7 +242,15 @@ def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
         _check_git(target, dry_run)
 
     # 4. 입력 수집과 검증
-    if interactive:
+    if ideation:  # §26.8: 질문·요약·마일스톤은 brief에서, 이름과 slug만 새로
+        if interactive:
+            _require_tty()
+            name, slug = prompts.ask_name_slug(target)
+            data = origin_module.config_data(ideation, None, kind, name, slug)
+        else:
+            data = origin_module.config_data(ideation, _raw_config(config_file), kind, None, None)
+        config = parse_config(data)
+    elif interactive:
         _require_tty()
         config = prompts.ask_config(target, kind)
     else:
@@ -267,12 +294,27 @@ def _init(path: Optional[Path], config_file: Optional[Path], force: bool,
         raise Fail(EXIT_ABORT, f"\nGit 초기화 중에 중단했습니다. 생성된 파일은 그대로 두었습니다: {target}") from None
     leftover = _untracked(target) if commit and exists else []
 
-    # 10. 자료 가져오기 (§25.5): notes/로 복사하고 stage만 한다
+    # 10. 자료 가져오기 (§25.5, §26.8): notes/·references/로 복사하고 stage만 한다
     imported = _import(source, target, stage=bool(commit)) if source else []
+    if ideation:
+        carried = origin_module.carry(ideation, target)
+        if commit and carried:
+            gitops.run(["add", "--", *carried], cwd=target)
+        imported += carried
 
     # 11. 안내
     typer.echo(success_message(target, config, len(plan), commit, imported, leftover))
     return EXIT_OK
+
+
+def _raw_config(path: Path) -> dict:
+    try:
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as e:
+        raise ConfigError([f"{path}: 설정 파일을 읽지 못했습니다 ({e})"]) from None
+    if not isinstance(data, dict):
+        raise ConfigError(["(최상위): 키: 값 형식의 YAML 문서여야 합니다"])
+    return data
 
 
 def _check_import(import_dir: Path, target: Path) -> Path:
@@ -376,8 +418,7 @@ def success_message(target: Path, config: Config, count: int, commit: Optional[s
                     imported: Optional[list[str]] = None, leftover: Optional[list[str]] = None) -> str:
     """§5.4."""
     first = f"{config.milestones[0].id}-T0"
-    label = "제안서" if config.project.kind == "proposal" else "연구"
-    lines = [f"✓ {label} 프로젝트를 만들었습니다: {target}"]
+    lines = [f"✓ {prompts.KIND_LABELS[config.project.kind]} 프로젝트를 만들었습니다: {target}"]
     if commit:
         lines.append(f"  파일 {count}개, 초기 커밋 {commit} (init)")
     else:
@@ -389,6 +430,9 @@ def success_message(target: Path, config: Config, count: int, commit: Optional[s
     if imported:
         lines += ["", "다음 단계:", f"  1. 가져온 자료 {len(imported)}개가 notes/ 에 있습니다"
                   + (" (stage됨, 첫 승인 커밋에 함께 들어갑니다)." if commit else ".")]
+    elif config.project.kind == "ideation":
+        lines += ["", "다음 단계:", "  1. notes/ 에 아이디어 메모를 넣고, plan/criteria.md 의 '가진 자원'을 채우세요"
+                  f" (평가 기준은 {first} 게이트에서 확정·잠금)."]
     else:
         lines += ["", "다음 단계:", "  1. notes/ 에 기존 계획 자료를 넣으세요."]
     if commit:

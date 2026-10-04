@@ -63,6 +63,13 @@ SINGLE_TEMPLATES: tuple[tuple[str, bool], ...] = (
     ("specs/README.md.j2", False),
 )
 
+# ideation 종류에서만 만드는 파일 (§26): Jinja와 정적 파일
+IDEATION_TEMPLATES: tuple[str, ...] = ("plan/criteria.md.j2", "ideas/index.md.j2", "brief.md.j2")
+IDEATION_STATIC: tuple[str, ...] = (
+    "specs/doc-types/idea.spec.md", "specs/doc-types/criteria.spec.md",
+    "specs/doc-types/brief.spec.md", "specs/templates/idea.md",
+)
+
 # 마일스톤마다 렌더링하는 템플릿 → 출력 경로 형식
 MILESTONE_TEMPLATES: tuple[tuple[str, str], ...] = (
     ("plan/milestones/milestone.md.j2", "plan/milestones/{m}/milestone.md"),
@@ -77,8 +84,8 @@ GITKEEP_DIRS = (
     "references/library", "experiments/src", "experiments/tests", "runs",
     "reviews/open", "reviews/closed", "logs", "data", "notes", "env",
 )
-# 산출 원고 폴더: 연구는 논문, 제안서는 제출물 (§25)
-OUTPUT_DIR = {"research": "paper", "proposal": "deliverables"}
+# 산출 원고 폴더: 연구는 논문, 제안서는 제출물 (§25), ideation은 없음 (§26)
+OUTPUT_DIR = {"research": "paper", "proposal": "deliverables", "ideation": None}
 GITKEEP_MILESTONE_DIRS = ("experiments/{m}", "results/{m}/figures", "results/{m}/tables")
 
 
@@ -110,6 +117,10 @@ def build_plan(config: Config, today: str) -> list[PlannedFile]:
         if claude or not claude_only:
             files.append(PlannedFile(output_path(template), render(template, base)))
 
+    if config.project.kind == "ideation":
+        files += [PlannedFile(output_path(t), render(t, base)) for t in IDEATION_TEMPLATES]
+        files += [PlannedFile(output_path(src), read_static(src)) for src in IDEATION_STATIC]
+
     for i, m in enumerate(base["milestones"]):
         ctx = milestone_context(base, i)
         for template, out in MILESTONE_TEMPLATES:
@@ -129,7 +140,7 @@ def build_plan(config: Config, today: str) -> list[PlannedFile]:
     ))
     files.append(PlannedFile(PurePosixPath(".lg/identities.json"), identities_json(config)))
 
-    dirs = [*GITKEEP_DIRS, OUTPUT_DIR[config.project.kind]]
+    dirs = [*GITKEEP_DIRS, *filter(None, [OUTPUT_DIR[config.project.kind]])]
     for m in base["milestones"]:
         dirs += [d.format(m=m["id"]) for d in GITKEEP_MILESTONE_DIRS]
     files += [PlannedFile(PurePosixPath(d) / ".gitkeep", "") for d in dirs]

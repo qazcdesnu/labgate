@@ -1,7 +1,7 @@
 ---
 id: session-start
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 세션 시작
 

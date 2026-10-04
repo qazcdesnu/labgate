@@ -1,7 +1,7 @@
 ---
 id: commit-prep
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 사람 커밋 준비
 

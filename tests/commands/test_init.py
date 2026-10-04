@@ -359,7 +359,7 @@ def test_kind_conflict_and_unknown(tmp_path, git_sandbox):
 def test_interactive_asks_kind(tmp_path, git_sandbox, keys):
     target = tmp_path / "proj"
     seq = answers()
-    seq[0] = "\x1b[B\r"  # 종류: 제안서
+    seq[0] = "\x1b[B\x1b[B\r"  # 종류: 제안서 (연구, 아이디어 탐색, 제안서)
     keys(*seq)
     result = lg("init", target, "--no-git")
     assert result.exit_code == 0, result.output
