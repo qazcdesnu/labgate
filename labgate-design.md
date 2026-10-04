@@ -1533,7 +1533,7 @@ lg answer [REVIEW_ID] [--no-tag]
 
 1. **보여 주기.** review에서 `## 응답` 위의 에이전트 섹션을 rich Markdown(typer와 함께 설치됨)으로 렌더링한다.
    - gate면 `lg verify --task <Task>`의 요약(§23.6의 `summary_for_commit`: 위반 수, 완료 기준 체크 수, 근거 경로)을 붙인다.
-   - 터미널보다 길면 pager(`pydoc.pager`: `MANPAGER`, `PAGER`, 없으면 `less`)로 연다.
+   - 터미널보다 길면 pager(`pydoc.pager`: `MANPAGER`, `PAGER`, 없으면 `less`)로 연다. 색 코드는 pager가 해석할 때만 보낸다: `less`면 `LESS`에 `-R`을 더하고, 다른 pager면 색 없는 글을 보낸다. 링크는 터미널 하이퍼링크 코드 대신 글로 보인다(실사용: 옵션 없는 `less`에서 `ESC[1m`, `ESC]8;…`이 그대로 보였다, v0.7.0).
 2. **묻기** (§24.4.3, §24.4.4).
 3. **메시지 만들기와 검사.** 만든 커밋 메시지를 프로젝트 hook으로 검사한다. 어긋나면 labgate 버그로 보고 코드 2.
 4. **미리보기** (§24.5.4). 메시지마다 `scripts/apply-human-commits --preview`를 돌려 반영될 변화를 보여 준다.

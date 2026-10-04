@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import datetime
 import io
-import pydoc
 import re
 import shutil
 import sys
@@ -18,6 +17,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from . import commit as commit_module
+from . import pager
 from . import preview as preview_module
 from . import prompts, state
 from . import verify as verify_module
@@ -147,25 +147,29 @@ def _check_ready(project: Project, review: Doc) -> None:
 # ---------------------------------------------------------------- 보여 주기
 
 
-def _render(markdown: str) -> str:
-    """frontmatter를 떼고 터미널용으로 렌더링한다 (터미널이 아니면 색 없이)."""
+def _render(markdown: str, color: Optional[bool] = None) -> str:
+    """frontmatter를 떼고 터미널용으로 렌더링한다. 색은 터미널일 때만(`color`로 정할 수 있다).
+    링크는 터미널 하이퍼링크 코드 대신 글로 보인다 (pager가 그 코드를 해석하지 못할 수 있다)."""
     if markdown.startswith("---\n") and "\n---\n" in markdown[3:]:
         markdown = markdown.split("\n---\n", 1)[1]
     width = min(shutil.get_terminal_size((100, 40)).columns, 100)
     buffer = io.StringIO()
-    Console(file=buffer, width=width, force_terminal=sys.stdout.isatty(), highlight=False).print(Markdown(markdown))
+    color = sys.stdout.isatty() if color is None else color
+    Console(file=buffer, width=width, force_terminal=color, no_color=not color, highlight=False).print(
+        Markdown(markdown, hyperlinks=False))
     return "\n".join(l.rstrip() for l in buffer.getvalue().rstrip().split("\n"))
 
 
 def _show(project: Project, review: Doc) -> str:
     """응답 위의 에이전트 섹션을 렌더링한다. gate면 lg verify 요약을 붙인다."""
     body = re.split(r"^## 응답[ \t]*$", review.text, maxsplit=1, flags=re.M)[0]
-    text = _render(body)
+    text, plain = _render(body), _render(body, color=False)
     if review.fields.get("kind") == "gate":
         lines, _ = verify_module.summary_for_commit(project, review.fields["task"])
         text += "\n\n" + "\n".join(lines)
+        plain += "\n\n" + "\n".join(lines)
     if sys.stdout.isatty() and text.count("\n") > shutil.get_terminal_size((100, 40)).lines - 4:
-        pydoc.pager(text + "\n")  # MANPAGER, PAGER, 없으면 less
+        pager.page(text + "\n", plain + "\n")
         return f"({review.rel} 를 보여 주었습니다)"
     return text + "\n"
 

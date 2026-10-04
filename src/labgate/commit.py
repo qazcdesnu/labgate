@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import pydoc
 import subprocess
 import sys
 import tempfile
@@ -11,7 +10,7 @@ from typing import Optional
 
 import typer
 
-from . import gitops, prompts, state
+from . import gitops, pager, prompts, state
 from . import preview as preview_module
 from .errors import EXIT_ABORT, EXIT_GIT, EXIT_TARGET, EXIT_USAGE, Fail
 from . import verify as verify_module
@@ -259,7 +258,7 @@ def _staged_responses(project: Project) -> list[tuple[str, str]]:
 def _page(text: str) -> None:
     """터미널이면 pager(MANPAGER, PAGER, 없으면 less)로, 아니면 그대로."""
     if sys.stdout.isatty():
-        pydoc.pager(text)
+        pager.page(text, text)
     else:
         typer.echo(text)
 

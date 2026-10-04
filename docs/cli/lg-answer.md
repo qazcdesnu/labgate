@@ -28,7 +28,7 @@ lg answer <결정 ID>          # 예: lg answer D0.1 (게이트와 별개로 결
    - 요청서 말고 stage된 변경이 있다.
    - 요청서가 `open`이 아니다.
    - `reviews/closed/`에 같은 ID가 있다: 남은 사본이므로 지우라고 안내한다(고를 목록에서도 뺀다).
-2. **보여 주기.** 요청서의 에이전트 섹션(`## 응답` 위)을 렌더링한다. 게이트면 `lg verify --task <Task>` 요약과 완료 기준 체크 수를 붙인다. 화면보다 길면 pager(`MANPAGER`, `PAGER`, 없으면 `less`)로 연다.
+2. **보여 주기.** 요청서의 에이전트 섹션(`## 응답` 위)을 렌더링한다. 게이트면 `lg verify --task <Task>` 요약과 완료 기준 체크 수를 붙인다. 화면보다 길면 pager(`MANPAGER`, `PAGER`, 없으면 `less`)로 연다. `less`면 색을 그대로 보여 주고(`-R`을 붙인다), 다른 pager면 색 없는 글을 보낸다.
 3. **묻기.**
    - 게이트:
      1. 판정(approve / revise / redirect)
