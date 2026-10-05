@@ -1320,7 +1320,7 @@ Markdown 표를 읽는 규칙은 정해져 있다(첫 열 값으로 행을 찾�
 |---|---|
 | (없음) | 마지막 `gate/*` tag 이후. tag가 없으면 처음부터 |
 | `--since <커밋>` | 그 커밋 이후 |
-| `--task <Task>` | 그 task에 관련된 커밋: `Task` trailer나 scope가 그 Task인 커밋, `Approve`·`Next`에 그 Task가 있는 커밋, 그 task 카드 파일을 바꾼 커밋, 그 커밋들을 `Applies`로 가리키는 반영 커밋 |
+| `--task <Task>` | 그 task에 관련된 커밋: `Task` trailer나 scope가 그 Task인 커밋, `Approve`·`Next`에 그 Task가 있는 커밋, 그 task 카드 파일을 바꾼 커밋, 그 커밋들을 `Applies`로 가리키는 반영 커밋. V5(지금 상태)는 이 커밋들이 바꾼 문서의 위반만 세고, 나머지는 건수만 알린다 (v0.8.0, 실사용: 다른 task 몫의 기존 위반이 연습용 ideation M1-T4의 완료 기준 "lg verify 위반 없음"을 막았다) |
 | `--all` | 처음부터 |
 
 문서 형식(§23.4.6)은 범위와 상관없이 지금 상태를 본다. 반영 누락(P1)은 검사하지 않는다(`session-check`가 세션마다 알린다).

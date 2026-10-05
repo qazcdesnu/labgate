@@ -1,4 +1,6 @@
 """`lg verify` (설계 문서 §23): 커밋 이력으로 에이전트가 규칙을 지켰는지 사후에 확인한다."""
+import re
+
 import pytest
 
 from labgate.verify import project_rules
@@ -136,6 +138,23 @@ def test_task_scope_and_checklist(project):
     result = verify(project, "--task", "M0-T0")
     assert "task M0-T0, 커밋 3개" in result.output  # 승인, 반영, 착수. init과 무관한 커밋은 제외
     assert "완료 기준: 0/" in result.output
+
+
+def test_task_scope_counts_only_its_documents_for_v5(project):
+    """실사용(연습용 ideation M1-T4): 다른 task 몫의 기존 V5 위반이 이 task의 "lg verify 위반 없음"을 막았다."""
+    project.write("notes/bad.md", "---\ntype: task-card\nid: bad\nstatus: maybe\n---\n")
+    project.human("chore: old notes\n\nActor: human", "notes/bad.md")
+    project.approve_and_start()
+    result = verify(project, "--task", "M0-T0")
+    assert result.exit_code == 0, result.output
+    assert "✓ V5" in result.output and re.search(r"이 task가 바꾸지 않은 문서의 위반 \d+건은 세지 않음", result.output)
+    assert "notes/bad.md: task-card 상태값이 아님" in verify(project, "--all").output
+    # 그 task의 커밋이 바꾼 문서의 위반은 센다
+    project.write("notes/mine.md", "---\ntype: task-card\nid: mine\nstatus: maybe\n---\n")
+    project.agent("task(M0-T0): add notes\n\nActor: agent\nTask: M0-T0", "notes/mine.md")
+    result = verify(project, "--task", "M0-T0")
+    assert "✗ V5" in result.output and "notes/mine.md: task-card 상태값이 아님" in result.output
+    assert "notes/bad.md" not in result.output.split("세지 않음")[0].split("✗ V5")[-1]
 
 
 def test_range_options_are_exclusive(project):

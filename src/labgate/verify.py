@@ -310,8 +310,22 @@ def run_verify(task: Optional[str] = None, since: Optional[str] = None, everythi
         _check_protected(project, c, changes[c.sha], report)
     _check_documents(project, report)
     if task:
+        touched = {path for c in commits for _, old, new in changes[c.sha] for path in (old, new) if path}
+        _scope_documents(report, touched)
         _checklist(project, task, commits, changes, report)
     return report
+
+
+def _scope_documents(report: Report, touched: set[str]) -> None:
+    """`--task`: V5는 그 task의 커밋이 바꾼 문서만 위반으로 본다. 나머지는 건수만 알린다.
+
+    V5는 지금 상태 전체를 보므로, 다른 task 몫의 기존 위반이 이 task의 완료 기준을 막지 않게 한다
+    (실사용: 연습용 ideation M1-T4, 2026-10-06).
+    """
+    outside = [f for f in report.findings if f.rule == "V5" and f.detail.split(": ", 1)[0] not in touched]
+    if outside:
+        report.findings = [f for f in report.findings if f not in outside]
+        report.notices.append(f"V5: 이 task가 바꾸지 않은 문서의 위반 {len(outside)}건은 세지 않음 (lg verify --all로 확인)")
 
 
 def _applies(project: Project, commit: Commit) -> list[str]:
