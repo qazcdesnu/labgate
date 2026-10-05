@@ -9,6 +9,8 @@ import difflib
 import json
 import os
 import re
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from datetime import date
 from importlib.resources import files as package_files
@@ -149,9 +151,15 @@ def _git(root: Path, *args: str) -> str:
 def _check_clean(root: Path) -> None:
     if _git(root, "status", "--porcelain").strip():
         raise Fail(EXIT_USAGE, "✗ 작업 트리가 깨끗하지 않습니다. 먼저 커밋하거나 정리하세요 (git status).")
-    for name in ("COMMIT_MSG", "APPLY_MSG"):
-        if (root / ".lg" / "pending" / name).exists():
-            raise Fail(EXIT_USAGE, f"✗ .lg/pending/{name} 이 있습니다. 대기 중인 커밋을 먼저 끝내세요.")
+    apply_msg = root / ".lg" / "pending" / "APPLY_MSG"
+    script = root / "scripts" / "apply-human-commits"
+    if apply_msg.exists() and script.is_file():
+        # 이미 커밋된 반영의 기록이면 정리한다 (session-check가 세션 시작 때 하는 일과 같다)
+        subprocess.run([sys.executable, str(script), "--tidy"], cwd=root, capture_output=True, text=True)
+    if (root / ".lg" / "pending" / "COMMIT_MSG").exists():
+        raise Fail(EXIT_USAGE, "✗ .lg/pending/COMMIT_MSG 이 있습니다. 사람 커밋 대기 상태입니다. 먼저 lg commit 으로 끝내세요.")
+    if apply_msg.exists():
+        raise Fail(EXIT_USAGE, "✗ .lg/pending/APPLY_MSG 이 있습니다. 에이전트가 반영을 아직 커밋하지 않았습니다. 에이전트 세션에서 먼저 끝내세요.")
 
 
 def _read(root: Path, path: str) -> Optional[str]:

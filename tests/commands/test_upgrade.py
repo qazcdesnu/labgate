@@ -148,3 +148,23 @@ def test_unsupported_source(project, monkeypatch):
 def test_already_latest(project):
     result = project.lg("upgrade")
     assert result.exit_code == 0 and result.output.startswith(f"이미 spec_version {SPEC_VERSION}")
+
+
+def test_committed_apply_record_does_not_block(tmp_path, git_sandbox, old_sources):
+    """실사용(연습용 ideation): 반영은 커밋됐는데 다음 세션 전이라 APPLY_MSG가 남아 있었고, lg upgrade가 대기로 보고 멈췄다."""
+    p = make_old(tmp_path, git_sandbox, old_sources, max(OLDER))
+    p.human("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0")
+    p.commit_apply(p.apply())
+    assert (p / ".lg/pending/APPLY_MSG").exists()
+    result = p.lg("upgrade", "--dry-run")
+    assert result.exit_code == 0, result.output
+    assert not (p / ".lg/pending/APPLY_MSG").exists()
+
+
+def test_uncommitted_apply_still_blocks(tmp_path, git_sandbox, old_sources):
+    p = make_old(tmp_path, git_sandbox, old_sources, max(OLDER))
+    p.human("plan(M0-T0): approve\n\nActor: human\nApprove: M0-T0")
+    p.apply()
+    p.git("stash", "-u")  # 반영 파일은 치워도 기록은 남는다 (작업 트리 검사와 따로 본다)
+    result = p.lg("upgrade")
+    assert result.exit_code == 2 and "반영을 아직 커밋하지 않았습니다" in result.output

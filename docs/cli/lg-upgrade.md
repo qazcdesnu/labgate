@@ -4,7 +4,7 @@
 
 - 누가: 사람. 에이전트는 실행하지 않는다(규칙 파일 수정 금지, `.claude/settings.json`이 막는다).
 - 언제: labgate를 새 마이너 버전으로 업데이트한 뒤, 프로젝트의 규칙도 새 버전으로 올릴 때
-- 전제: labgate 프로젝트 안. 작업 트리가 깨끗하고, 사람 커밋 대기(`.lg/pending/COMMIT_MSG`)나 반영 커밋 대기(`.lg/pending/APPLY_MSG`)가 없다. 출발 spec_version이 릴리즈된 버전이다(dev 버전으로 만든 프로젝트는 지원하지 않음).
+- 전제: labgate 프로젝트 안. 작업 트리가 깨끗하고, 사람 커밋 대기(`.lg/pending/COMMIT_MSG`)나 반영 커밋 대기(`.lg/pending/APPLY_MSG`)가 없다. 반영이 이미 커밋됐는데 기록만 남았으면(다음 세션 전) `scripts/apply-human-commits --tidy`로 정리하고 진행한다. 출발 spec_version이 릴리즈된 버전이다(dev 버전으로 만든 프로젝트는 지원하지 않음).
 
 ## 형식
 
