@@ -71,7 +71,7 @@ commands 계층도 커밋할 때 hook을 거치고, `approve_and_start`처럼 �
 | `commands/test_status.py` | `lg status` | §24.3 |
 | `commands/test_answer.py` | `lg answer` (gate, escalation, 결정 확정, 미리보기 = 실제 반영, 전제, spec_version 4) | §24.4 |
 | `commands/test_spec.py` | `lg spec adopt` | §24.8 |
-| `commands/test_ideation.py` | ideation 흐름: 기준 잠그기, 평가, `lg ideas`, 고르기, brief 확정, `lg init --from` | §26 |
+| `commands/test_ideation.py` | ideation 흐름: 기준·기준선 잠그기, 평가, `lg ideas`, 고르기, brief 확정, `lg init --from`, 7 → 8 갱신 | §26, §27 |
 | `e2e/test_acceptance.py` | §14.3 수용 기준, entry point, 워크트리 | §14.3 |
 
 각 파일 첫 줄 docstring에 대상과 설계 문서 절을 적는다. 설계 문서의 절이 바뀌면 이 표와 docstring을 함께 고친다.

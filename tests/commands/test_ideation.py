@@ -28,13 +28,31 @@ def gate(p, task, extra="", review=None):
     p.commit_apply(p.apply())
 
 
-def write_idea(p, n, title, scores, criteria_commit, status="candidate"):
+def write_idea(p, n, title, scores, head, status="candidate", versus="기준선 + X: 같은 GSM8K 설정에서 +2%p"):
+    """head: 평가 표 머리의 괄호 안 (lg ideas가 보여 주는 것, 예: '기준 abc, 기준선 def')."""
     rows = "".join(f"| {c} | {v} | {e} | 중 |\n" for c, (v, e) in scores.items())
+    vs = f"## 기준선 대비\n\n{versus}\n\n" if versus else ""
     p.write(f"ideas/I{n}_{title}.md",
-            f"---\nid: I{n}\ntype: idea\nspec_version: 7\ntitle: \"{title}\"\nstatus: {status}\norigin: agent\n"
+            f"---\nid: I{n}\ntype: idea\nspec_version: 8\ntitle: \"{title}\"\nstatus: {status}\norigin: agent\n"
             f"merged_into: null\ndecision: null\ncreated: 2026-10-05\nupdated: 2026-10-05\n---\n# I{n}. {title}\n\n"
-            f"## 한 줄 주장\n\n주장\n\n## 평가 (기준 {criteria_commit})\n\n| 기준 | 점수 | 근거 | 확신 |\n|---|---|---|---|\n"
+            f"## 한 줄 주장\n\n주장\n\n{vs}## 평가 ({head})\n\n| 기준 | 점수 | 근거 | 확신 |\n|---|---|---|---|\n"
             f"{rows}\n## 판단 기록\n\n")
+
+
+def set_baseline(p):
+    """에이전트가 기준선 추천을 채운다 (잠기기 전)."""
+    text = p.read("plan/baseline.md")
+    for k, v in (("reference", "shen2025-codi"), ("task", "GSM8K"), ("metric", "accuracy"), ("reported", '"43.7 (Table 2)"')):
+        text = re.sub(rf"^{k}: null$", f"{k}: {v}", text, count=1, flags=re.M)
+    p.write("plan/baseline.md", text)
+    p.agent("propose(M0): baseline recommendation\n\nActor: agent", "plan/baseline.md")
+
+
+def lock_both(p):
+    """M0을 go로 닫는다: 기준(M0-T0 승인)과 기준선(M0의 go)이 함께 잠긴다. 평가 표 머리를 돌려준다."""
+    set_baseline(p)
+    gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
+    return re.search(r"평가 표 머리: ## 평가 \((.+)\)", p.lg("ideas").output).group(1)
 
 
 def scores(c1, rest=3, evidence="`ref1` Table 1"):
@@ -73,7 +91,7 @@ def test_first_gate_locks_criteria(idea_project):
 
 def test_evaluation_before_lock_is_flagged(idea_project):
     p = idea_project
-    write_idea(p, 1, "early", scores(4), "0000000")
+    write_idea(p, 1, "early", scores(4), "기준 0000000")
     p.agent("propose(I1): early idea\n\nActor: agent", "ideas")
     out = p.lg("ideas").output
     assert "기준이 잠기기 전" in out
@@ -83,10 +101,10 @@ def test_evaluation_before_lock_is_flagged(idea_project):
 
 def test_lg_ideas_compares_ranks_and_flags(idea_project):
     p = idea_project
-    gate(p, "M0-T0")
-    current = re.search(r"기준 버전 ([0-9a-f]+)", p.lg("ideas").output).group(1)
-    assert not p.git("log", "-1", "--format=%s", current).startswith("log(M0-T0): apply")
-    assert f"## 평가 (기준 {current})" in p.lg("ideas").output
+    current = lock_both(p)
+    criteria_version = re.search(r"기준 ([0-9a-f]+)", current).group(1)
+    assert not p.git("log", "-1", "--format=%s", criteria_version).startswith("log(M0-T0): apply")
+    assert "기준선: shen2025-codi · GSM8K · accuracy 43.7 (Table 2) (locked)" in p.lg("ideas").output
     write_idea(p, 1, "cost", scores(2, rest=3), current)
     write_idea(p, 2, "expressivity", scores(5, rest=4), current)
     write_idea(p, 3, "scooped", scores(1, rest=5), current)            # C1 결격
@@ -110,6 +128,32 @@ def test_lg_ideas_compares_ranks_and_flags(idea_project):
     assert out.count("기준 변경 전의 평가") == 4
 
 
+def test_ideas_need_locked_baseline_and_versus_section(idea_project):
+    """§27: 모든 후보는 잠근 기준선 하나와 비교한다. 기준선 대비가 없거나 기준선이 잠기기 전이면 순위에서 뺀다."""
+    p = idea_project
+    head = lock_both(p)
+    write_idea(p, 1, "ok", scores(4), head)
+    write_idea(p, 2, "scattered", scores(5), head, versus=None)          # 기준선 대비 없음
+    write_idea(p, 3, "oldheader", scores(5), head.split(",")[0])          # 기준선 버전 없음
+    p.agent("propose(M1): evaluate\n\nActor: agent", "ideas")
+    out = p.lg("ideas").output
+    rows = {l.split()[0]: l for l in out.splitlines() if re.match(r"^  I\d", l)}
+    assert rows["I1"].rstrip().endswith(" 1") and not rows["I2"].rstrip().endswith(("1", "2"))
+    assert "I2: 기준선 대비 절 없음" in out and "I3: 평가 표 머리에 기준선 버전이 없음" in out
+    # 잠긴 기준선을 에이전트가 고치면 V4
+    p.write("plan/baseline.md", p.read("plan/baseline.md").replace("task: GSM8K", "task: MATH"))
+    p.agent("chore: switch baseline task\n\nActor: agent", "plan/baseline.md")
+    result = p.lg("verify")
+    assert "✗ V4" in result.output and "plan/baseline.md" in result.output
+
+
+def test_baseline_before_lock_is_agents_to_draft(idea_project):
+    """잠기기 전에는 에이전트가 기준선 추천을 써도 위반이 아니다."""
+    p = idea_project
+    set_baseline(p)
+    assert "✓ V4" in p.lg("verify", "--all").output
+
+
 def test_agent_cannot_lock_or_edit_criteria(idea_project):
     p = idea_project
     p.set_status(CRITERIA, "locked")
@@ -127,14 +171,13 @@ def fill_brief(p, refs=("ref1",)):
     text = text.replace("question: null", 'question: "표현력이 정확도를 정하는가?"').replace("summary: null", 'summary: "표현력 연구"')
     text = text.replace("milestones: []", 'milestones: ["기준선 재현", "표현력 사다리"]')
     text = text.replace("selected: []", "selected: [I2]").replace("dropped: []", "dropped: [I1]")
-    text = text.replace("references: []", f"references: [{', '.join(refs)}]")
+    text = text.replace("references: []", f"references: [{', '.join(refs)}]").replace("baseline: null", "baseline: ref1")
     p.write("brief.md", text)
 
 
 def test_last_gate_selects_drops_and_confirms_brief(idea_project, keys):
     p = idea_project
-    gate(p, "M0-T0")
-    current = re.search(r"기준 버전 ([0-9a-f]+)", p.lg("ideas").output).group(1)
+    current = lock_both(p)
     write_idea(p, 1, "cost", scores(2), current)
     write_idea(p, 2, "expressivity", scores(5, rest=4), current)
     p.write("ideas/index.md", p.read("ideas/index.md") + "| `I1` | cost | candidate | agent | [I1](I1_cost.md) |\n"
@@ -169,7 +212,7 @@ def confirmed(idea_project):
     p = idea_project
     p.write("references/library/ref1.pdf", "pdf")
     p.write("references/catalog.md", p.read("references/catalog.md") + "| `ref1` | 제목 | 저자 | 2026 | [pdf](library/ref1.pdf) | M0 | 요약 |\n")
-    write_idea(p, 2, "expressivity", scores(5, rest=4), "0000000", status="selected")
+    write_idea(p, 2, "expressivity", scores(5, rest=4), "기준 0000000", status="selected")
     fill_brief(p)
     p.set_status("brief.md", "confirmed")
     p.human("chore: ideation result\n\nActor: human", all=True, no_verify=True)  # 흐름은 위 테스트에서 확인
@@ -189,7 +232,8 @@ def test_init_from_carries_direction(tmp_path, confirmed):
     assert "출발: ideation 프로젝트" in (target / "README.md").read_text(encoding="utf-8")
     assert "notes/ideation-brief.md" in (target / "plan/milestones/M0/tasks/M0-T0.md").read_text(encoding="utf-8")
     assert (target / "notes/ideation-brief.md").exists() and (target / "notes/ideation/I2_expressivity.md").exists()
-    assert (target / "references/library/ref1.pdf").exists()
+    assert (target / "references/library/ref1.pdf").exists() and (target / "notes/ideation-baseline.md").exists()
+    assert "기준선 연구(`notes/ideation-baseline.md`" in (target / "plan/milestones/M0/tasks/M0-T0.md").read_text(encoding="utf-8")
     assert "| `ref1` | 제목 |" in (target / "references/catalog.md").read_text(encoding="utf-8")
     import subprocess
     staged = subprocess.run(["git", "diff", "--cached", "--name-only"], cwd=target, capture_output=True, text=True).stdout
@@ -219,3 +263,18 @@ def test_brief_is_confirmed_only_at_last_milestone(idea_project):
     gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
     assert p.status("plan/milestones/M0/milestone.md") == "closed"
     assert p.status("brief.md") == "draft"
+
+
+def test_upgrade_adds_baseline_to_spec7_ideation(idea_project):
+    """§27: spec_version 7로 만든 ideation 프로젝트를 올리면 plan/baseline.md가 새로 생긴다 (연구 문서지만 이 버전에서 생긴 것)."""
+    p = idea_project
+    p.run("git", "rm", "-q", "plan/baseline.md", "specs/doc-types/baseline.spec.md")
+    data = p.yaml()
+    data["generated"]["spec_version"] = 7
+    p.write(".lg/project.yaml", yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+    p.human("chore: pretend spec 7\n\nActor: human", all=True, no_verify=True)
+    from labgate import upgrade
+    plan_new = upgrade.NEW_RESEARCH_DOCS[8]
+    assert plan_new == ("plan/baseline.md",)
+    result = p.lg("upgrade", "--dry-run")
+    assert "plan/baseline.md" in result.output

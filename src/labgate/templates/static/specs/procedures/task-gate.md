@@ -1,7 +1,7 @@
 ---
 id: task-gate
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 게이트 요청
 

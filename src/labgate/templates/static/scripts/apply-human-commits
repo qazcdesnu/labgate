@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 7).
+"""labgate 사람 커밋 반영 도구 (spec_version 8).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -311,10 +311,20 @@ def set_frontmatter(text, key, value, rel):
     return text[:start] + head + text[end:]
 
 
+def milestone_ids():
+    return sorted((p.name for p in (ROOT / "plan" / "milestones").glob("M*") if re.fullmatch(r"M\d+", p.name)),
+                  key=lambda m: int(m[1:]))
+
+
+def first_milestone():
+    ids = milestone_ids()
+    return ids[0] if ids else None
+
+
 def last_milestone():
     """plan/milestones/ 아래 번호가 가장 큰 마일스톤 ID."""
-    ids = [p.name for p in (ROOT / "plan" / "milestones").glob("M*") if re.fullmatch(r"M\d+", p.name)]
-    return max(ids, key=lambda m: int(m[1:])) if ids else None
+    ids = milestone_ids()
+    return ids[-1] if ids else None
 
 
 def confirmed_contents(body, review_text, decisions):
@@ -367,6 +377,10 @@ def plan_for(sha, ctype, scope, trailers, today, body=""):
         if mv:
             plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
             plan.set_field(f"plan/milestones/{milestone}/milestone.md", "go_nogo", mv)
+            if mv == "go" and (ROOT / "plan/baseline.md").is_file() and milestone == first_milestone():
+                # ideation: 첫 마일스톤의 go가 기준선을 잠근다 (§27)
+                if plan.transition("plan/baseline.md", "기준선 잠금", {"draft"}, "locked", {"locked"}):
+                    plan.set_field("plan/baseline.md", "locked_commit", f"'{short}'")
             if mv == "go" and (ROOT / "brief.md").is_file() and milestone == last_milestone():
                 # ideation: 마지막 마일스톤의 go가 방향을 확정한다 (§26)
                 plan.transition("brief.md", "방향 확정", {"draft"}, "confirmed", {"confirmed"})

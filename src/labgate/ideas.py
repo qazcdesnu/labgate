@@ -16,7 +16,8 @@ from .project import Project, find_project
 from .verify import frontmatter_fields, section
 
 CRITERIA = "plan/criteria.md"
-EVAL_HEADING = re.compile(r"^## 평가(?: \(기준 ([0-9a-f]{7,40})\))?[ \t]*$", re.M)
+BASELINE = "plan/baseline.md"
+EVAL_HEADING = re.compile(r"^## 평가(?: \(기준 ([0-9a-f]{7,40})(?:, 기준선 ([0-9a-f]{7,40}))?\))?[ \t]*$", re.M)
 HUMAN_SCORE = "(사람)"
 
 
@@ -88,15 +89,15 @@ def parse_evaluation(text: str) -> tuple[bool, Optional[str], dict[str, Score]]:
 LOCK_LINE = re.compile(r"^(status|locked_commit|updated):.*$", re.M)
 
 
-def criteria_version(project: Project) -> Optional[str]:
-    """기준 버전: 기준 **내용**을 마지막으로 바꾼 커밋. 잠금 반영처럼 `status`·`locked_commit`·`updated`만
-    바꾼 커밋은 건너뛴다 (그래야 잠가도 버전이 바뀌지 않는다)."""
-    log = gitops.run(["log", "--format=%h", "--", CRITERIA], cwd=project.root)
+def criteria_version(project: Project, path: str = CRITERIA) -> Optional[str]:
+    """문서 버전: **내용**을 마지막으로 바꾼 커밋. 잠금 반영처럼 `status`·`locked_commit`·`updated`만
+    바꾼 커밋은 건너뛴다 (그래야 잠가도 버전이 바뀌지 않는다). 평가 기준과 기준선이 쓴다."""
+    log = gitops.run(["log", "--format=%h", "--", path], cwd=project.root)
     if log.returncode != 0:
         return None
     for sha in log.stdout.split():
-        after = gitops.run(["show", f"{sha}:{CRITERIA}"], cwd=project.root)
-        before = gitops.run(["show", f"{sha}^:{CRITERIA}"], cwd=project.root)
+        after = gitops.run(["show", f"{sha}:{path}"], cwd=project.root)
+        before = gitops.run(["show", f"{sha}^:{path}"], cwd=project.root)
         if before.returncode != 0 or LOCK_LINE.sub("", before.stdout) != LOCK_LINE.sub("", after.stdout):
             return sha
     return None
@@ -109,6 +110,48 @@ def criteria_state(project: Project) -> tuple[Optional[str], list[Criterion], Op
         return None, [], None
     text = path.read_text(encoding="utf-8")
     return frontmatter_fields(text).get("status"), parse_criteria(text), criteria_version(project)
+
+
+@dataclass
+class Baseline:
+    status: str
+    reference: str
+    task: str
+    metric: str
+    reported: str
+    version: Optional[str]
+
+
+def baseline_state(project: Project) -> Optional[Baseline]:
+    """기준선 문서(§27). spec_version 7 ideation 프로젝트처럼 없으면 None (검사하지 않는다)."""
+    path = project.root / BASELINE
+    if not path.is_file():
+        return None
+    f = frontmatter_fields(path.read_text(encoding="utf-8"))
+    value = lambda k: "" if f.get(k) in (None, "null") else f.get(k, "")  # noqa: E731
+    return Baseline(f.get("status", ""), value("reference"), value("task"), value("metric"), value("reported"),
+                    criteria_version(project, BASELINE))
+
+
+def baseline_issues(baseline: Optional[Baseline], text: str) -> list[str]:
+    """후보의 평가가 잠근 기준선을 따르나: 기준선 대비 절, 잠금, 기준선 버전 (§27)."""
+    if baseline is None:
+        return []
+    m = EVAL_HEADING.search(text)
+    if not m:
+        return []
+    issues = []
+    if not section(text, "기준선 대비").strip():
+        issues.append("기준선 대비 절 없음 (기준선 + X로 쓸 수 없으면 이 방향의 범위 밖)")
+    if baseline.status != "locked":
+        issues.append("기준선이 잠기기 전의 평가")
+    else:
+        written = m.group(2)
+        if not written:
+            issues.append("평가 표 머리에 기준선 버전이 없음")
+        elif baseline.version and not (baseline.version.startswith(written) or written.startswith(baseline.version)):
+            issues.append(f"기준선 변경 전의 평가 (기준선 {written}, 지금 {baseline.version}): 다시 써야 한다")
+    return issues
 
 
 def evaluation_issues(criteria: list[Criterion], locked: bool, current: Optional[str],
@@ -141,8 +184,12 @@ def evaluation_issues(criteria: list[Criterion], locked: bool, current: Optional
     return issues
 
 
+BLOCKING = ("기준이 잠기기", "기준 변경 전", "기준선 대비 절 없음", "기준선이 잠기기", "기준선 변경 전", "평가 표 머리에 기준선")
+
+
 def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row], Optional[str]]:
     status, criteria, current = criteria_state(project)
+    baseline = baseline_state(project)
     if status is None:
         raise Fail(EXIT_USAGE, "✗ plan/criteria.md 가 없습니다. ideation 프로젝트(lg init --kind ideation)에서 씁니다.")
     rows = []
@@ -153,9 +200,10 @@ def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row]
         row = Row(fields.get("id") or path.stem.split("_")[0], fields.get("title", ""), fields.get("status", ""),
                   scores, commit)
         if has_eval:
-            row.issues = evaluation_issues(criteria, status == "locked", current, commit, scores)
+            row.issues = evaluation_issues(criteria, status == "locked", current, commit, scores) \
+                + baseline_issues(baseline, text)
             agent_scores = {c.id: scores[c.id].value for c in criteria if c.id in scores}
-            if not any(i.startswith(("기준이 잠기기", "기준 변경 전")) for i in row.issues):  # 무효한 평가는 순위에 넣지 않는다
+            if not any(i.startswith(BLOCKING) for i in row.issues):  # 무효한 평가는 순위에 넣지 않는다
                 row.knocked_out = [c.id for c in criteria if c.knockout and agent_scores.get(c.id) == 1]
                 valid = [c for c in criteria if agent_scores.get(c.id) is not None
                          and (c.human or scores[c.id].evidence.strip())]
@@ -166,10 +214,18 @@ def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row]
     return status, criteria, rows, current
 
 
-def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], version: Optional[str] = None) -> str:
+def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], version: Optional[str] = None,
+           baseline: Optional[Baseline] = None) -> str:
     lines = [f"평가 기준: plan/criteria.md ({status}) · 기준 버전 {version or '없음'} · 후보 {len(rows)}개"]
+    if baseline is not None:
+        what = " · ".join(x for x in (baseline.reference, baseline.task, f"{baseline.metric} {baseline.reported}".strip()) if x)
+        lines.append(f"기준선: {what or '(아직 정하지 않음)'} ({baseline.status}) · 기준선 버전 {baseline.version or '없음'}")
+        if baseline.status != "locked":
+            lines.append("  ! 기준선이 잠기기 전입니다. 첫 마일스톤의 마지막 게이트(go)에서 확정하면 잠기고, 그 뒤에 평가합니다.")
     if status == "locked" and version:
-        lines.append(f"  평가 표 머리: ## 평가 (기준 {version})")
+        head = f"기준 {version}" + (f", 기준선 {baseline.version}" if baseline is not None and baseline.version else "")
+        if baseline is None or baseline.status == "locked":
+            lines.append(f"  평가 표 머리: ## 평가 ({head})")
     if status != "locked":
         lines.append("  ! 기준이 잠기기 전입니다. 첫 T0 게이트에서 사람이 확정하면 잠기고, 그 뒤에 평가합니다.")
     if not rows:
@@ -195,6 +251,8 @@ def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], ve
     fmt = lambda cells: "  " + "  ".join(str(c).ljust(w) for c, w in zip(cells, widths)).rstrip()  # noqa: E731
     lines += ["", fmt(head)] + [fmt(c) for c in table]
     lines += ["", "평균: 근거가 있는 점수의 가중 평균. 결격: 결격이 있는 기준에서 1점. !: 근거 없는 점수(무효), ?: 확신 하, ·: 아직 없음"]
+    if baseline is not None:
+        lines.append("모든 후보는 위 기준선 하나와 비교한다 (후보 문서의 ## 기준선 대비).")
     notes = [f"  {r.id}: {i}" for r in rows for i in r.issues]
     if notes:
         lines += ["", "확인할 것:"] + notes
@@ -205,7 +263,9 @@ def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], ve
 def run_ideas(as_json: bool = False, cwd: Optional[Path] = None) -> str:
     project = find_project(cwd)
     status, criteria, rows, version = compare(project)
+    baseline = baseline_state(project)
     if as_json:
-        return json.dumps({"criteria_status": status, "criteria_version": version, "criteria": [asdict(c) for c in criteria],
+        return json.dumps({"criteria_status": status, "criteria_version": version,
+                           "baseline": asdict(baseline) if baseline else None, "criteria": [asdict(c) for c in criteria],
                            "ideas": [asdict(r) for r in rows]}, ensure_ascii=False, indent=2)
-    return render(status, criteria, rows, version)
+    return render(status, criteria, rows, version, baseline)

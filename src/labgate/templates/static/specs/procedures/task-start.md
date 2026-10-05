@@ -1,7 +1,7 @@
 ---
 id: task-start
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # Task 착수
 

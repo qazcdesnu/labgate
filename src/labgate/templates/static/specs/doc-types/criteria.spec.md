@@ -1,7 +1,7 @@
 ---
 id: criteria
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 평가 기준 사양
@@ -20,7 +20,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | `criteria` |
 | `type` | ✓ | `criteria` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `status` | ✓ | `draft` \| `locked` |
 | `locked_commit` | ✓ | 잠근 사람 커밋의 해시 또는 `null` |
 | `updated` | ✓ | 날짜 |

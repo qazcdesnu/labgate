@@ -27,7 +27,11 @@ from .plan import build_plan
 
 # n → n+1에서 기본 갱신(관리 문서 교체, 문서 spec_version 갱신, .gitignore 관리 구역) 외에 할 일 (§22.6).
 # 기본 갱신으로 충분한 단계도 등록해, 등록되지 않은 단계(출발할 수 없는 버전)를 구분한다.
-MIGRATIONS: dict[int, tuple] = {2: (), 3: (), 4: (), 5: (), 6: ()}
+MIGRATIONS: dict[int, tuple] = {2: (), 3: (), 4: (), 5: (), 6: (), 7: ()}
+
+# n번 spec_version에서 새로 생긴 연구 문서. 갱신할 때 그 종류의 프로젝트에 없으면 새로 만든다 (§27).
+# 연구 문서는 사람이 지웠을 수도 있으므로 여기 적은 것만 만든다.
+NEW_RESEARCH_DOCS: dict[int, tuple[str, ...]] = {8: ("plan/baseline.md",)}
 
 SPEC_LINE = re.compile(r"^spec_version:(.*)$", re.M)
 EXACT_VALUE = re.compile(r"^ (\d+)$")
@@ -90,6 +94,7 @@ def run_upgrade(dry_run: bool, force: bool, cwd: Optional[Path] = None, diff: bo
     _plan_managed(plan, hashes, new, var, force)
     _plan_gitignore(plan, hashes, new)
     _plan_versions(plan, tracked)
+    _plan_new_research(plan, new, tracked)
     _plan_filemap(plan, hashes, new)
     if plan.errors:
         raise Fail(EXIT_USAGE, "✗ 갱신할 수 없습니다:\n" + "\n".join(f"  - {e}" for e in plan.errors))
@@ -236,6 +241,15 @@ def _plan_gitignore(plan: UpgradePlan, hashes: dict, new: dict) -> None:
         where = "관리 구역 아래에 남겼습니다" if legacy else "관리 구역 밖(아래)으로 옮겼습니다"
         plan.notices.append(f".gitignore: labgate가 만들지 않은 줄 {len(human)}개를 {where}: " + ", ".join(human[:5])
                             + (" …" if len(human) > 5 else ""))
+
+
+def _plan_new_research(plan: UpgradePlan, new: dict, tracked: set[str]) -> None:
+    """이번 갱신 사이에 새로 생긴 연구 문서 중 이 프로젝트 종류가 만드는 것 (예: 8의 plan/baseline.md)."""
+    for version in range(plan.source + 1, SPEC_VERSION + 1):
+        for path in NEW_RESEARCH_DOCS.get(version, ()):
+            if path in new and path not in tracked and not (plan.root / path).exists():
+                plan.writes[path], plan.modes[path] = new[path].content, new[path].mode
+                plan.added.append(path)
 
 
 def _plan_versions(plan: UpgradePlan, tracked: set[str]) -> None:

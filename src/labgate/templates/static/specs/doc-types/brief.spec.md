@@ -1,7 +1,7 @@
 ---
 id: brief
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 방향 확정 문서 사양
@@ -20,7 +20,7 @@ ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽�
 |---|---|---|
 | `id` | ✓ | `brief` |
 | `type` | ✓ | `brief` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `status` | ✓ | `draft` \| `confirmed` |
 | `kind` | ✓ | 넘길 실행 프로젝트의 종류: `research` \| `proposal` |
 | `question` | ✓ | 확정 질문 (실행 프로젝트의 `research_question`) |
@@ -31,6 +31,7 @@ ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽�
 | `references` | ✓ | 넘길 참고문헌 ID 목록 |
 | `decision` | ✓ | 방향을 정한 결정 ID |
 | `criteria_commit` | ✓ | 평가에 쓴 기준을 잠근 커밋 |
+| `baseline` | ✓ | 기준선 논문의 참고문헌 ID (`plan/baseline.md`의 `reference`). 실행 프로젝트로 넘어가 첫 task가 그 재현이 된다 |
 | `updated` | ✓ | 날짜 |
 
 ## 4. 본문 구조

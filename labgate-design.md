@@ -1,6 +1,6 @@
-# `labgate` CLI 설계 문서 — v7 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, `lg spec`, `lg ideas`, 프로젝트 도구)
+# `labgate` CLI 설계 문서 — v8 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, `lg spec`, `lg ideas`, 프로젝트 도구)
 
-> 문서 버전: 7.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 8.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`, `lg commit`, `lg draft`를 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B·C에 있다.
 
 변경 이력은 `git log -- labgate-design.md`로 본다.
@@ -12,7 +12,7 @@
 - §1–3: 무엇을 왜 만드는가 (범위, 확정된 결정, 용어)
 - §4–13: `lg init`을 어떻게 만드는가 (명령, 설정, 생성 결과, 모듈, Git, hook, 오류)
 - §14–15: 무엇으로 완성을 판단하는가 (테스트, 수용 기준), 이후 확장
-- §16–26: v2–v7 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`·`lg spec adopt`, 프로젝트 종류(`--kind`)와 자료 가져오기, 아이디어 탐색(`--kind ideation`, `--from`, `lg ideas`)
+- §16–27: v2–v8 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`·`lg spec adopt`, 프로젝트 종류(`--kind`)와 자료 가져오기, 아이디어 탐색(`--kind ideation`, `--from`, `lg ideas`), 기준선 연구
 - 부록 A: 프로젝트 루트·계획·참고문헌 등 생성 문서 템플릿 원문
 - 부록 B: `specs/` 문서 원문 (완성 사양 5종, stub 생성 규칙, 양식, 절차 문서 8종)
 - 부록 C: commit-msg hook, agent-commit, session-check, apply-human-commits 스크립트 원문
@@ -2122,6 +2122,72 @@ lg init PATH --from IDEATION_PATH [--kind research|proposal] [--config FILE] [--
 - 이미 진행 중인 프로젝트(`ssm-latent-reasoning`, `-v2`, KZ)는 바뀌지 않는다. `lg upgrade`로 7로 올려도 §26.9의 반영 도구 개선만 달라진다.
 - 다음 논문 아이디어를 찾을 때 `--kind ideation`으로 시작하고, 방향이 정해지면 `--from`으로 연구 프로젝트를 만든다. 방향이 이미 정해진 일(KZ 제안서 등)은 지금처럼 바로 만든다.
 
+## 27. ideation 기준선 연구 (`plan/baseline.md`)
+
+v0.8.0, spec_version 8.
+
+### 27.1 목적
+
+ideation의 모든 후보를 **기준선 연구 하나**와 비교하게 한다. 후보는 "기준선 + 무엇을 바꾸면, 같은 과제·지표·설정에서 무엇이 얼마나 좋아지나"로 쓴다.
+
+실사용(연습용 ideation 프로젝트, 2026-10-05): v0.7.0으로 후보 8개를 평가하니 후보마다 기준선·과제·backbone이 달랐다.
+
+| 후보 | 기준선 | 과제 | backbone |
+|---|---|---|---|
+| I1, I7 | Coconut·CODI | GSM8K | GPT-2 |
+| I6 | CoT·CODI·LOTUS | GSM8K | Llama-3.2-3B |
+| I8 | RecurTrace | MathQA | Qwen3 |
+
+후보들이 같은 질문에 대한 다른 답이 아니라 서로 다른 논문 계획이 되어 "중구난방"으로 보였다. 가까운 선행 연구와의 차이(새로움)는 정리되었지만, 성능 비교의 기준점이 없었다.
+
+### 27.2 기준선 문서
+
+`plan/baseline.md`(ideation에 생성, 사양 `baseline.spec.md`, 부록 A.18, B.15).
+
+- **frontmatter:** `status`(`draft` | `locked`), `locked_commit`, `reference`(참고문헌 ID), `task`, `metric`, `reported`.
+- **본문:**
+  - 선정한 기준선: 논문, 과제, 지표와 수치, 설정, 공개 코드, 재현 비용
+  - 선정 규칙: 최신성, 목표 학회에서 비교 대상으로 쓰이나, 재현 가능성, 하나만
+  - 후보 기준선 비교 표
+  - 선정 이유
+
+### 27.3 정하고 잠그기
+
+- **작성:** 첫 마일스톤(지형 파악)에서 에이전트가 후보 기준선 2–4개를 비교하고 추천을 채운다. 잠기기 전에는 에이전트가 고칠 수 있다.
+- **잠금:** 사람은 추천을 보고 다르면 고쳐 커밋하고, 첫 마일스톤의 마지막 게이트를 `Milestone-Verdict: go`로 판정한다. 반영 도구가 `draft → locked`와 `locked_commit`을 채운다(`first_milestone()`).
+- **시점:** 평가 기준(첫 T0 게이트)보다 늦은 이유는 최신 기준선을 고르려면 지형 조사가 필요해서다. 후보 평가(다음 마일스톤)보다는 앞이다.
+- **잠근 뒤:** 사람의 `plan` 커밋으로만 바꾼다. G4에 기준선 `draft → locked`, G7에 "잠긴 `plan/baseline.md`"를 더했다.
+  - `lg verify` V4: 잠기기 전의 에이전트 수정은 허용하고, 잠긴 뒤의 수정은 위반이다(잠금 반영의 `status`·`locked_commit`·`updated`는 예외).
+  - V2: 잠금 전이의 근거는 첫 마일스톤의 go다.
+
+### 27.4 후보와 평가
+
+- **기준선 대비:** idea 사양에 `## 기준선 대비` 절을 더했다(한 줄 "기준선 + X", 같은 설정인가, 예상 효과와 반증, 추가 비용). 기준선 대비로 쓸 수 없는 후보는 이 방향의 범위 밖이다.
+- **평가 표 머리:** `## 평가 (기준 <기준 버전>, 기준선 <기준선 버전>)`. 기준선 버전도 내용을 마지막으로 바꾼 커밋이다(잠금만 바꾼 커밋은 세지 않음, `criteria_version(project, path)`).
+- **`lg ideas`:** 기준선(참고문헌, 과제, 지표와 수치, 상태, 버전)과 평가 표 머리에 쓸 줄을 보여 준다. 순위에서 빼는 것:
+  - 기준선 대비 절이 없는 후보
+  - 기준선이 잠기기 전의 평가
+  - 평가 표 머리에 기준선 버전이 없거나 다른 평가
+- **`lg verify` V5:** 같은 검사를 한다(`ideas.baseline_issues`).
+- **spec_version 7 ideation:** 기준선 문서가 없으면 이 검사를 하지 않는다.
+
+### 27.5 넘기기와 갱신
+
+- **넘기기:** `brief.md`에 `baseline`(참고문헌 ID)을 더했다. `lg init --from`은 다음을 한다.
+  - 기준선 문서를 `notes/ideation-baseline.md`로 옮긴다.
+  - 기준선 논문을 넘길 참고문헌에 더한다.
+  - 새 프로젝트의 M0-T0 카드가 "기준선 재현을 첫 task로, 모든 실험은 같은 과제·지표·설정에서 비교"를 담는다.
+- **`lg upgrade` 7 → 8:** 연구 문서는 원래 새로 만들지 않는다. 다만 이 버전에서 생긴 연구 문서(`NEW_RESEARCH_DOCS[8] = ("plan/baseline.md",)`)는 그 종류(ideation)의 프로젝트에 없으면 새로 만든다.
+
+### 27.6 결정된 사항
+
+| 질문 | 결정 | 이유 |
+|---|---|---|
+| 기준선 개수 | 정확히 하나 | 비교 상대가 여럿이면 다시 흩어진다. 보조 비교는 후보 안에서 |
+| 잠그는 시점 | 첫 마일스톤의 마지막 게이트(go) | 지형 조사 뒤, 후보 평가 전 |
+| 기준선 대비가 없는 후보 | 평가하지 않고 표시 | 결격 점수보다 "범위 밖"을 드러내는 편이 정확하다 |
+| 버전 | v0.8.0 (spec_version 8) | 생성 파일이 바뀌므로 패치가 될 수 없다(§22.2.2). 사용자가 v0.7.1을 원했으나 규칙대로 마이너로 정했다. 규칙(패치 = `lg upgrade` 불필요)은 1.0 이후에 다시 본다 |
+
 ---
 
 # 부록 A. 생성 문서 템플릿
@@ -2152,8 +2218,9 @@ lg init PATH --from IDEATION_PATH [--kind research|proposal] [--config FILE] [--
 5. [specs/workflow.md](specs/workflow.md): 작업 절차와 승인 게이트
 {% if ideation %}
 6. [plan/criteria.md](plan/criteria.md): 후보 평가 기준 (첫 게이트에서 사람이 확정하고 잠근다)
-7. [ideas/index.md](ideas/index.md): 아이디어 후보 목록
-8. [brief.md](brief.md): 방향 확정 문서 (마지막 게이트에서 확정)
+7. [plan/baseline.md](plan/baseline.md): 모든 후보가 비교할 기준선 연구 하나 (첫 마일스톤의 마지막 게이트에서 잠근다)
+8. [ideas/index.md](ideas/index.md): 아이디어 후보 목록
+9. [brief.md](brief.md): 방향 확정 문서 (마지막 게이트에서 확정)
 {% endif %}
 
 ## 사람이 하는 일
@@ -2291,10 +2358,10 @@ updated: {{ today }}
 - **G1.** 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
 - **G2.** 자기가 바꾼 파일만 경로를 지정해 stage한다(`git add -A`, `git add .`, `git add -u` 금지). 사람의 변경은 stage하지 않고, 사람의 변경이 있는 파일은 고치지 않는다. 그런 파일을 고쳐야 하면 먼저 사람에게 커밋을 요청한다.
 - **G3.** 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)에서는 커밋하지 않는다.
-- **G4.** 사람 몫의 상태 전이를 하지 않는다: task `draft → approved`, `in-review → closed | revise | redirected`, 결정 `→ confirmed`, 마일스톤 `planned → active → closed`{% if ideation %}, 후보 `→ selected | dropped`, 평가 기준 `draft → locked`, 방향 확정 문서 `→ confirmed`{% endif %}.
+- **G4.** 사람 몫의 상태 전이를 하지 않는다: task `draft → approved`, `in-review → closed | revise | redirected`, 결정 `→ confirmed`, 마일스톤 `planned → active → closed`{% if ideation %}, 후보 `→ selected | dropped`, 평가 기준·기준선 `draft → locked`, 방향 확정 문서 `→ confirmed`{% endif %}.
 - **G5.** review 문서의 `## 응답` 섹션을 쓰지 않는다.
 - **G6.** `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준을 바꾸지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
-- **G7.** `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/`{% if ideation %}, `plan/criteria.md`{% endif %}를 고치지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
+- **G7.** `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/`{% if ideation %}, `plan/criteria.md`, 잠긴 `plan/baseline.md`{% endif %}를 고치지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
 - **G8.** 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 실험 격리용으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
 - **G9.** 승인된 task의 범위와 자원 예산 안에서만 일한다. [specs/workflow.md](specs/workflow.md) §7.1의 경우에는 멈추고 에스컬레이션한다(절차 `escalate`).
 - **G10.** 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
@@ -2530,7 +2597,7 @@ updated: {{ today }}
 {% if ideation %}
 ## 후보와 평가 기준
 
-후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서 사람이 확정하고 잠근다. 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
+후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md), 기준선 연구는 [baseline.md](baseline.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서, 기준선은 {{ milestones[0].id }}의 마지막 게이트(go)에서 사람이 확정하고 잠근다. 모든 후보는 기준선 하나와 비교한다("기준선 + X"). 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
 {% else %}
 ## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 
@@ -2594,7 +2661,7 @@ updated: {{ today }}
 ## Go / No-go 기준
 
 {% if ideation %}
-> 마일스톤 판정: go = 다음 단계로(마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
+> 마일스톤 판정: go = 다음 단계로(첫 마일스톤이면 기준선 `plan/baseline.md` 잠금, 마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
 
 {% elif proposal %}
 > 마일스톤 판정: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단.
@@ -2637,7 +2704,7 @@ updated: {{ today }}
 {% if ideation and prev is none %}
 탐색 주제의 지형(가까운 문헌, 열린 문제, 최근 동향)을 파악할 계획을 세우고, 후보를 만드는 task로 나눈다. 평가 기준(`plan/criteria.md`)에 고칠 점을 제안해, 사람이 이 게이트에서 기준을 확정하고 잠글 수 있게 한다. 후보는 기준을 잠근 뒤에 평가한다.
 {% elif ideation %}
-{{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 잠근 기준으로 모든 후보를 평가하고, 방향을 고르고, 방향 확정 문서(`brief.md`)를 쓰는 task로 나눈다.
+{{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 후보마다 잠근 기준선 대비(`## 기준선 대비`)를 쓰고, 잠근 기준으로 모든 후보를 평가하고, 방향을 고르고, 방향 확정 문서(`brief.md`)를 쓰는 task로 나눈다.
 {% elif proposal %}
 {{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 필요한 자료(고객 자료, 공개 자료, 사례)를 정리하고, 마일스톤을 task로 분해하고, task와 자료를 연결한다.
 {% else %}
@@ -2655,9 +2722,11 @@ updated: {{ today }}
 {% if ideation and prev is none %}
 - 평가 기준 조정 제안을 `notes/criteria-proposal.md`에 작성 (기준 문서 `plan/criteria.md`는 사람이 고치고 이 게이트에서 잠근다. 고칠 점이 없으면 그렇게 적는다)
 - `notes/`의 아이디어 메모를 후보로 옮긴다: `ideas/I<n>_<slug>.md` (`status: candidate`, [idea 사양](../../../../specs/doc-types/idea.spec.md)), `ideas/index.md`
+- 이 마일스톤 task에 "기준선 후보 조사와 추천"(`plan/baseline.md`, [사양](../../../../specs/doc-types/baseline.spec.md))을 넣는다. 선정과 잠금은 사람이 이 마일스톤의 마지막 게이트에서 한다
 {% endif %}
 {% if origin and prev is none %}
 - `notes/ideation-brief.md`(ideation에서 확정한 방향)를 출발점으로 삼는다. 거기 적힌 질문·가설·근거를 검증하고 다듬는 task로 나누며, 처음부터 다시 조사하지 않는다
+- 기준선 연구(`notes/ideation-baseline.md`, ideation에서 잠근 것)의 재현을 첫 task로 둔다. 모든 실험은 이 기준선과 같은 과제·지표·설정에서 비교한다
 {% endif %}
 {% if prev is none and not ideation %}
 - `notes/`의 기존 계획 자료를 `plan/roadmap.md`, 각 `milestone.md`, `decisions/`로 이관 (기존 결정은 `proposed` 상태로)
@@ -2706,6 +2775,7 @@ updated: {{ today }}
 {% if prev is none and ideation %}
 - [ ] 평가 기준 조정 제안(또는 "고칠 점 없음")이 `notes/criteria-proposal.md`에 있다
 - [ ] `notes/`의 아이디어 메모가 모두 후보(`ideas/`)로 옮겨졌다
+- [ ] 기준선 후보 조사와 추천 task가 이 마일스톤에 있다
 {% elif prev is none %}
 - [ ] 기존 계획의 결정 항목이 모두 `decisions/`에 `proposed`로 옮겨졌다
 {% endif %}
@@ -2955,6 +3025,7 @@ milestones: []
 references: []
 decision: null
 criteria_commit: null
+baseline: null
 updated: {{ today }}
 ---
 # 방향 확정
@@ -2980,6 +3051,55 @@ updated: {{ today }}
 ## 남은 위험과 열린 질문
 
 > TODO
+~~~~
+
+## A.18 `plan/baseline.md` (J, ideation)
+
+~~~~markdown
+---
+id: baseline
+type: baseline
+spec_version: {{ spec_version }}
+status: draft
+locked_commit: null
+reference: null
+task: null
+metric: null
+reported: null
+updated: {{ today }}
+---
+# 기준선 연구
+
+모든 후보는 **이 기준선 하나**와 비교한다: "기준선 + 무엇을 바꾸면, 같은 과제·지표·설정에서 무엇이 얼마나 좋아지나". 기준선은 {{ milestones[0].id }}의 마지막 게이트(Milestone-Verdict `go`)에서 사람이 확정하면 잠긴다(`status: locked`). 잠기기 전에는 후보를 평가하지 않는다. 에이전트는 이 문서에 후보 기준선 비교와 추천을 쓰고, 선정은 사람이 한다(잠근 뒤에는 고치지 않는다). 사양: [baseline.spec.md](../specs/doc-types/baseline.spec.md).
+
+## 선정한 기준선
+
+frontmatter의 `reference`(참고문헌 ID), `task`(과제·벤치마크), `metric`(지표), `reported`(보고 수치와 표 번호)에도 같은 값을 적는다.
+
+| 항목 | 값 |
+|---|---|
+| 논문 | (참고문헌 ID와 제목) |
+| 과제·벤치마크 | |
+| 지표와 보고 수치 | (예: GSM8K 정확도 43.7, Table 2) |
+| 설정 | (backbone, 학습 데이터, 학습량) |
+| 공개 코드·체크포인트 | |
+| 재현 비용 | (가진 자원 대비, `plan/criteria.md`의 가진 자원) |
+
+## 선정 규칙
+
+1. **최신성:** 최근 12개월 안에 나왔거나, 그 뒤 나온 연구들이 비교 대상으로 쓰고 있다.
+2. **비교 대상으로 쓰이나:** 목표 학회의 최근 논문들이 이 기준선과 비교한다.
+3. **재현 가능성:** 공개 코드(가능하면 체크포인트)가 있고, 가진 자원으로 재현할 수 있다.
+4. **하나만:** 판단은 이 기준선 하나로 한다. 다른 비교 대상은 후보 안에서 보조로 적는다.
+
+## 후보 기준선 비교
+
+| 후보 (참고문헌 ID) | 최신성 | 비교 대상으로 쓰이나 | 공개 코드 | 재현 비용 | 비고 |
+|---|---|---|---|---|---|
+
+## 선정 이유
+
+> TODO: 에이전트 추천과 근거. 사람이 다르게 고르면 그 이유
 ~~~~
 
 ---
@@ -3055,7 +3175,7 @@ updated: {{ today }}
 ---
 id: conventions
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 공통 규칙
@@ -3101,7 +3221,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 7). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 8). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -3114,7 +3234,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | 사양 문서 자신 | `spec` |
 | 절차 문서 (`specs/procedures/`) | `procedure` |
 | 목록·안내 문서 (사양 없음) | `filemap` (`FILEMAP.md`), `spec-index` (`specs/README.md`), `decision-index` (`decisions/index.md`) |
-| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
+| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `baseline` (`plan/baseline.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
 
 - 값이 없으면 `null`. 목록이 비면 `[]`.
 - 사람이 입력한 문자열은 큰따옴표로 감싼다.
@@ -3132,6 +3252,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | spec | `stub`, `complete` |
 | idea | `candidate`, `exploring`, `selected`, `dropped`, `merged` |
 | criteria | `draft`, `locked` |
+| baseline | `draft`, `locked` |
 | brief | `draft`, `confirmed` |
 
 전이 규칙은 [workflow.md](workflow.md) §3.
@@ -3161,7 +3282,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ---
 id: workflow
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 워크플로우
@@ -3288,7 +3409,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ---
 id: git-commit
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 커밋 규약
@@ -3458,7 +3579,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 ---
 id: task-card
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # Task 카드 사양
@@ -3477,7 +3598,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |
@@ -3535,7 +3656,7 @@ status: complete
 ---
 id: review
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -3558,7 +3679,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -3704,7 +3825,7 @@ status: stub
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 7
+spec_version: 8
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft
@@ -3765,7 +3886,7 @@ updated: <YYYY-MM-DD>
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 7
+spec_version: 8
 kind: <gate|escalation>
 task: <Task>
 status: open
@@ -3825,7 +3946,7 @@ updated: <YYYY-MM-DD>
 ---
 id: session-start
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 세션 시작
 
@@ -3857,7 +3978,7 @@ spec_version: 7
 ---
 id: session-close
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 세션 종료
 
@@ -3886,7 +4007,7 @@ spec_version: 7
 ---
 id: commit-prep
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 사람 커밋 준비
 
@@ -3927,7 +4048,7 @@ spec_version: 7
 ---
 id: task-start
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # Task 착수
 
@@ -3954,7 +4075,7 @@ spec_version: 7
 ---
 id: task-gate
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 게이트 요청
 
@@ -3982,7 +4103,7 @@ spec_version: 7
 ---
 id: escalate
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 에스컬레이션
 
@@ -4008,7 +4129,7 @@ spec_version: 7
 ---
 id: gate-conversation
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 대화 경로 판정
 
@@ -4046,7 +4167,7 @@ spec_version: 7
 ---
 id: gate-apply
 type: procedure
-spec_version: 7
+spec_version: 8
 ---
 # 사람 커밋의 반영
 
@@ -4061,7 +4182,7 @@ spec_version: 7
 |---|---|
 | G4 (사람 몫의 상태 전이를 하지 않는다) | 사람 커밋이 정한 상태 전이를 커밋한다. 전이는 `scripts/apply-human-commits`가 만든 것만 쓰고, 상태 필드를 직접 편집하지 않는다 |
 | G6 (`plan/roadmap.md`를 바꾸지 않는다) | 로드맵 "마일스톤" 표의 상태 칸은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 로드맵의 다른 내용은 바꾸지 않는다 |
-| G7 (`plan/criteria.md`를 고치지 않는다, ideation) | 평가 기준 문서의 `status`·`locked_commit`은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 기준 내용은 바꾸지 않는다 |
+| G7 (`plan/criteria.md`, 잠긴 `plan/baseline.md`를 고치지 않는다, ideation) | 평가 기준·기준선 문서의 `status`·`locked_commit`은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 내용은 바꾸지 않는다 |
 
 ## 단계
 
@@ -4089,7 +4210,7 @@ spec_version: 7
 ---
 id: idea
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 아이디어 후보 사양
@@ -4108,7 +4229,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | `I<n>` |
 | `type` | ✓ | `idea` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `title` | ✓ | 한 줄 |
 | `status` | ✓ | `candidate` \| `exploring` \| `selected` \| `dropped` \| `merged` |
 | `origin` | ✓ | `conversation` (사람이 낸 것) \| `literature` \| `agent` |
@@ -4127,7 +4248,8 @@ status: complete
 | `## 최소 실험` | 무엇을 돌리면 맞고 틀림이 드러나나, 자원 추정 |
 | `## 가장 가까운 선행 연구와 차이` | 참고문헌 ID와 차이 |
 | `## 새로움 위험` | 선점 가능성, 이미 있을 수 있는 연구 |
-| `## 평가 (기준 <기준 버전>)` | 아래 표. 기준 버전은 `lg ideas`가 보여 주는 커밋(기준 내용을 마지막으로 바꾼 커밋)이다. 기준이 잠기기 전에는 쓰지 않는다 |
+| `## 기준선 대비` | 잠근 기준선(`plan/baseline.md`) 하나와의 비교: 한 줄 "기준선 + X", 같은 과제·지표·설정인가, 예상 효과와 반증 조건, 기준선 재현 외에 더 드는 비용. 기준선 대비로 쓸 수 없는 후보는 이 방향의 범위 밖이다(평가하지 않는다) |
+| `## 평가 (기준 <기준 버전>, 기준선 <기준선 버전>)` | 아래 표. 두 버전은 `lg ideas`가 보여 주는 커밋(내용을 마지막으로 바꾼 커밋)이다. 기준과 기준선이 모두 잠기기 전에는 쓰지 않는다 |
 | `## 판단 기록` | 상태가 바뀐 날짜, 근거, 커밋. 다시 매기면 이전 점수와 이유 |
 
 평가 표:
@@ -4161,6 +4283,7 @@ status: complete
 ## 7. 검증 규칙
 
 - `id`가 파일 이름의 `I<n>`과 같다.
+- `## 평가`가 있으면 `## 기준선 대비`가 비어 있지 않다. 기준선(`plan/baseline.md`)이 잠겨 있고 평가 표 머리의 기준선 버전이 지금 버전과 같다.
 - `## 평가`가 있으면: 기준이 `plan/criteria.md`와 같고, 점수가 1–5 또는 `(사람)`이며, 에이전트 기준의 근거가 비어 있지 않고, 기준이 잠긴 상태다(`lg verify` V5).
 - 버린 후보도 지우지 않는다.
 ~~~~
@@ -4171,7 +4294,7 @@ status: complete
 ---
 id: criteria
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 평가 기준 사양
@@ -4190,7 +4313,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | `criteria` |
 | `type` | ✓ | `criteria` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `status` | ✓ | `draft` \| `locked` |
 | `locked_commit` | ✓ | 잠근 사람 커밋의 해시 또는 `null` |
 | `updated` | ✓ | 날짜 |
@@ -4230,7 +4353,7 @@ status: complete
 ---
 id: brief
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 방향 확정 문서 사양
@@ -4249,7 +4372,7 @@ ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽�
 |---|---|---|
 | `id` | ✓ | `brief` |
 | `type` | ✓ | `brief` |
-| `spec_version` | ✓ | `7` |
+| `spec_version` | ✓ | `8` |
 | `status` | ✓ | `draft` \| `confirmed` |
 | `kind` | ✓ | 넘길 실행 프로젝트의 종류: `research` \| `proposal` |
 | `question` | ✓ | 확정 질문 (실행 프로젝트의 `research_question`) |
@@ -4260,6 +4383,7 @@ ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽�
 | `references` | ✓ | 넘길 참고문헌 ID 목록 |
 | `decision` | ✓ | 방향을 정한 결정 ID |
 | `criteria_commit` | ✓ | 평가에 쓴 기준을 잠근 커밋 |
+| `baseline` | ✓ | 기준선 논문의 참고문헌 ID (`plan/baseline.md`의 `reference`). 실행 프로젝트로 넘어가 첫 task가 그 재현이 된다 |
 | `updated` | ✓ | 날짜 |
 
 ## 4. 본문 구조
@@ -4289,7 +4413,7 @@ ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽�
 ---
 id: I<n>
 type: idea
-spec_version: 7
+spec_version: 8
 title: ""
 status: candidate
 origin: agent
@@ -4310,7 +4434,66 @@ updated: <YYYY-MM-DD>
 
 ## 새로움 위험
 
+## 기준선 대비
+
 ## 판단 기록
+~~~~
+
+## B.15 `specs/doc-types/baseline.spec.md` (S, ideation)
+
+~~~~markdown
+---
+id: baseline
+type: spec
+spec_version: 8
+status: complete
+---
+# 기준선 연구 사양
+
+## 1. 목적
+
+후보들이 성능을 비교할 **기준선 연구 하나**를 후보 평가 전에 정하고 잠근다. 기준선이 없으면 후보마다 비교 대상·과제·설정이 달라 후보끼리 비교할 수 없다.
+
+## 2. 위치와 파일명
+
+`plan/baseline.md` (ideation 프로젝트에 하나).
+
+## 3. Frontmatter
+
+| 필드 | 필수 | 값 |
+|---|---|---|
+| `id` | ✓ | `baseline` |
+| `type` | ✓ | `baseline` |
+| `spec_version` | ✓ | `8` |
+| `status` | ✓ | `draft` \| `locked` |
+| `locked_commit` | ✓ | 잠근 사람 커밋의 해시 또는 `null` |
+| `reference` | ✓ | 기준선 논문의 참고문헌 ID (잠글 때는 비어 있으면 안 된다) |
+| `task` | ✓ | 과제·벤치마크 |
+| `metric` | ✓ | 지표 |
+| `reported` | ✓ | 보고 수치와 표 번호 |
+| `updated` | ✓ | 날짜 |
+
+## 4. 본문 구조
+
+`## 선정한 기준선`(논문, 과제, 지표와 수치, 설정, 공개 코드, 재현 비용), `## 선정 규칙`(최신성, 비교 대상으로 쓰이나, 재현 가능성, 하나만), `## 후보 기준선 비교`(표), `## 선정 이유`.
+
+## 5. 작성·수정 권한
+
+| 부분 | 에이전트 | 사람 |
+|---|---|---|
+| 후보 기준선 비교, 추천, 선정 이유 초안 | 작성 (잠기기 전) | 수정 |
+| 선정(frontmatter `reference` 등) | 추천을 채운다 (잠기기 전) | 결정 |
+| `status: draft → locked`, `locked_commit` | 하지 않는다. 첫 마일스톤의 `Milestone-Verdict: go`를 반영 도구가 반영한다 | 결정 |
+| 잠근 뒤 | 고치지 않는다 (G7) | `plan` 커밋으로만. 바꾸면 모든 후보를 다시 쓰고 평가한다 |
+
+## 6. 생성·갱신 시점
+
+생성: `lg init --kind ideation`. 작성: 첫 마일스톤의 지형 조사. 잠금: 첫 마일스톤의 마지막 게이트(go).
+
+## 7. 검증 규칙
+
+- 잠글 때 `reference`, `task`, `metric`, `reported`가 비어 있지 않고 `reference`가 `references/catalog.md`에 있다.
+- 후보의 평가는 기준선이 잠긴 뒤에만 있고, 평가 표 머리의 기준선 버전이 지금 버전과 같다.
 ~~~~
 
 ---
@@ -4321,7 +4504,7 @@ updated: <YYYY-MM-DD>
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 7).
+"""labgate commit-msg hook (spec_version 8).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -4602,7 +4785,7 @@ exec git commit "$@"
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 7).
+"""labgate 세션 시작 점검 (spec_version 8).
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
@@ -4763,7 +4946,7 @@ if __name__ == "__main__":
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 7).
+"""labgate 사람 커밋 반영 도구 (spec_version 8).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -5075,10 +5258,20 @@ def set_frontmatter(text, key, value, rel):
     return text[:start] + head + text[end:]
 
 
+def milestone_ids():
+    return sorted((p.name for p in (ROOT / "plan" / "milestones").glob("M*") if re.fullmatch(r"M\d+", p.name)),
+                  key=lambda m: int(m[1:]))
+
+
+def first_milestone():
+    ids = milestone_ids()
+    return ids[0] if ids else None
+
+
 def last_milestone():
     """plan/milestones/ 아래 번호가 가장 큰 마일스톤 ID."""
-    ids = [p.name for p in (ROOT / "plan" / "milestones").glob("M*") if re.fullmatch(r"M\d+", p.name)]
-    return max(ids, key=lambda m: int(m[1:])) if ids else None
+    ids = milestone_ids()
+    return ids[-1] if ids else None
 
 
 def confirmed_contents(body, review_text, decisions):
@@ -5131,6 +5324,10 @@ def plan_for(sha, ctype, scope, trailers, today, body=""):
         if mv:
             plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
             plan.set_field(f"plan/milestones/{milestone}/milestone.md", "go_nogo", mv)
+            if mv == "go" and (ROOT / "plan/baseline.md").is_file() and milestone == first_milestone():
+                # ideation: 첫 마일스톤의 go가 기준선을 잠근다 (§27)
+                if plan.transition("plan/baseline.md", "기준선 잠금", {"draft"}, "locked", {"locked"}):
+                    plan.set_field("plan/baseline.md", "locked_commit", f"'{short}'")
             if mv == "go" and (ROOT / "brief.md").is_file() and milestone == last_milestone():
                 # ideation: 마지막 마일스톤의 go가 방향을 확정한다 (§26)
                 plan.transition("brief.md", "방향 확정", {"draft"}, "confirmed", {"confirmed"})

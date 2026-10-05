@@ -1,7 +1,7 @@
 ---
 id: conventions
 type: spec
-spec_version: 7
+spec_version: 8
 status: complete
 ---
 # 공통 규칙
@@ -47,7 +47,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 7). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 8). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -60,7 +60,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | 사양 문서 자신 | `spec` |
 | 절차 문서 (`specs/procedures/`) | `procedure` |
 | 목록·안내 문서 (사양 없음) | `filemap` (`FILEMAP.md`), `spec-index` (`specs/README.md`), `decision-index` (`decisions/index.md`) |
-| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
+| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `baseline` (`plan/baseline.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
 
 - 값이 없으면 `null`. 목록이 비면 `[]`.
 - 사람이 입력한 문자열은 큰따옴표로 감싼다.
@@ -78,6 +78,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | spec | `stub`, `complete` |
 | idea | `candidate`, `exploring`, `selected`, `dropped`, `merged` |
 | criteria | `draft`, `locked` |
+| baseline | `draft`, `locked` |
 | brief | `draft`, `confirmed` |
 
 전이 규칙은 [workflow.md](workflow.md) §3.

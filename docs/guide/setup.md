@@ -66,7 +66,7 @@ git config user.email "<.lg/identities.json에 등록된 이메일>"
 lg --version                                   # labgate 0.7.0
 git log --format='%an <%ae> | %s'              # init 커밋, 작성자가 나
 git config core.hooksPath                      # .lg/hooks
-grep spec_version .lg/project.yaml             # 7
+grep spec_version .lg/project.yaml             # 8
 ```
 
 ## 잘 안 될 때

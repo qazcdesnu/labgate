@@ -36,3 +36,18 @@ def test_evaluation_issues():
     assert "C1: 점수가 1–5가 아님 (9)" in issues
     _, _, empty = parse_evaluation("## 평가 (기준 abc1234)\n\n| C1 | 4 |  | 중 |\n| C8 | (사람) | | |\n")
     assert evaluation_issues(C, True, "abc1234", "abc1234", empty) == ["C1: 근거 없는 점수 (무효)"]
+
+
+def test_baseline_issues():
+    from labgate.ideas import Baseline, baseline_issues
+    locked = Baseline("locked", "shen2025-codi", "GSM8K", "accuracy", "43.7", "def5678")
+    good = "## 기준선 대비\n\n기준선 + X\n\n## 평가 (기준 abc1234, 기준선 def5678)\n\n| C1 | 4 | `ref` | 중 |\n"
+    assert baseline_issues(locked, good) == []
+    assert baseline_issues(None, good) == []                                  # spec_version 7 ideation: 기준선 없음
+    assert baseline_issues(locked, "# I1\n\n한 줄\n") == []                     # 평가 전
+    assert baseline_issues(Baseline("draft", "", "", "", "", None), good) == ["기준선이 잠기기 전의 평가"]
+    assert "기준선 변경 전" in baseline_issues(Baseline("locked", "x", "", "", "", "aaa1111"), good)[0]
+    no_vs = good.replace("## 기준선 대비\n\n기준선 + X\n\n", "")
+    assert baseline_issues(locked, no_vs)[0].startswith("기준선 대비 절 없음")
+    old = good.replace(", 기준선 def5678", "")
+    assert baseline_issues(locked, old) == ["평가 표 머리에 기준선 버전이 없음"]

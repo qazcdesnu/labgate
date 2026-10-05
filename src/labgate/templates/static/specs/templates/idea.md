@@ -1,7 +1,7 @@
 ---
 id: I<n>
 type: idea
-spec_version: 7
+spec_version: 8
 title: ""
 status: candidate
 origin: agent
@@ -21,5 +21,7 @@ updated: <YYYY-MM-DD>
 ## 가장 가까운 선행 연구와 차이
 
 ## 새로움 위험
+
+## 기준선 대비
 
 ## 판단 기록

@@ -161,7 +161,7 @@ def human_transition(doc_type: str, before: Optional[str], after: Optional[str])
         return (before, after) in (("planned", "active"), ("active", "closed"))
     if doc_type == "idea":  # ideation (§26)
         return after in ("selected", "dropped")
-    if doc_type == "criteria":
+    if doc_type in ("criteria", "baseline"):
         return (before, after) == ("draft", "locked")
     if doc_type == "brief":
         return after == "confirmed"
@@ -192,6 +192,8 @@ def justifies(doc_type: str, doc_id: str, after: str, ctype: str, trailers: dict
         return ctype in ("gate", "decide") and doc_id in items(key)
     if doc_type == "criteria":
         return ctype == "gate" and task == "M0-T0" and trailers.get("Verdict") == "approve"
+    if doc_type == "baseline":  # 첫 마일스톤의 go (§27)
+        return ctype == "gate" and task.split("-")[0] == "M0" and trailers.get("Milestone-Verdict") == "go"
     if doc_type == "brief":
         return ctype == "gate" and trailers.get("Milestone-Verdict") == "go"
     return False
@@ -233,7 +235,7 @@ def project_rules(root: Path) -> dict:
         if len(row) > 1:
             statuses[row[0].strip("`")] = set(re.findall(r"`([a-z-]+)`", row[1]))
     required: dict[str, list[str]] = {}
-    for doc_type in ("task-card", "review", "idea", "criteria", "brief"):  # 완성 사양 (뒤 셋은 ideation에만)
+    for doc_type in ("task-card", "review", "idea", "criteria", "baseline", "brief"):  # 완성 사양 (뒤 셋은 ideation에만)
         spec = root / "specs" / "doc-types" / f"{doc_type}.spec.md"
         if spec.is_file():
             names = []
@@ -365,6 +367,7 @@ def _check_response(project: Project, c: Commit, changes, report: Report) -> Non
             report.findings.append(Finding("V3", c.short, c.header, f"{path}: ## 응답 이 바뀜"))
 
 
+BASELINE = "plan/baseline.md"
 LOCK_FIELDS = re.compile(r"^(status|locked_commit|updated):.*$", re.M)
 
 
@@ -378,6 +381,13 @@ def _check_protected(project: Project, c: Commit, changes, report: Report) -> No
     touched = sorted({p for _, a, b in changes for p in (a, b) if protected(p)})
     if "plan/criteria.md" in touched and _applies(project, c) and _only_lock_fields(project, c, "plan/criteria.md"):
         touched.remove("plan/criteria.md")
+    for _, a, b in changes:  # 기준선은 잠긴 뒤에만 보호한다 (잠기기 전에는 에이전트가 후보 비교와 추천을 쓴다)
+        if BASELINE in (a, b):
+            before = _show(project.root, f"{c.sha}^", BASELINE)
+            locked = before is not None and frontmatter_fields(before).get("status") == "locked"
+            if locked and not (_applies(project, c) and _only_lock_fields(project, c, BASELINE)):
+                touched.append(BASELINE)
+    touched = sorted(set(touched))
     if not touched:
         return
     trailers = project.trailers(c.body)
@@ -456,7 +466,8 @@ def _check_evaluation(project: Project, path: str, text: str, report: Report) ->
     if not has_eval:
         return
     status, criteria, current = ideas.criteria_state(project)
-    for issue in ideas.evaluation_issues(criteria, status == "locked", current, commit, scores):
+    for issue in ideas.evaluation_issues(criteria, status == "locked", current, commit, scores) \
+            + ideas.baseline_issues(ideas.baseline_state(project), text):
         report.findings.append(Finding("V5", "", "", f"{path}: {issue}"))
 
 
