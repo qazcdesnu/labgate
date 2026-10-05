@@ -2,10 +2,14 @@
 
 {{ project.summary }}
 
-## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
+## {% if ideation %}탐색 주제{% elif proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
+{% if origin %}
+출발: ideation 프로젝트 `{{ origin.path }}`(커밋 `{{ origin.commit }}`)의 방향 확정 문서. 사본은 [notes/ideation-brief.md](notes/ideation-brief.md).
+
+{% endif %}
 ## 처음 볼 문서
 
 1. [STATUS.md](STATUS.md): 현재 상태와 사람의 판단이 필요한 항목
@@ -13,6 +17,11 @@
 3. [FILEMAP.md](FILEMAP.md): 폴더 구조
 4. [specs/README.md](specs/README.md): 문서 작성 규칙
 5. [specs/workflow.md](specs/workflow.md): 작업 절차와 승인 게이트
+{% if ideation %}
+6. [plan/criteria.md](plan/criteria.md): 후보 평가 기준 (첫 게이트에서 사람이 확정하고 잠근다)
+7. [ideas/index.md](ideas/index.md): 아이디어 후보 목록
+8. [brief.md](brief.md): 방향 확정 문서 (마지막 게이트에서 확정)
+{% endif %}
 
 ## 사람이 하는 일
 

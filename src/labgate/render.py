@@ -50,6 +50,8 @@ def base_context(config: Config, today: str) -> dict[str, Any]:
         ],
         "claude_code": config.agent_tools.claude_code,
         "proposal": config.project.kind == "proposal",  # §25 (템플릿은 문자열로 분기하지 않는다)
+        "ideation": config.project.kind == "ideation",  # §26
+        "origin": config.origin.model_dump() if config.origin else None,
         "today": today,
         "labgate_version": __version__,
         "spec_version": SPEC_VERSION,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 6).
+"""labgate 사람 커밋 반영 도구 (spec_version 7).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -107,7 +107,7 @@ def applied_hashes(history):
 
 
 def unreflected():
-    """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer)] (오래된 순)."""
+    """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer, 메시지)] (오래된 순)."""
     humans = human_emails()
     history = commits()
     applied = applied_hashes(history)
@@ -115,7 +115,7 @@ def unreflected():
     for sha, email, body in history:
         ctype, scope, header, trailers = parse(body)
         if email in humans and is_target(ctype, trailers) and not any(sha.startswith(p) for p in applied):
-            pending.append((sha, ctype, scope, header, trailers))
+            pending.append((sha, ctype, scope, header, trailers, body))
     return pending
 
 
@@ -206,6 +206,15 @@ class Plan:
         self.texts[card] = text
         self.log.append(f"  {card}: 게이트 이력에 추가")
 
+    def review_text(self, task_id, kind, review_id):
+        """반영할 review 문서의 내용 (없으면 None)."""
+        if review_id:
+            path = ROOT / "reviews" / "open" / f"{review_id}.md"
+        else:
+            found = sorted((ROOT / "reviews" / "open").glob(f"{task_id}_{kind}-*.md"))
+            path = found[-1] if found else None
+        return path.read_text(encoding="utf-8") if path and path.is_file() else None
+
     def close_review(self, task_id, kind, review_id):
         if review_id:
             name = f"{review_id}.md"
@@ -221,13 +230,45 @@ class Plan:
         self.moves.append((src, dst))
         self.log.append(f"  {src} → {dst} (status closed)")
 
-    def decision(self, decision_id, short):
+    def decision(self, decision_id, short, content=None):
         found = sorted((ROOT / "decisions").glob(f"{decision_id}_*.md"))
         if len(found) != 1:
             raise CannotApply(f"결정 문서를 하나로 찾지 못했습니다: decisions/{decision_id}_*.md ({len(found)}개)")
         rel = found[0].relative_to(ROOT).as_posix()
         if self.transition(rel, f"결정 {decision_id}", {"proposed", "discussing"}, "confirmed", set()):
             self.table_row("decisions/index.md", decision_id, 2, "confirmed", 4, f"`{short}`")
+            if content:  # 사람이 쓴 확정 내용을 그대로 "확정 내용" 절에 (절이 없으면 건너뛴다)
+                self.set_section(rel, "확정 내용", f"{content}\n\n(사람 커밋 `{short}`)")
+
+    def idea(self, idea_id, target, short):
+        """ideation 후보를 고르거나 버린다 (Select·Drop, §26)."""
+        found = sorted((ROOT / "ideas").glob(f"{idea_id}_*.md"))
+        if len(found) != 1:
+            raise CannotApply(f"후보 문서를 하나로 찾지 못했습니다: ideas/{idea_id}_*.md ({len(found)}개)")
+        rel = found[0].relative_to(ROOT).as_posix()
+        if self.transition(rel, f"후보 {idea_id}", {"candidate", "exploring"}, target, {target}):
+            self.table_row("ideas/index.md", idea_id, 2, target)
+            if frontmatter_value(self.read(rel), "decision", rel, required=False) is not None:
+                self.texts[rel] = set_frontmatter(self.read(rel), "decision", f"'{short}'", rel)
+
+    def set_field(self, rel, key, value):
+        """frontmatter 필드가 있으면 값을 바꾼다 (없으면 그대로)."""
+        if not (ROOT / rel).is_file() and rel not in self.texts:
+            return
+        if frontmatter_value(self.read(rel), key, rel, required=False) is not None:
+            self.texts[rel] = set_frontmatter(self.read(rel), key, value, rel)
+            self.log.append(f"  {rel}: {key} → {value}")
+
+    def set_section(self, rel, heading, body):
+        """`## heading` 절의 내용을 바꾼다. 절이 없으면 그대로 둔다."""
+        text = self.read(rel)
+        m = re.search(rf"^## {re.escape(heading)}[ \t]*$", text, re.M)
+        if not m:
+            return
+        end = text.find("\n## ", m.end())
+        tail = "" if end == -1 else text[end:]
+        self.texts[rel] = text[:m.end()] + "\n\n" + body.strip() + "\n" + tail
+        self.log.append(f"  {rel}: {heading} 절에 확정 내용")
 
     def paths(self):
         return sorted({p for move in self.moves for p in move} | set(self.texts))
@@ -270,11 +311,37 @@ def set_frontmatter(text, key, value, rel):
     return text[:start] + head + text[end:]
 
 
-def plan_for(sha, ctype, scope, trailers, today):
+def last_milestone():
+    """plan/milestones/ 아래 번호가 가장 큰 마일스톤 ID."""
+    ids = [p.name for p in (ROOT / "plan" / "milestones").glob("M*") if re.fullmatch(r"M\d+", p.name)]
+    return max(ids, key=lambda m: int(m[1:])) if ids else None
+
+
+def confirmed_contents(body, review_text, decisions):
+    """결정 ID → 사람이 쓴 확정 내용. decide 커밋 본문의 `확정: …`(결정이 하나일 때),
+    또는 review `### 확정 결정`의 `- D0.1: …` 줄."""
+    out = {}
+    if review_text:
+        m = re.search(r"^### 확정 결정[ \t]*\n(.*?)(?=^#{2,3} |\Z)", review_text, re.M | re.S)
+        for line in (m.group(1).splitlines() if m else []):
+            found = re.match(r"^- (D\d+\.\d+): (.+)$", line.strip())
+            if found:
+                out[found.group(1)] = found.group(2).strip()
+    lines = [l[len("확정: "):].strip() for l in (body or "").splitlines() if l.startswith("확정: ")]
+    if len(decisions) == 1 and lines:
+        out.setdefault(decisions[0], lines[0])
+    return out
+
+
+def plan_for(sha, ctype, scope, trailers, today, body=""):
     """한 사람 커밋의 반영 계획과 커밋 메시지."""
     plan = Plan(today)
     short = sha[:7]
     task = trailers.get("Task")
+    for i in split_list(trailers.get("Select")):  # ideation (§26): gate·decide에만 있다
+        plan.idea(i, "selected", short)
+    for i in split_list(trailers.get("Drop")):
+        plan.idea(i, "dropped", short)
     if ctype == "plan":
         approve = split_list(trailers.get("Approve"))
         for t in approve:
@@ -292,10 +359,22 @@ def plan_for(sha, ctype, scope, trailers, today):
         milestone = f"M{TASK_ID_RE.match(task).group(1)}"
         if verdict == "approve" and task.endswith("-T0"):
             plan.milestone(milestone, "착수", {"planned"}, "active", {"active", "closed"})
-        if trailers.get("Milestone-Verdict"):
+        if verdict == "approve" and task == "M0-T0" and (ROOT / "plan/criteria.md").is_file():
+            # ideation: 첫 T0 게이트 승인이 평가 기준을 잠근다 (§26.6)
+            if plan.transition("plan/criteria.md", "평가 기준 잠금", {"draft"}, "locked", {"locked"}):
+                plan.set_field("plan/criteria.md", "locked_commit", f"'{short}'")
+        mv = trailers.get("Milestone-Verdict")
+        if mv:
             plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
-        for d in split_list(trailers.get("Decisions")):
-            plan.decision(d, short)
+            plan.set_field(f"plan/milestones/{milestone}/milestone.md", "go_nogo", mv)
+            if mv == "go" and (ROOT / "brief.md").is_file() and milestone == last_milestone():
+                # ideation: 마지막 마일스톤의 go가 방향을 확정한다 (§26)
+                plan.transition("brief.md", "방향 확정", {"draft"}, "confirmed", {"confirmed"})
+        review_text = plan.review_text(task, "gate", trailers.get("Review"))
+        decisions = split_list(trailers.get("Decisions"))
+        contents = confirmed_contents(body, review_text, decisions)
+        for d in decisions:
+            plan.decision(d, short, contents.get(d))
         plan.history(card, f"- {today} gate {verdict} `{short}`", short)
         plan.close_review(task, "gate", trailers.get("Review"))
         msg_scope = task
@@ -306,8 +385,9 @@ def plan_for(sha, ctype, scope, trailers, today):
         msg_scope = task
     else:  # decide
         decisions = split_list(trailers.get("Decisions"))
+        contents = confirmed_contents(body, None, decisions)
         for d in decisions:
-            plan.decision(d, short)
+            plan.decision(d, short, contents.get(d))
         msg_scope = decisions[0] if decisions else scope
 
     if ctype == "respond":
@@ -349,7 +429,7 @@ def preview(message):
         print(f"반영할 것이 없습니다: {header}")
         return 0
     try:
-        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat())
+        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat(), message)
     except CannotApply as e:
         print(f"✗ 이 커밋은 반영할 수 없습니다: {e}", file=sys.stderr)
         return 1
@@ -369,7 +449,7 @@ def main(argv):
             return preview(sys.stdin.read())
         pending = unreflected()
         if "--check" in argv:
-            for sha, _, _, header, _ in pending:
+            for sha, _, _, header, _, _ in pending:
                 print(f"{sha[:7]} {header}")
             return 0
         if not pending:
@@ -382,8 +462,8 @@ def main(argv):
             raise UsageError(
                 f"지난 반영({state[1]})이 아직 커밋되지 않았습니다. 먼저 커밋하세요:\n  {commit_command(state[2])}"
             )
-        sha, ctype, scope, header, trailers = pending[0]
-        plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat())
+        sha, ctype, scope, header, trailers, body = pending[0]
+        plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat(), body)
         paths = plan.paths()
         dirty = git("status", "--porcelain", "--", *paths).strip() if paths else ""
         if dirty:

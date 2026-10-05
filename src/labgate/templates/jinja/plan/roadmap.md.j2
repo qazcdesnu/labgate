@@ -8,13 +8,19 @@ updated: {{ today }}
 ---
 # 로드맵: {{ project.name }}
 
-## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
+## {% if ideation %}탐색 주제{% elif proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
+{% if ideation %}
+## 후보와 평가 기준
+
+후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서 사람이 확정하고 잠근다. 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
+{% else %}
 ## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
+{% endif %}
 
 ## 마일스톤
 
@@ -24,9 +30,15 @@ updated: {{ today }}
 | `{{ m.id }}` | {{ m.title }} | planned | [milestone.md](milestones/{{ m.id }}/milestone.md) |
 {% endfor %}
 
+{% if ideation %}
+## 방향 확정
+
+마지막 마일스톤의 게이트(Milestone-Verdict `go`)에서 [brief.md](../brief.md)를 확정한다. 확정한 방향으로 `lg init <새 폴더> --from <이 프로젝트>`를 써서 연구 프로젝트를 만든다.
+{% else %}
 ## {% if proposal %}공통 작업 원칙{% else %}공통 실험 원칙{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
+{% endif %}
 
 ## 범위 밖
 

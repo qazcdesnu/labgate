@@ -45,6 +45,7 @@ _AGENTS_PROJECT_LINES = (
     (re.compile(r"^- 이름: .*$", re.M), "- 이름: <name>"),
     (re.compile(r"^- 연구 질문: .*$", re.M), "- 연구 질문: <research_question>"),
     (re.compile(r"^- 제안 핵심 질문: .*$", re.M), "- 제안 핵심 질문: <research_question>"),  # kind: proposal
+    (re.compile(r"^- 탐색 주제: .*$", re.M), "- 탐색 주제: <research_question>"),  # kind: ideation
     (re.compile(r"^- 에이전트 신원: .*$", re.M), "- 에이전트 신원: <agent>"),
 )
 _UPDATED_LINE = re.compile(r"^updated: .*\n", re.M)

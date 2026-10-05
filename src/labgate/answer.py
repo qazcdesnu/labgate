@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import datetime
 import io
-import pydoc
 import re
 import shutil
 import sys
@@ -18,6 +17,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from . import commit as commit_module
+from . import pager
 from . import preview as preview_module
 from . import prompts, state
 from . import verify as verify_module
@@ -45,6 +45,9 @@ class Answer:
     next_tasks: list[str] = field(default_factory=list)
     milestone_verdict: Optional[str] = None
     decisions: dict[str, str] = field(default_factory=dict)   # ID → 확정 내용
+    select: list[str] = field(default_factory=list)           # ideation 후보 (§26)
+    drop: list[str] = field(default_factory=list)
+    drop_reason: str = ""
     comment: str = ""
     summary: str = ""               # escalation 커밋 헤더의 요약
 
@@ -144,25 +147,29 @@ def _check_ready(project: Project, review: Doc) -> None:
 # ---------------------------------------------------------------- 보여 주기
 
 
-def _render(markdown: str) -> str:
-    """frontmatter를 떼고 터미널용으로 렌더링한다 (터미널이 아니면 색 없이)."""
+def _render(markdown: str, color: Optional[bool] = None) -> str:
+    """frontmatter를 떼고 터미널용으로 렌더링한다. 색은 터미널일 때만(`color`로 정할 수 있다).
+    링크는 터미널 하이퍼링크 코드 대신 글로 보인다 (pager가 그 코드를 해석하지 못할 수 있다)."""
     if markdown.startswith("---\n") and "\n---\n" in markdown[3:]:
         markdown = markdown.split("\n---\n", 1)[1]
     width = min(shutil.get_terminal_size((100, 40)).columns, 100)
     buffer = io.StringIO()
-    Console(file=buffer, width=width, force_terminal=sys.stdout.isatty(), highlight=False).print(Markdown(markdown))
+    color = sys.stdout.isatty() if color is None else color
+    Console(file=buffer, width=width, force_terminal=color, no_color=not color, highlight=False).print(
+        Markdown(markdown, hyperlinks=False))
     return "\n".join(l.rstrip() for l in buffer.getvalue().rstrip().split("\n"))
 
 
 def _show(project: Project, review: Doc) -> str:
     """응답 위의 에이전트 섹션을 렌더링한다. gate면 lg verify 요약을 붙인다."""
     body = re.split(r"^## 응답[ \t]*$", review.text, maxsplit=1, flags=re.M)[0]
-    text = _render(body)
+    text, plain = _render(body), _render(body, color=False)
     if review.fields.get("kind") == "gate":
         lines, _ = verify_module.summary_for_commit(project, review.fields["task"])
         text += "\n\n" + "\n".join(lines)
+        plain += "\n\n" + "\n".join(lines)
     if sys.stdout.isatty() and text.count("\n") > shutil.get_terminal_size((100, 40)).lines - 4:
-        pydoc.pager(text + "\n")  # MANPAGER, PAGER, 없으면 less
+        pager.page(text + "\n", plain + "\n")
         return f"({review.rel} 를 보여 주었습니다)"
     return text + "\n"
 
@@ -181,6 +188,8 @@ def _ask(project: Project, review: Doc) -> Answer:
                 mv = prompts.select(f"{state.milestone_of(task)} 마일스톤 판정도 함께 할까요?",
                                     [NO_MILESTONE_VERDICT, *MILESTONE_VERDICTS])
                 ans.milestone_verdict = None if mv == NO_MILESTONE_VERDICT else mv
+        if ans.verdict == "approve":
+            _ask_ideas(project, review, ans)
     else:
         ans.verdict = _ask_option(review)
     ans.decisions = _ask_decisions(project, review)
@@ -246,6 +255,27 @@ def _plain(text: str) -> str:
     return text.strip()[:120]
 
 
+OPEN_IDEA = ("candidate", "exploring")
+
+
+def _ask_ideas(project: Project, review: Doc, ans: Answer) -> None:
+    """ideation: 요청서가 판단을 요청한 후보(frontmatter `ideas`)를 고르거나 버린다. 요청이 없으면 묻지 않는다."""
+    asked = state.frontmatter_list(review.text, "ideas")
+    docs = {d.id: d for d in state.ideas(project)}
+    open_ids = [i for i in asked if i in docs and docs[i].status in OPEN_IDEA]
+    if not open_ids:
+        return
+    typer.echo("\n요청서가 판단을 요청한 후보입니다. 비교표는 lg ideas. 고른 후보는 selected, 버린 후보는 dropped가 됩니다"
+               "\n(어느 쪽도 고르지 않으면 지금 상태로 남습니다).")
+    labels = {f"{i}  {docs[i].fields.get('title', '')} ({docs[i].status})".replace("  (", " ("): i for i in open_ids}
+    ans.select = [labels[l] for l in prompts.checkbox("고를 후보", list(labels))]
+    rest = {l: i for l, i in labels.items() if i not in ans.select}
+    if rest:
+        ans.drop = [rest[l] for l in prompts.checkbox("버릴 후보", list(rest))]
+    if ans.drop:
+        ans.drop_reason = prompts.text("버리는 이유 (한 줄)", lambda v: "입력하세요" if not v.strip() else None)
+
+
 def _ask_decisions(project: Project, review: Doc) -> dict[str, str]:
     """요청서가 확정을 요청한 결정(frontmatter `decisions`)만 묻는다. 요청이 없으면 묻지 않는다
     (실사용: 제안된 결정 7개가 ID만으로 나와 무엇을 묻는지 알 수 없었다). 다른 결정은 `lg answer <D-ID>`."""
@@ -270,7 +300,9 @@ def _ask_decisions(project: Project, review: Doc) -> dict[str, str]:
 def response_text(ans: Answer) -> str:
     """`## 응답` 절 전체 (review.spec §4.3의 하위 섹션 순서)."""
     verdict = ans.verdict + (f"\n마일스톤 {state.milestone_of(ans.task)}: {ans.milestone_verdict}" if ans.milestone_verdict else "")
-    decided = "\n".join(f"- {d}: {text}" for d, text in ans.decisions.items()) or "없음"
+    decided = "\n".join([f"- {d}: {text}" for d, text in ans.decisions.items()]
+                        + ([f"- 선택: {', '.join(ans.select)}"] if ans.select else [])
+                        + ([f"- 버림: {', '.join(ans.drop)} ({ans.drop_reason})"] if ans.drop else [])) or "없음"
     nxt = ", ".join(ans.next_tasks) if ans.kind == "gate" and ans.next_tasks else "없음"
     parts = {"판정": verdict, "코멘트": ans.comment or "없음", "확정 결정": decided, "다음 task 승인": nxt}
     return "## 응답\n\n" + "\n\n".join(f"### {k}\n{parts[k]}" for k in SUBSECTIONS) + "\n"
@@ -311,6 +343,10 @@ def build_messages(project: Project, ans: Answer) -> list[str]:
             trailers.append(("Milestone-Verdict", ans.milestone_verdict))
         if decisions:
             trailers.append(("Decisions", ", ".join(decisions)))
+        if ans.select:
+            trailers.append(("Select", ", ".join(ans.select)))
+        if ans.drop:
+            trailers.append(("Drop", ", ".join(ans.drop)))
         trailers.append(("Review", review_id))
         messages = [build_message("gate", summary, ans.task, None, trailers)]
         rest = ans.next_tasks[1:]

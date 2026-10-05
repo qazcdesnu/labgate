@@ -253,6 +253,9 @@ def test_scissors_line_and_diff_ignored(repo):
         ("chore: x\n\n본문 문단.\n\nActor: human\n", None),
         ("log: x\n\nActor: human\nApplies: not-a-hash\n", "Applies 형식이 잘못되었습니다: not-a-hash"),
         ("log: x\n\nActor: human\nApplies: 1a2b3c4\n", None),
+        (GATE_OK + "Select: I3\nDrop: I1, I2\n", None),
+        (GATE_OK + "Select: idea3\n", "Select 형식이 잘못되었습니다: idea3"),
+        ("exp: x\n\nActor: human\nDrop: I1\n", "Drop trailer는 gate·decide 커밋에만 쓸 수 있습니다."),
     ],
 )
 def test_other_rules(repo, message, error):

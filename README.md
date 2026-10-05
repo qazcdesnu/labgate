@@ -15,19 +15,21 @@ brew install pipx            # macOS
 pipx ensurepath              # ~/.local/bin을 PATH에 추가 — 실행 후 새 터미널을 연다
 
 # labgate 설치 (릴리즈 태그 고정)
-pipx install git+https://github.com/qazcdesnu/labgate.git@v0.6.0
+pipx install git+https://github.com/qazcdesnu/labgate.git@v0.7.0
 lg --version
 ```
 
-- 버전 목록과 변경 내용은 [Releases](https://github.com/qazcdesnu/labgate/releases)에서 본다. 명령의 `@v0.6.0`을 원하는 태그로 바꾼다.
+- 버전 목록과 변경 내용은 [Releases](https://github.com/qazcdesnu/labgate/releases)에서 본다. 명령의 `@v0.7.0`을 원하는 태그로 바꾼다.
 - `lg: command not found`가 나오면 `pipx ensurepath` 후 새 터미널을 연다.
 - 시스템 Python이 3.10 미만이면 `pipx install --python python3.12 git+...`처럼 버전을 지정한다.
-- uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.6.0`도 같다.
+- uv를 쓰고 있다면 `uv tool install git+https://github.com/qazcdesnu/labgate.git@v0.7.0`도 같다.
 - 업데이트: `pipx install --force git+https://github.com/qazcdesnu/labgate.git@<새 태그>` / 삭제: `pipx uninstall labgate`
 
 ## 사용
 
 ### 1. 프로젝트 만들고 첫 task 승인하기
+
+무엇을 연구할지 아직 정하지 않았다면 먼저 아이디어 탐색 프로젝트로 시작한다(`lg init my-idea --kind ideation`). 후보를 만들고, **미리 잠근 평가 기준**으로 근거와 함께 비교해 방향을 고른 뒤, `lg init my-study --from my-idea`로 연구 프로젝트를 만든다: [docs/guide/ideation.md](docs/guide/ideation.md).
 
 ```bash
 lg init ~/research/my-study            # 대화형으로 연구 질문, 마일스톤, 에이전트 신원 등을 묻는다
@@ -76,7 +78,8 @@ Claude Code는 반드시 프로젝트 폴더에서 연다. 그래야 그 프로�
 
 | 명령 | 언제 | 하는 일 |
 |---|---|---|
-| `lg init [PATH]` | 프로젝트마다 한 번 | 작업 공간을 만들고 `init` 커밋 (대화형, 또는 `--config`). `--kind proposal`이면 사업 제안서용, `--import <자료 폴더>`면 가진 자료를 `notes/`로 |
+| `lg init [PATH]` | 프로젝트마다 한 번 | 작업 공간을 만들고 `init` 커밋 (대화형, 또는 `--config`). `--kind ideation`이면 아이디어 탐색, `--from <ideation 폴더>`면 거기서 확정한 방향으로 연구 프로젝트, `--kind proposal`이면 사업 제안서용, `--import <자료 폴더>`면 가진 자료를 `notes/`로 |
+| `lg ideas` | ideation에서 후보를 평가한 뒤 | 잠근 평가 기준으로 후보 비교표(점수, 가중 평균, 순위, 결격)를 보여 준다. 읽기만 함 |
 | `lg status` | 수시로 | 내가 할 일(열린 요청, 커밋 대기), 에이전트가 반영할 것, 진행 상황을 다음 명령과 함께 보여 준다. 읽기만 함 |
 | `lg answer [ID]` | 에이전트가 게이트 요청·질문을 내고 멈췄을 때, 결정을 따로 확정할 때(`lg answer D0.1`) | 요청서(또는 결정 문서)를 터미널에 보여 주고 판정을 물어, `## 응답`과 사람 커밋(+ tag)을 함께 만든다. 판정이 만들 상태 변화를 먼저 보여 준다. 터미널에서만 동작 |
 | `lg spec adopt DRAFT...` | 에이전트가 사양 초안을 냈을 때 | `notes/`의 초안(번호 붙은 절)을 stub 사양에 합치고, 차이를 보여 준 뒤 `spec` 커밋으로 확정한다. 터미널에서만 동작 |

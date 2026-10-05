@@ -27,7 +27,7 @@ from .plan import build_plan
 
 # n → n+1에서 기본 갱신(관리 문서 교체, 문서 spec_version 갱신, .gitignore 관리 구역) 외에 할 일 (§22.6).
 # 기본 갱신으로 충분한 단계도 등록해, 등록되지 않은 단계(출발할 수 없는 버전)를 구분한다.
-MIGRATIONS: dict[int, tuple] = {2: (), 3: (), 4: (), 5: ()}
+MIGRATIONS: dict[int, tuple] = {2: (), 3: (), 4: (), 5: (), 6: ()}
 
 SPEC_LINE = re.compile(r"^spec_version:(.*)$", re.M)
 EXACT_VALUE = re.compile(r"^ (\d+)$")

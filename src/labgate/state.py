@@ -57,6 +57,11 @@ def decisions(project: Project) -> list[Doc]:
     return [d for d in _docs(project, "decisions/*.md") if d.fields.get("type") == "decision"]
 
 
+def ideas(project: Project) -> list[Doc]:
+    """ideation 후보 (`ideas/I<n>_<slug>.md`)."""
+    return [d for d in _docs(project, "ideas/I*_*.md") if d.fields.get("type") == "idea"]
+
+
 def open_reviews(project: Project) -> list[Doc]:
     """`reviews/open/`의 review 문서 (요청한 날, 이름 순)."""
     found = [d for d in _docs(project, "reviews/open/*.md") if d.fields.get("type") == "review"]

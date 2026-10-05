@@ -1,0 +1,385 @@
+{
+  "filemap": [
+    "---",
+    "id: FILEMAP",
+    "type: filemap",
+    "---",
+    "# 폴더 지도",
+    "이 문서는 \"무엇이 어디에 있는가\"를 설명한다. \"어떻게 써야 하는가\"는 [specs/](specs/README.md)에 있다.",
+    "## 루트 문서",
+    "| 파일 | 역할 | 주로 쓰는 쪽 |",
+    "|---|---|---|",
+    "| `README.md` | 사람용 입구 | 사람 |",
+    "| `FILEMAP.md` | 이 문서 | 공통 |",
+    "| `AGENTS.md` | 에이전트 행동 규칙의 원본 | 사람 (에이전트는 읽기만) |",
+    "| `CLAUDE.md` | Claude Code 연결: `AGENTS.md` 참조 | 사람 |",
+    "| `STATUS.md` | 현재 상태판, 사람 판단 대기 목록 | 에이전트 |",
+    "## 폴더",
+    "| 폴더 | 내용 | 명명 규칙 |",
+    "|---|---|---|",
+    "| `.lg/` | 프로젝트 설정, 신원, Git hook | 수정하지 않음 (`.lg/pending/`만 예외: 사람 커밋 초안 `COMMIT_MSG`, 사람의 변경 목록 `HUMAN_FILES`, Git 제외) |",
+    "| `.claude/` | Claude Code 설정과 슬래시 커맨드 | |",
+    "| `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식, 에이전트 절차 | `doc-types/<유형>.spec.md`, `procedures/<절차>.md` |",
+    "| `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |",
+    "| `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |",
+    "| `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |",
+    "| `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 실험 | `<M>/<Task>_<slug>/` |",
+    "| `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |",
+    "| `results/` | task 결과, 마일스톤 보고, 그림, 표 | `<M>/<Task>_result.md`, `<M>/report.md` |",
+    "| `reviews/` | 게이트 요청과 에스컬레이션 (`open/` → `closed/`) | `<Task>_gate-NN.md`, `<Task>_esc-NN.md` |",
+    "| `logs/` | 에이전트 세션 작업 일지 | `YYYY-MM-DD_sNN.md` |",
+    "| `data/` | 데이터 생성 설정, 데이터 설명서 | |",
+    "| `paper/` | 원고, 그림, 참고문헌 bib | |",
+    "| `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |",
+    "| `scripts/` | 프로젝트 도구 (`agent-commit`, `session-check`) | |",
+    "| `env/` | 환경 설정 | |",
+    "## 마일스톤",
+    "| ID | 제목 | 계획 | 문헌 매핑 | 결과 |",
+    "|---|---|---|---|---|",
+    "## ID가 문서를 잇는 방식",
+    "모든 문서는 ID로 서로를 가리킨다. 규칙은 [specs/conventions.md](specs/conventions.md) §1.",
+    "예: `results/M1/M1-T2_result.md`의 근거가 `M1-T2_run-003`이고, 이 실행은 결정 `D1.1`과 참고문헌 `guo2025-loglinear`를 따른다."
+  ],
+  "files": {
+    ".claude/commands/commit-prep.md": {
+      "claude_code": "sha256:148ee3450b92e80989939988c1ecd5661fbed6b692b73473131823840a7fb08c",
+      "ideation_claude_code": "sha256:148ee3450b92e80989939988c1ecd5661fbed6b692b73473131823840a7fb08c",
+      "proposal_claude_code": "sha256:148ee3450b92e80989939988c1ecd5661fbed6b692b73473131823840a7fb08c"
+    },
+    ".claude/commands/escalate.md": {
+      "claude_code": "sha256:cf017a8a13fa93b7a6628f6db9fae9d5d52a09985bfa6b03e712010930643a36",
+      "ideation_claude_code": "sha256:cf017a8a13fa93b7a6628f6db9fae9d5d52a09985bfa6b03e712010930643a36",
+      "proposal_claude_code": "sha256:cf017a8a13fa93b7a6628f6db9fae9d5d52a09985bfa6b03e712010930643a36"
+    },
+    ".claude/commands/session-close.md": {
+      "claude_code": "sha256:05b6b5bd347ee00a853fe098efe734ddc80794c6b618c5cb2b5ffe93fde0f1a5",
+      "ideation_claude_code": "sha256:05b6b5bd347ee00a853fe098efe734ddc80794c6b618c5cb2b5ffe93fde0f1a5",
+      "proposal_claude_code": "sha256:05b6b5bd347ee00a853fe098efe734ddc80794c6b618c5cb2b5ffe93fde0f1a5"
+    },
+    ".claude/commands/session-start.md": {
+      "claude_code": "sha256:62f10709ec368e5388fa1e957abecd0643a828ee8eb7049470210f2b6469df8a",
+      "ideation_claude_code": "sha256:62f10709ec368e5388fa1e957abecd0643a828ee8eb7049470210f2b6469df8a",
+      "proposal_claude_code": "sha256:62f10709ec368e5388fa1e957abecd0643a828ee8eb7049470210f2b6469df8a"
+    },
+    ".claude/commands/task-gate.md": {
+      "claude_code": "sha256:b4aef9e1472d5357032a7873f2c2d355e39fabe0ca20fbb0466d718c2eab0175",
+      "ideation_claude_code": "sha256:b4aef9e1472d5357032a7873f2c2d355e39fabe0ca20fbb0466d718c2eab0175",
+      "proposal_claude_code": "sha256:b4aef9e1472d5357032a7873f2c2d355e39fabe0ca20fbb0466d718c2eab0175"
+    },
+    ".claude/commands/task-start.md": {
+      "claude_code": "sha256:de71a2f2ef3877f228b418564ca7cc9ab21fbbc7c32adb9ad70485ba26f7c8c7",
+      "ideation_claude_code": "sha256:de71a2f2ef3877f228b418564ca7cc9ab21fbbc7c32adb9ad70485ba26f7c8c7",
+      "proposal_claude_code": "sha256:de71a2f2ef3877f228b418564ca7cc9ab21fbbc7c32adb9ad70485ba26f7c8c7"
+    },
+    ".claude/settings.json": {
+      "claude_code": "sha256:f76ff7bf05b57e08fef198dd0f3c9b5a8adf1fb56c624cbd2227049c599ecc62",
+      "ideation_claude_code": "sha256:f76ff7bf05b57e08fef198dd0f3c9b5a8adf1fb56c624cbd2227049c599ecc62",
+      "proposal_claude_code": "sha256:f76ff7bf05b57e08fef198dd0f3c9b5a8adf1fb56c624cbd2227049c599ecc62"
+    },
+    ".lg/hooks/commit-msg": {
+      "claude_code": "sha256:638f3a4b2a4f67e408fb40976c1741f7ff7f36ee02c0631d447da6ac001e6627",
+      "ideation_claude_code": "sha256:638f3a4b2a4f67e408fb40976c1741f7ff7f36ee02c0631d447da6ac001e6627",
+      "ideation_no_claude_code": "sha256:638f3a4b2a4f67e408fb40976c1741f7ff7f36ee02c0631d447da6ac001e6627",
+      "no_claude_code": "sha256:638f3a4b2a4f67e408fb40976c1741f7ff7f36ee02c0631d447da6ac001e6627",
+      "proposal_claude_code": "sha256:638f3a4b2a4f67e408fb40976c1741f7ff7f36ee02c0631d447da6ac001e6627",
+      "proposal_no_claude_code": "sha256:638f3a4b2a4f67e408fb40976c1741f7ff7f36ee02c0631d447da6ac001e6627"
+    },
+    "AGENTS.md": {
+      "claude_code": "sha256:1b190d89180964f49b590e6d3fcb628b5745972ba6c948ef61c5b8b1f3899e68",
+      "ideation_claude_code": "sha256:34ca0134389597e724ca6a75e9a263e9c4171cb8b8b9bc5766085c5b314e9a5c",
+      "ideation_no_claude_code": "sha256:d072b8bafa2e792d9ed07f1198901b2d7ac1aaa957690a60eefba621c69d5016",
+      "no_claude_code": "sha256:eb05f0694e720c94cc88476919d908abb7f10835ba46e651d35fb81c1bd14217",
+      "proposal_claude_code": "sha256:4d597b3aacc01f8692390e6e6c6a3650a536e8f0e11f40351da1f7f08dc0a071",
+      "proposal_no_claude_code": "sha256:9fad5e842851fa19576c708c0657e185df31913e4615fec84fa3c2b20e00e526"
+    },
+    "CLAUDE.md": {
+      "claude_code": "sha256:5fe4fab038dfca7505e383657bb1ca6cc186e9e25dde6c9451781c63a1e09e29",
+      "ideation_claude_code": "sha256:5fe4fab038dfca7505e383657bb1ca6cc186e9e25dde6c9451781c63a1e09e29",
+      "proposal_claude_code": "sha256:5fe4fab038dfca7505e383657bb1ca6cc186e9e25dde6c9451781c63a1e09e29"
+    },
+    "scripts/agent-commit": {
+      "claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "ideation_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "ideation_no_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "no_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "proposal_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b",
+      "proposal_no_claude_code": "sha256:d547f6c9495f5ba3d708e1a288699df95b4450026b368689c2e4314c154c095b"
+    },
+    "scripts/apply-human-commits": {
+      "claude_code": "sha256:8366f58167248dbecb7231f6d2e8eba0cdc273815e452809820c81c099806dad",
+      "ideation_claude_code": "sha256:8366f58167248dbecb7231f6d2e8eba0cdc273815e452809820c81c099806dad",
+      "ideation_no_claude_code": "sha256:8366f58167248dbecb7231f6d2e8eba0cdc273815e452809820c81c099806dad",
+      "no_claude_code": "sha256:8366f58167248dbecb7231f6d2e8eba0cdc273815e452809820c81c099806dad",
+      "proposal_claude_code": "sha256:8366f58167248dbecb7231f6d2e8eba0cdc273815e452809820c81c099806dad",
+      "proposal_no_claude_code": "sha256:8366f58167248dbecb7231f6d2e8eba0cdc273815e452809820c81c099806dad"
+    },
+    "scripts/session-check": {
+      "claude_code": "sha256:499b40a5dfde21de33b256510d1f5b66532cfdcf13e495fc7168d5846a164db5",
+      "ideation_claude_code": "sha256:499b40a5dfde21de33b256510d1f5b66532cfdcf13e495fc7168d5846a164db5",
+      "ideation_no_claude_code": "sha256:499b40a5dfde21de33b256510d1f5b66532cfdcf13e495fc7168d5846a164db5",
+      "no_claude_code": "sha256:499b40a5dfde21de33b256510d1f5b66532cfdcf13e495fc7168d5846a164db5",
+      "proposal_claude_code": "sha256:499b40a5dfde21de33b256510d1f5b66532cfdcf13e495fc7168d5846a164db5",
+      "proposal_no_claude_code": "sha256:499b40a5dfde21de33b256510d1f5b66532cfdcf13e495fc7168d5846a164db5"
+    },
+    "specs/README.md": {
+      "claude_code": "sha256:e6f484829de0b9f8d437bcb25a7fbd51ebc360f73bad5a8852b9df94696e1b95",
+      "ideation_claude_code": "sha256:e6f484829de0b9f8d437bcb25a7fbd51ebc360f73bad5a8852b9df94696e1b95",
+      "ideation_no_claude_code": "sha256:e6f484829de0b9f8d437bcb25a7fbd51ebc360f73bad5a8852b9df94696e1b95",
+      "no_claude_code": "sha256:e6f484829de0b9f8d437bcb25a7fbd51ebc360f73bad5a8852b9df94696e1b95",
+      "proposal_claude_code": "sha256:e6f484829de0b9f8d437bcb25a7fbd51ebc360f73bad5a8852b9df94696e1b95",
+      "proposal_no_claude_code": "sha256:e6f484829de0b9f8d437bcb25a7fbd51ebc360f73bad5a8852b9df94696e1b95"
+    },
+    "specs/conventions.md": {
+      "claude_code": "sha256:ef95807fc5805fee1a6a30819857cfcf08b74cc5411dec1d8f7d76de234d8db6",
+      "ideation_claude_code": "sha256:ef95807fc5805fee1a6a30819857cfcf08b74cc5411dec1d8f7d76de234d8db6",
+      "ideation_no_claude_code": "sha256:ef95807fc5805fee1a6a30819857cfcf08b74cc5411dec1d8f7d76de234d8db6",
+      "no_claude_code": "sha256:ef95807fc5805fee1a6a30819857cfcf08b74cc5411dec1d8f7d76de234d8db6",
+      "proposal_claude_code": "sha256:ef95807fc5805fee1a6a30819857cfcf08b74cc5411dec1d8f7d76de234d8db6",
+      "proposal_no_claude_code": "sha256:ef95807fc5805fee1a6a30819857cfcf08b74cc5411dec1d8f7d76de234d8db6"
+    },
+    "specs/doc-types/brief.spec.md": {
+      "ideation_claude_code": "sha256:f8ecadc92bd84ceeca18e5e31e26090897ecc6c221bb8ca9c9891b9257fa930c",
+      "ideation_no_claude_code": "sha256:f8ecadc92bd84ceeca18e5e31e26090897ecc6c221bb8ca9c9891b9257fa930c"
+    },
+    "specs/doc-types/catalog.spec.md": {
+      "claude_code": "sha256:60b79b25894c76be00d7806334316796f0cbb96e715bcdfca8afd6ee8e5fbf39",
+      "ideation_claude_code": "sha256:60b79b25894c76be00d7806334316796f0cbb96e715bcdfca8afd6ee8e5fbf39",
+      "ideation_no_claude_code": "sha256:60b79b25894c76be00d7806334316796f0cbb96e715bcdfca8afd6ee8e5fbf39",
+      "no_claude_code": "sha256:60b79b25894c76be00d7806334316796f0cbb96e715bcdfca8afd6ee8e5fbf39",
+      "proposal_claude_code": "sha256:60b79b25894c76be00d7806334316796f0cbb96e715bcdfca8afd6ee8e5fbf39",
+      "proposal_no_claude_code": "sha256:60b79b25894c76be00d7806334316796f0cbb96e715bcdfca8afd6ee8e5fbf39"
+    },
+    "specs/doc-types/criteria.spec.md": {
+      "ideation_claude_code": "sha256:a33888076106aff26d248937de75d061ffb5b24cc162abf48bc12167ab998128",
+      "ideation_no_claude_code": "sha256:a33888076106aff26d248937de75d061ffb5b24cc162abf48bc12167ab998128"
+    },
+    "specs/doc-types/decision.spec.md": {
+      "claude_code": "sha256:e5388756056571ea6421b7a45482b19b76778e65879f2767fb424f817e0b12e0",
+      "ideation_claude_code": "sha256:e5388756056571ea6421b7a45482b19b76778e65879f2767fb424f817e0b12e0",
+      "ideation_no_claude_code": "sha256:e5388756056571ea6421b7a45482b19b76778e65879f2767fb424f817e0b12e0",
+      "no_claude_code": "sha256:e5388756056571ea6421b7a45482b19b76778e65879f2767fb424f817e0b12e0",
+      "proposal_claude_code": "sha256:e5388756056571ea6421b7a45482b19b76778e65879f2767fb424f817e0b12e0",
+      "proposal_no_claude_code": "sha256:e5388756056571ea6421b7a45482b19b76778e65879f2767fb424f817e0b12e0"
+    },
+    "specs/doc-types/experiment-readme.spec.md": {
+      "claude_code": "sha256:6c05b467978d6536096d5990756947978c3de59b3cea9aade3ce4c72c13e4f0f",
+      "ideation_claude_code": "sha256:6c05b467978d6536096d5990756947978c3de59b3cea9aade3ce4c72c13e4f0f",
+      "ideation_no_claude_code": "sha256:6c05b467978d6536096d5990756947978c3de59b3cea9aade3ce4c72c13e4f0f",
+      "no_claude_code": "sha256:6c05b467978d6536096d5990756947978c3de59b3cea9aade3ce4c72c13e4f0f",
+      "proposal_claude_code": "sha256:6c05b467978d6536096d5990756947978c3de59b3cea9aade3ce4c72c13e4f0f",
+      "proposal_no_claude_code": "sha256:6c05b467978d6536096d5990756947978c3de59b3cea9aade3ce4c72c13e4f0f"
+    },
+    "specs/doc-types/idea.spec.md": {
+      "ideation_claude_code": "sha256:c9c4602144a17484c3c939d0a4dff16694425cd8178ba02c785bb539d572967f",
+      "ideation_no_claude_code": "sha256:c9c4602144a17484c3c939d0a4dff16694425cd8178ba02c785bb539d572967f"
+    },
+    "specs/doc-types/milestone-report.spec.md": {
+      "claude_code": "sha256:f8a6df9759784c745b69bedca78a1c6ddf4be2354a214c0745832267f058e834",
+      "ideation_claude_code": "sha256:f8a6df9759784c745b69bedca78a1c6ddf4be2354a214c0745832267f058e834",
+      "ideation_no_claude_code": "sha256:f8a6df9759784c745b69bedca78a1c6ddf4be2354a214c0745832267f058e834",
+      "no_claude_code": "sha256:f8a6df9759784c745b69bedca78a1c6ddf4be2354a214c0745832267f058e834",
+      "proposal_claude_code": "sha256:f8a6df9759784c745b69bedca78a1c6ddf4be2354a214c0745832267f058e834",
+      "proposal_no_claude_code": "sha256:f8a6df9759784c745b69bedca78a1c6ddf4be2354a214c0745832267f058e834"
+    },
+    "specs/doc-types/milestone.spec.md": {
+      "claude_code": "sha256:9f6ee24fd493f5653c4e938356bce0145b26161b906c2bc3d5b94a265f580ca0",
+      "ideation_claude_code": "sha256:9f6ee24fd493f5653c4e938356bce0145b26161b906c2bc3d5b94a265f580ca0",
+      "ideation_no_claude_code": "sha256:9f6ee24fd493f5653c4e938356bce0145b26161b906c2bc3d5b94a265f580ca0",
+      "no_claude_code": "sha256:9f6ee24fd493f5653c4e938356bce0145b26161b906c2bc3d5b94a265f580ca0",
+      "proposal_claude_code": "sha256:9f6ee24fd493f5653c4e938356bce0145b26161b906c2bc3d5b94a265f580ca0",
+      "proposal_no_claude_code": "sha256:9f6ee24fd493f5653c4e938356bce0145b26161b906c2bc3d5b94a265f580ca0"
+    },
+    "specs/doc-types/review.spec.md": {
+      "claude_code": "sha256:c54235c224b130b541393fe28839855bf9ae45edb57760dbccb383b57af302d1",
+      "ideation_claude_code": "sha256:c54235c224b130b541393fe28839855bf9ae45edb57760dbccb383b57af302d1",
+      "ideation_no_claude_code": "sha256:c54235c224b130b541393fe28839855bf9ae45edb57760dbccb383b57af302d1",
+      "no_claude_code": "sha256:c54235c224b130b541393fe28839855bf9ae45edb57760dbccb383b57af302d1",
+      "proposal_claude_code": "sha256:c54235c224b130b541393fe28839855bf9ae45edb57760dbccb383b57af302d1",
+      "proposal_no_claude_code": "sha256:c54235c224b130b541393fe28839855bf9ae45edb57760dbccb383b57af302d1"
+    },
+    "specs/doc-types/roadmap.spec.md": {
+      "claude_code": "sha256:e8b0de03640b856486d276e4cf7b0eca69b2ec3af498f724f20248c3c2b5faee",
+      "ideation_claude_code": "sha256:e8b0de03640b856486d276e4cf7b0eca69b2ec3af498f724f20248c3c2b5faee",
+      "ideation_no_claude_code": "sha256:e8b0de03640b856486d276e4cf7b0eca69b2ec3af498f724f20248c3c2b5faee",
+      "no_claude_code": "sha256:e8b0de03640b856486d276e4cf7b0eca69b2ec3af498f724f20248c3c2b5faee",
+      "proposal_claude_code": "sha256:e8b0de03640b856486d276e4cf7b0eca69b2ec3af498f724f20248c3c2b5faee",
+      "proposal_no_claude_code": "sha256:e8b0de03640b856486d276e4cf7b0eca69b2ec3af498f724f20248c3c2b5faee"
+    },
+    "specs/doc-types/run-record.spec.md": {
+      "claude_code": "sha256:b3f37c70605f9d160958e234c1ad8a2a25fad6e8955b9a99c294ee98fd549e27",
+      "ideation_claude_code": "sha256:b3f37c70605f9d160958e234c1ad8a2a25fad6e8955b9a99c294ee98fd549e27",
+      "ideation_no_claude_code": "sha256:b3f37c70605f9d160958e234c1ad8a2a25fad6e8955b9a99c294ee98fd549e27",
+      "no_claude_code": "sha256:b3f37c70605f9d160958e234c1ad8a2a25fad6e8955b9a99c294ee98fd549e27",
+      "proposal_claude_code": "sha256:b3f37c70605f9d160958e234c1ad8a2a25fad6e8955b9a99c294ee98fd549e27",
+      "proposal_no_claude_code": "sha256:b3f37c70605f9d160958e234c1ad8a2a25fad6e8955b9a99c294ee98fd549e27"
+    },
+    "specs/doc-types/status.spec.md": {
+      "claude_code": "sha256:96bcf21c3d5062741a28404a8f5014f31553ece73aadc2cd8d8f6ef9c1c7eb5b",
+      "ideation_claude_code": "sha256:96bcf21c3d5062741a28404a8f5014f31553ece73aadc2cd8d8f6ef9c1c7eb5b",
+      "ideation_no_claude_code": "sha256:96bcf21c3d5062741a28404a8f5014f31553ece73aadc2cd8d8f6ef9c1c7eb5b",
+      "no_claude_code": "sha256:96bcf21c3d5062741a28404a8f5014f31553ece73aadc2cd8d8f6ef9c1c7eb5b",
+      "proposal_claude_code": "sha256:96bcf21c3d5062741a28404a8f5014f31553ece73aadc2cd8d8f6ef9c1c7eb5b",
+      "proposal_no_claude_code": "sha256:96bcf21c3d5062741a28404a8f5014f31553ece73aadc2cd8d8f6ef9c1c7eb5b"
+    },
+    "specs/doc-types/task-card.spec.md": {
+      "claude_code": "sha256:6bc120fc649f73455cd8f16a452c3a11df68873d08ce07ef13c0883421ad1638",
+      "ideation_claude_code": "sha256:6bc120fc649f73455cd8f16a452c3a11df68873d08ce07ef13c0883421ad1638",
+      "ideation_no_claude_code": "sha256:6bc120fc649f73455cd8f16a452c3a11df68873d08ce07ef13c0883421ad1638",
+      "no_claude_code": "sha256:6bc120fc649f73455cd8f16a452c3a11df68873d08ce07ef13c0883421ad1638",
+      "proposal_claude_code": "sha256:6bc120fc649f73455cd8f16a452c3a11df68873d08ce07ef13c0883421ad1638",
+      "proposal_no_claude_code": "sha256:6bc120fc649f73455cd8f16a452c3a11df68873d08ce07ef13c0883421ad1638"
+    },
+    "specs/doc-types/task-map.spec.md": {
+      "claude_code": "sha256:e0a6633945e217eb8e8d42c7d280975ab447c9710ed1343b1cca5cf0cdaddf01",
+      "ideation_claude_code": "sha256:e0a6633945e217eb8e8d42c7d280975ab447c9710ed1343b1cca5cf0cdaddf01",
+      "ideation_no_claude_code": "sha256:e0a6633945e217eb8e8d42c7d280975ab447c9710ed1343b1cca5cf0cdaddf01",
+      "no_claude_code": "sha256:e0a6633945e217eb8e8d42c7d280975ab447c9710ed1343b1cca5cf0cdaddf01",
+      "proposal_claude_code": "sha256:e0a6633945e217eb8e8d42c7d280975ab447c9710ed1343b1cca5cf0cdaddf01",
+      "proposal_no_claude_code": "sha256:e0a6633945e217eb8e8d42c7d280975ab447c9710ed1343b1cca5cf0cdaddf01"
+    },
+    "specs/doc-types/task-result.spec.md": {
+      "claude_code": "sha256:5a2357ba96b0df21e5bdf9bd164876ce28889f0a7d84400bdad816aeb82cf94d",
+      "ideation_claude_code": "sha256:5a2357ba96b0df21e5bdf9bd164876ce28889f0a7d84400bdad816aeb82cf94d",
+      "ideation_no_claude_code": "sha256:5a2357ba96b0df21e5bdf9bd164876ce28889f0a7d84400bdad816aeb82cf94d",
+      "no_claude_code": "sha256:5a2357ba96b0df21e5bdf9bd164876ce28889f0a7d84400bdad816aeb82cf94d",
+      "proposal_claude_code": "sha256:5a2357ba96b0df21e5bdf9bd164876ce28889f0a7d84400bdad816aeb82cf94d",
+      "proposal_no_claude_code": "sha256:5a2357ba96b0df21e5bdf9bd164876ce28889f0a7d84400bdad816aeb82cf94d"
+    },
+    "specs/doc-types/worklog.spec.md": {
+      "claude_code": "sha256:a3becd99af83d691ec083d8d6672b39f89be2d485baaad33c8a63abb6c55019f",
+      "ideation_claude_code": "sha256:a3becd99af83d691ec083d8d6672b39f89be2d485baaad33c8a63abb6c55019f",
+      "ideation_no_claude_code": "sha256:a3becd99af83d691ec083d8d6672b39f89be2d485baaad33c8a63abb6c55019f",
+      "no_claude_code": "sha256:a3becd99af83d691ec083d8d6672b39f89be2d485baaad33c8a63abb6c55019f",
+      "proposal_claude_code": "sha256:a3becd99af83d691ec083d8d6672b39f89be2d485baaad33c8a63abb6c55019f",
+      "proposal_no_claude_code": "sha256:a3becd99af83d691ec083d8d6672b39f89be2d485baaad33c8a63abb6c55019f"
+    },
+    "specs/git-commit.md": {
+      "claude_code": "sha256:f251318ed420868f83f23dde8304b32f8006285780795cd3a94c88dacb7e5b6d",
+      "ideation_claude_code": "sha256:f251318ed420868f83f23dde8304b32f8006285780795cd3a94c88dacb7e5b6d",
+      "ideation_no_claude_code": "sha256:f251318ed420868f83f23dde8304b32f8006285780795cd3a94c88dacb7e5b6d",
+      "no_claude_code": "sha256:f251318ed420868f83f23dde8304b32f8006285780795cd3a94c88dacb7e5b6d",
+      "proposal_claude_code": "sha256:f251318ed420868f83f23dde8304b32f8006285780795cd3a94c88dacb7e5b6d",
+      "proposal_no_claude_code": "sha256:f251318ed420868f83f23dde8304b32f8006285780795cd3a94c88dacb7e5b6d"
+    },
+    "specs/procedures/commit-prep.md": {
+      "claude_code": "sha256:ea388624c08b9decca3bda2c2e9a0b90a55c31c4cd434e29d90bd6ccc347def0",
+      "ideation_claude_code": "sha256:ea388624c08b9decca3bda2c2e9a0b90a55c31c4cd434e29d90bd6ccc347def0",
+      "ideation_no_claude_code": "sha256:ea388624c08b9decca3bda2c2e9a0b90a55c31c4cd434e29d90bd6ccc347def0",
+      "no_claude_code": "sha256:ea388624c08b9decca3bda2c2e9a0b90a55c31c4cd434e29d90bd6ccc347def0",
+      "proposal_claude_code": "sha256:ea388624c08b9decca3bda2c2e9a0b90a55c31c4cd434e29d90bd6ccc347def0",
+      "proposal_no_claude_code": "sha256:ea388624c08b9decca3bda2c2e9a0b90a55c31c4cd434e29d90bd6ccc347def0"
+    },
+    "specs/procedures/escalate.md": {
+      "claude_code": "sha256:edf095bad2e53a1d12c79f5ca646f63f02a73f363fc2246177148d39bdf82805",
+      "ideation_claude_code": "sha256:edf095bad2e53a1d12c79f5ca646f63f02a73f363fc2246177148d39bdf82805",
+      "ideation_no_claude_code": "sha256:edf095bad2e53a1d12c79f5ca646f63f02a73f363fc2246177148d39bdf82805",
+      "no_claude_code": "sha256:edf095bad2e53a1d12c79f5ca646f63f02a73f363fc2246177148d39bdf82805",
+      "proposal_claude_code": "sha256:edf095bad2e53a1d12c79f5ca646f63f02a73f363fc2246177148d39bdf82805",
+      "proposal_no_claude_code": "sha256:edf095bad2e53a1d12c79f5ca646f63f02a73f363fc2246177148d39bdf82805"
+    },
+    "specs/procedures/gate-apply.md": {
+      "claude_code": "sha256:1f08c186a03ef9ee248d371e2ca4affe3fcf382efc66b4f50b121e467aeb34e0",
+      "ideation_claude_code": "sha256:1f08c186a03ef9ee248d371e2ca4affe3fcf382efc66b4f50b121e467aeb34e0",
+      "ideation_no_claude_code": "sha256:1f08c186a03ef9ee248d371e2ca4affe3fcf382efc66b4f50b121e467aeb34e0",
+      "no_claude_code": "sha256:1f08c186a03ef9ee248d371e2ca4affe3fcf382efc66b4f50b121e467aeb34e0",
+      "proposal_claude_code": "sha256:1f08c186a03ef9ee248d371e2ca4affe3fcf382efc66b4f50b121e467aeb34e0",
+      "proposal_no_claude_code": "sha256:1f08c186a03ef9ee248d371e2ca4affe3fcf382efc66b4f50b121e467aeb34e0"
+    },
+    "specs/procedures/gate-conversation.md": {
+      "claude_code": "sha256:f811869a4e28db51386856fb9cdd852bb9ffa734ef9340840ec0a659e40e5aeb",
+      "ideation_claude_code": "sha256:f811869a4e28db51386856fb9cdd852bb9ffa734ef9340840ec0a659e40e5aeb",
+      "ideation_no_claude_code": "sha256:f811869a4e28db51386856fb9cdd852bb9ffa734ef9340840ec0a659e40e5aeb",
+      "no_claude_code": "sha256:f811869a4e28db51386856fb9cdd852bb9ffa734ef9340840ec0a659e40e5aeb",
+      "proposal_claude_code": "sha256:f811869a4e28db51386856fb9cdd852bb9ffa734ef9340840ec0a659e40e5aeb",
+      "proposal_no_claude_code": "sha256:f811869a4e28db51386856fb9cdd852bb9ffa734ef9340840ec0a659e40e5aeb"
+    },
+    "specs/procedures/session-close.md": {
+      "claude_code": "sha256:a2c331f8eb52b0fd4e023f4a6b9036e10e9998b0aadfa5b854364612b8b4608a",
+      "ideation_claude_code": "sha256:a2c331f8eb52b0fd4e023f4a6b9036e10e9998b0aadfa5b854364612b8b4608a",
+      "ideation_no_claude_code": "sha256:a2c331f8eb52b0fd4e023f4a6b9036e10e9998b0aadfa5b854364612b8b4608a",
+      "no_claude_code": "sha256:a2c331f8eb52b0fd4e023f4a6b9036e10e9998b0aadfa5b854364612b8b4608a",
+      "proposal_claude_code": "sha256:a2c331f8eb52b0fd4e023f4a6b9036e10e9998b0aadfa5b854364612b8b4608a",
+      "proposal_no_claude_code": "sha256:a2c331f8eb52b0fd4e023f4a6b9036e10e9998b0aadfa5b854364612b8b4608a"
+    },
+    "specs/procedures/session-start.md": {
+      "claude_code": "sha256:205e180a341760af4d882eb0621c186e279c9f3c24a3adb3c42e2e8be8618702",
+      "ideation_claude_code": "sha256:205e180a341760af4d882eb0621c186e279c9f3c24a3adb3c42e2e8be8618702",
+      "ideation_no_claude_code": "sha256:205e180a341760af4d882eb0621c186e279c9f3c24a3adb3c42e2e8be8618702",
+      "no_claude_code": "sha256:205e180a341760af4d882eb0621c186e279c9f3c24a3adb3c42e2e8be8618702",
+      "proposal_claude_code": "sha256:205e180a341760af4d882eb0621c186e279c9f3c24a3adb3c42e2e8be8618702",
+      "proposal_no_claude_code": "sha256:205e180a341760af4d882eb0621c186e279c9f3c24a3adb3c42e2e8be8618702"
+    },
+    "specs/procedures/task-gate.md": {
+      "claude_code": "sha256:378cf0d10e511b6867d1a9e686177ca1bbbb96e0202dfa5d44ff3bfe7d7e3648",
+      "ideation_claude_code": "sha256:378cf0d10e511b6867d1a9e686177ca1bbbb96e0202dfa5d44ff3bfe7d7e3648",
+      "ideation_no_claude_code": "sha256:378cf0d10e511b6867d1a9e686177ca1bbbb96e0202dfa5d44ff3bfe7d7e3648",
+      "no_claude_code": "sha256:378cf0d10e511b6867d1a9e686177ca1bbbb96e0202dfa5d44ff3bfe7d7e3648",
+      "proposal_claude_code": "sha256:378cf0d10e511b6867d1a9e686177ca1bbbb96e0202dfa5d44ff3bfe7d7e3648",
+      "proposal_no_claude_code": "sha256:378cf0d10e511b6867d1a9e686177ca1bbbb96e0202dfa5d44ff3bfe7d7e3648"
+    },
+    "specs/procedures/task-start.md": {
+      "claude_code": "sha256:7f1e5011fb41eac8c3a89f0799d822f80370bd2633b8fceb29c6574981b76d63",
+      "ideation_claude_code": "sha256:7f1e5011fb41eac8c3a89f0799d822f80370bd2633b8fceb29c6574981b76d63",
+      "ideation_no_claude_code": "sha256:7f1e5011fb41eac8c3a89f0799d822f80370bd2633b8fceb29c6574981b76d63",
+      "no_claude_code": "sha256:7f1e5011fb41eac8c3a89f0799d822f80370bd2633b8fceb29c6574981b76d63",
+      "proposal_claude_code": "sha256:7f1e5011fb41eac8c3a89f0799d822f80370bd2633b8fceb29c6574981b76d63",
+      "proposal_no_claude_code": "sha256:7f1e5011fb41eac8c3a89f0799d822f80370bd2633b8fceb29c6574981b76d63"
+    },
+    "specs/templates/idea.md": {
+      "ideation_claude_code": "sha256:a55af039574fb1029febf52c3bee4a45e4f0c19a7342ce347f1afec11a3ca2f7",
+      "ideation_no_claude_code": "sha256:a55af039574fb1029febf52c3bee4a45e4f0c19a7342ce347f1afec11a3ca2f7"
+    },
+    "specs/templates/review.md": {
+      "claude_code": "sha256:e744f4ed3921ea6515c1335ef6ec414c542a203f79906a622f14617306efbb3d",
+      "ideation_claude_code": "sha256:e744f4ed3921ea6515c1335ef6ec414c542a203f79906a622f14617306efbb3d",
+      "ideation_no_claude_code": "sha256:e744f4ed3921ea6515c1335ef6ec414c542a203f79906a622f14617306efbb3d",
+      "no_claude_code": "sha256:e744f4ed3921ea6515c1335ef6ec414c542a203f79906a622f14617306efbb3d",
+      "proposal_claude_code": "sha256:e744f4ed3921ea6515c1335ef6ec414c542a203f79906a622f14617306efbb3d",
+      "proposal_no_claude_code": "sha256:e744f4ed3921ea6515c1335ef6ec414c542a203f79906a622f14617306efbb3d"
+    },
+    "specs/templates/task-card.md": {
+      "claude_code": "sha256:90939be7967838f8ca56985a2bf46c2f217d2c1bec32405bb6c64a8a3f0e5426",
+      "ideation_claude_code": "sha256:90939be7967838f8ca56985a2bf46c2f217d2c1bec32405bb6c64a8a3f0e5426",
+      "ideation_no_claude_code": "sha256:90939be7967838f8ca56985a2bf46c2f217d2c1bec32405bb6c64a8a3f0e5426",
+      "no_claude_code": "sha256:90939be7967838f8ca56985a2bf46c2f217d2c1bec32405bb6c64a8a3f0e5426",
+      "proposal_claude_code": "sha256:90939be7967838f8ca56985a2bf46c2f217d2c1bec32405bb6c64a8a3f0e5426",
+      "proposal_no_claude_code": "sha256:90939be7967838f8ca56985a2bf46c2f217d2c1bec32405bb6c64a8a3f0e5426"
+    },
+    "specs/workflow.md": {
+      "claude_code": "sha256:cbb1502aef9f2f4272b4059ee1cf8475403667f04c5986950d9243b53326d32b",
+      "ideation_claude_code": "sha256:cbb1502aef9f2f4272b4059ee1cf8475403667f04c5986950d9243b53326d32b",
+      "ideation_no_claude_code": "sha256:cbb1502aef9f2f4272b4059ee1cf8475403667f04c5986950d9243b53326d32b",
+      "no_claude_code": "sha256:cbb1502aef9f2f4272b4059ee1cf8475403667f04c5986950d9243b53326d32b",
+      "proposal_claude_code": "sha256:cbb1502aef9f2f4272b4059ee1cf8475403667f04c5986950d9243b53326d32b",
+      "proposal_no_claude_code": "sha256:cbb1502aef9f2f4272b4059ee1cf8475403667f04c5986950d9243b53326d32b"
+    }
+  },
+  "gitignore": [
+    "# 실행 산출물 원본",
+    "runs/*",
+    "!runs/.gitkeep",
+    "# 대화 경로 게이트용 임시 커밋 메시지",
+    ".lg/pending/",
+    "# Claude Code 워크트리 (실험 격리용, main에 병합하지 않음)",
+    ".claude/worktrees/",
+    "# Python",
+    "__pycache__/",
+    "*.py[cod]",
+    ".venv/",
+    "venv/",
+    ".ipynb_checkpoints/",
+    ".pytest_cache/",
+    "# 실험 도구",
+    "wandb/",
+    "mlruns/",
+    "# OS / 편집기",
+    ".DS_Store",
+    "Thumbs.db",
+    ".idea/",
+    ".vscode/",
+    "# 대용량 원본 데이터는 필요 시 아래 주석을 해제",
+    "# data/raw/"
+  ],
+  "labgate_version": "0.7.0",
+  "spec_version": 7
+}

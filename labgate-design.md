@@ -1,6 +1,6 @@
-# `labgate` CLI 설계 문서 — v6 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, `lg spec`, 프로젝트 도구)
+# `labgate` CLI 설계 문서 — v7 (`lg init`, `lg commit`, `lg draft`, `lg upgrade`, `lg verify`, `lg status`, `lg answer`, `lg spec`, `lg ideas`, 프로젝트 도구)
 
-> 문서 버전: 6.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
+> 문서 버전: 7.0 · 대상: CLI 구현자(사람 또는 코딩 에이전트)
 > 이 문서만으로 `lg init`, `lg commit`, `lg draft`를 구현·테스트할 수 있어야 한다. 생성될 모든 파일의 원문은 부록 A·B·C에 있다.
 
 변경 이력은 `git log -- labgate-design.md`로 본다.
@@ -12,7 +12,7 @@
 - §1–3: 무엇을 왜 만드는가 (범위, 확정된 결정, 용어)
 - §4–13: `lg init`을 어떻게 만드는가 (명령, 설정, 생성 결과, 모듈, Git, hook, 오류)
 - §14–15: 무엇으로 완성을 판단하는가 (테스트, 수용 기준), 이후 확장
-- §16–25: v2–v6 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`·`lg spec adopt`, 프로젝트 종류(`--kind`)와 자료 가져오기
+- §16–26: v2–v7 — 규칙의 층과 우선순위, 사람의 변경과 `session-check`, `lg commit`, `lg draft`, 한계, `apply-human-commits`, `lg upgrade`, `lg verify`, `lg status`·`lg answer`·`lg spec adopt`, 프로젝트 종류(`--kind`)와 자료 가져오기, 아이디어 탐색(`--kind ideation`, `--from`, `lg ideas`)
 - 부록 A: 프로젝트 루트·계획·참고문헌 등 생성 문서 템플릿 원문
 - 부록 B: `specs/` 문서 원문 (완성 사양 5종, stub 생성 규칙, 양식, 절차 문서 8종)
 - 부록 C: commit-msg hook, agent-commit, session-check, apply-human-commits 스크립트 원문
@@ -218,7 +218,7 @@ milestones:
 - 생성되는 `.lg/project.yaml`에는 위 내용에 다음이 추가된다:
   ```yaml
   generated:
-    labgate_version: "0.6.0"
+    labgate_version: "0.7.0"
     spec_version: 4
     created: "2026-10-01"
   ```
@@ -453,7 +453,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "labgate"
-version = "0.6.0"
+version = "0.7.0"
 requires-python = ">=3.10"
 dependencies = [
   "typer>=0.15.4",
@@ -1533,7 +1533,7 @@ lg answer [REVIEW_ID] [--no-tag]
 
 1. **보여 주기.** review에서 `## 응답` 위의 에이전트 섹션을 rich Markdown(typer와 함께 설치됨)으로 렌더링한다.
    - gate면 `lg verify --task <Task>`의 요약(§23.6의 `summary_for_commit`: 위반 수, 완료 기준 체크 수, 근거 경로)을 붙인다.
-   - 터미널보다 길면 pager(`pydoc.pager`: `MANPAGER`, `PAGER`, 없으면 `less`)로 연다.
+   - 터미널보다 길면 pager(`pydoc.pager`: `MANPAGER`, `PAGER`, 없으면 `less`)로 연다. 색 코드는 pager가 해석할 때만 보낸다: `less`면 `LESS`에 `-R`을 더하고, 다른 pager면 색 없는 글을 보낸다. 링크는 터미널 하이퍼링크 코드 대신 글로 보인다(실사용: 옵션 없는 `less`에서 `ESC[1m`, `ESC]8;…`이 그대로 보였다, v0.7.0).
 2. **묻기** (§24.4.3, §24.4.4).
 3. **메시지 만들기와 검사.** 만든 커밋 메시지를 프로젝트 hook으로 검사한다. 어긋나면 labgate 버그로 보고 코드 2.
 4. **미리보기** (§24.5.4). 메시지마다 `scripts/apply-human-commits --preview`를 돌려 반영될 변화를 보여 준다.
@@ -1772,6 +1772,356 @@ labgate의 구조(사람이 게이트에서 판정하고 에이전트가 그 사
 | 정적 사양·절차 | 종류마다 나누지 않음 | 규칙은 같다. 연구 용어가 남는 곳(workflow의 실험 원칙 등)은 실제로 써 보고 v0.6.x에서 고친다 |
 | `Milestone-Verdict` 값 | 그대로 (`go`·`nogo`·`conditional`) | hook·반영 도구·tag를 바꾸지 않는다. 뜻만 마일스톤 문서에 적는다 |
 
+## 26. 아이디어 탐색 (`--kind ideation`, `lg init --from`, `lg ideas`)
+
+v0.7.0, spec_version 7.
+
+### 26.1 목적
+
+**무엇을 연구(또는 제안)할지 정하는 단계**를 labgate 안으로 들인다. 그리고 그 결과를 실행 프로젝트로 넘기는 일을 명령으로 만든다.
+
+지금 labgate는 방향이 정해진 뒤에 시작한다. `lg init`이 연구 질문과 마일스톤을 받고, M0이 그 방향을 검증·확정한다. 방향을 고르는 일(후보를 만들고 비교해 하나를 고르는 것)은 labgate 밖에서 일어나고, 그 판단은 기록되지 않는다.
+
+### 26.2 근거: 지금까지 실제로 일어난 일
+
+| # | 단계 | 일어난 일 | 기록 |
+|---|---|---|---|
+| 1 | init 전 발산 (labgate 밖, 2026-10-02) | 주제 전환("mamba 계열 × latent reasoning으로 다시 ideation"). 두 계보 정리, 결합 구조 A–D, 아이디어 후보 5개와 가설·최소 실험, "1→2→5" 뼈대 추천, 새로움 위험, 문헌 검색 | 대화에만 남았다. `notes/literature-review.md` 한 파일로 요약되어 `lg init` 설정을 손으로 만들었다. 후보 비교와 선택 이유는 커밋·결정으로 남지 않았다 |
+| 2 | 원래 프로젝트 M0-T0 | 에이전트가 메모를 로드맵·결정(proposed)·문헌으로 옮겼다 | 커밋과 결정 문서 |
+| 3 | 연습용 프로젝트 M0 (2026-10-04) | T1에서 가까운 선행 연구(Penelope 등)가 빈틈을 좁혔다. 사람이 대화로 "선택지 C(표현력)"를 지시했고, M0-T4에서 질문을 바꿔 D0.1을 확정했다. 새 질문의 핵심은 처음 메모의 **하위 가설 3(표현력)**이었다 | 결정 D0.1의 선택지 A/B/C와 이력. 그런데 처음 후보 목록과 연결되지 않아, "처음 후보 중 무엇이 살아남았나"는 사람이 기억해야 한다 |
+| 4 | 새 프로젝트 `-v2` (2026-10-04) | 확정한 질문으로 처음부터 다시 시작했다. 설정 파일은 연습용 프로젝트의 `project.yaml`에서 손으로 옮겼고(연구 질문만), 마일스톤 제목은 예전 질문 기준이라 어긋났다 | `-v2`의 init 커밋. **두 프로젝트를 잇는 기록이 없다** |
+
+빈틈:
+- **발산 단계가 기록되지 않는다(1).** 첫 판단, 곧 "왜 이 방향인가"가 추적되지 않는다.
+- **후보를 비교한 기준이 없었다(1).** "1→2→5 뼈대" 추천은 에이전트가 미리 정한 기준 없이 낸 판단이었다. 무엇을 근거로 어느 후보가 나은지 다시 따져 볼 수 없다.
+- **후보가 ID를 갖지 않는다(1, 3).** 나중에 방향을 틀어도 "후보 3으로 돌아간다"고 말할 수 없다.
+- **넘기는 일이 손으로 이루어지고 일부를 잃는다(4).**
+  - 질문은 넘어갔지만 가설과 마일스톤은 따로 맞춰야 했다.
+  - 근거 문헌 60편은 다시 등록해야 한다.
+  - 출발점이 어디인지가 기록에 없다.
+
+### 26.3 전체 그림
+
+```
+lg init my-idea --kind ideation          ← 탐색 주제만으로 시작 (연구 질문 없음)
+  M0-T0 착수 계획 : 평가 기준(plan/criteria.md)을 사람이 확정하고 잠근다 ← 후보를 보기 전에
+  M0 지형과 후보   : 문헌·사례 지형 → 후보(idea 문서 I1, I2 …) 생성 → 게이트
+  M1 검증과 선택   : 잠근 기준으로 모든 후보를 근거와 함께 평가 → lg ideas 비교표
+                     → 방향 결정(사람) → brief 작성 → 게이트(Milestone-Verdict go)
+        │ brief.md (확정: 질문, 가설, 마일스톤, 근거 문헌, 버린 후보와 이유)
+        ▼
+lg init my-study --from ../my-idea [--kind research|proposal]
+  설정(질문·가설·마일스톤) + references/ + notes/ideation-brief.md + 출발점 기록
+```
+
+- ideation도 다른 종류처럼 게이트, 결정, `lg answer`, `lg status`를 그대로 쓴다. 새 명령은 `--from` 하나다.
+- 실행 프로젝트의 M0은 brief를 출발점으로 "검증·확정"을 한다. 처음부터 다시 조사하지 않는다.
+
+### 26.4 `--kind ideation`
+
+#### 26.4.1 입력
+
+| 설정 | ideation에서 |
+|---|---|
+| `project.research_question` | **탐색 주제**. 질문이 아니어도 된다(예: "Mamba 계열 SSM의 메모리를 latent reasoning에 결합"). 설정 형식은 그대로라 같은 필드를 쓴다 |
+| `milestones` | 생략하면 기본 두 개: M0 "지형 파악과 후보 생성", M1 "후보 검증과 방향 선택". 적으면 그대로 쓴다 |
+| 그 밖 | 같다 |
+
+대화형이면 "프로젝트 종류"에 "아이디어 탐색 (ideation)"이 더해지고, 질문 문구가 "탐색 주제"가 된다. 마일스톤 질문은 기본값을 보여 준다.
+
+#### 26.4.2 생성 결과에서 다른 것
+
+| | research | ideation |
+|---|---|---|
+| 핵심 칸 | 연구 질문 | 탐색 주제 |
+| 로드맵 절 | 가설, 공통 실험 원칙 | 후보 목록(`ideas/` 색인), 선택 기준 |
+| 후보 문서 | 없음 | `ideas/`: 후보마다 `ideas/I<n>_<slug>.md` + 색인 `ideas/index.md` (§26.5) |
+| 평가 기준 | 없음 | **`plan/criteria.md`** (§26.6): 기본 기준, 사람이 고치고 잠근다 |
+| 결과 문서 | task 결과, 마일스톤 보고 | 같음 + **`brief.md`** (§26.7, 루트) |
+| 원고 폴더 | `paper/` | 없음 |
+| T0 카드 | 문헌 조사, task 분해 | 지형 파악(문헌·사례), 후보 생성 계획, task 분해 |
+| 마일스톤 판정 | Go / No-go | M1 판정 go = 방향 확정(brief 확정), nogo = 탐색 중단, conditional = 다시 탐색 |
+
+같은 것: 규칙, 절차, 커밋 규약, hook, 결정(`decisions/`), 참고문헌(`references/`), `lg` 명령.
+
+#### 26.4.3 에이전트가 하는 일 (절차)
+
+새 절차를 만들지 않고, ideation의 task 카드와 사양으로 정한다(규칙을 늘리지 않는다).
+
+- **기준 먼저:** ideation M0-T0의 범위에 "평가 기준 확정 제안"이 들어간다. 에이전트는 기본 기준을 프로젝트에 맞게 고칠 점을 제안하고, 사람이 게이트에서 확정한다. 확정하면 잠긴다(§26.6.2). 잠기기 전에는 후보를 평가하지 않는다.
+- **평가:** M1에서 잠근 기준으로 모든 후보를 기준별로 매긴다(§26.6.3). 비교표와 순위는 `lg ideas`가 낸다(§26.6.4).
+- **후보 만들기:** 후보마다 idea 문서를 쓴다. 사람이 대화로 낸 아이디어도 idea 문서로 옮긴다(`propose` 커밋). 버리는 후보는 지우지 않고 `status: dropped`와 이유를 남긴다.
+- **방향 결정:** 고른 후보는 결정 문서(`D0.1 방향`)의 선택지로 올리고, 확정은 사람이 한다(`lg answer`).
+- **brief:** M1 마지막 task에서 에이전트가 초안을 쓰고, 사람이 M1 게이트(Milestone-Verdict go)로 확정한다.
+
+### 26.5 idea 문서 (새 문서 유형, 완성 사양)
+
+```
+---
+id: I3
+type: idea
+spec_version: 7
+title: "SSM 상태 갱신의 표현력과 상태 추적 latent 추론"
+status: candidate          # candidate | exploring | selected | dropped | merged
+origin: conversation       # conversation | literature | agent
+merged_into: null          # merged일 때 다른 I-ID
+decision: null             # 고르거나 버린 결정 ID
+updated: 2026-10-02
+---
+# I3. …
+
+## 한 줄 주장
+## 가설
+## 최소 실험          (무엇을 돌리면 맞고 틀림이 드러나나, 자원 추정)
+## 가장 가까운 선행 연구와 차이   (참고문헌 ID)
+## 새로움 위험
+## 평가                (잠근 기준으로, 기준별 점수·근거·확신. §26.6.3)
+## 판단 기록          (상태가 바뀐 날짜, 근거, 커밋)
+```
+
+- ID는 `I<n>`이다(프로젝트 안에서 한 번 쓰면 다시 쓰지 않는다). 커밋 scope와 결정의 선택지에서 이 ID로 가리킨다. hook이 scope 형식으로 `I<n>`을 받게 한다.
+- **상태 전이 중 사람 몫(G4에 추가):** `→ selected`, `→ dropped`. 사람의 `decide` 커밋(`Decisions`)이나 게이트 판정으로 정하고, 반영 도구가 반영한다.
+  - 에이전트는 `candidate → exploring`만 한다. 이것은 검토 중이라는 표시라 판단이 아니다.
+
+### 26.6 평가 기준 (미리 정하고 잠근다)
+
+에이전트가 후보를 평가할 때 임의적이거나 자의적이면 안 된다. 이를 위해 세 가지를 지킨다.
+
+1. **기준은 후보를 보기 전에 사람이 확정한다.**
+2. **에이전트는 그 기준과 척도대로만, 근거를 달아 매긴다.**
+3. **합계와 순위는 도구가 계산한다.**
+
+방향은 여전히 사람이 정한다. 점수는 판단의 입력이지 결정이 아니다.
+
+#### 26.6.1 기준 문서 `plan/criteria.md`
+
+ideation 프로젝트에 생성된다. 기본 기준은 **CS(특히 ML) 박사과정의 논문 아이디어 평가**에 맞춘다. 구성은 두 가지를 겹쳐 놓은 것이다.
+
+- **학회 리뷰 기준:** NeurIPS·ICML·ICLR 리뷰 양식의 독창성(originality), 중요도(significance), 타당성(soundness)
+- **박사과정의 사정:** 선점 위험, 학위 기간 안의 실행 가능성, 결과가 부정적이어도 논문이 되는가
+
+사람은 프로젝트에 맞게 고친 뒤 잠근다.
+
+```
+---
+id: criteria
+type: criteria
+spec_version: 7
+status: draft              # draft | locked
+locked_commit: null        # 잠근 사람 커밋 (반영 도구가 채움)
+updated: …
+---
+# 평가 기준
+```
+
+**기본 기준표** (가중치는 기본값. 사람이 바꾼다)
+
+| ID | 기준 | 묻는 것 | 누가 | 가중치 | 결격 (점수와 상관없이 탈락) |
+|---|---|---|---|---|---|
+| C1 | 독창성 | 가장 가까운 선행 연구가 이미 한 것과 무엇이 다른가 | 에이전트 | 3 | 핵심 주장을 이미 한 논문(arXiv 포함)이 있다 |
+| C2 | 중요도 | 답이 나오면 그 분야에서 무엇이 바뀌나, 누가 인용하나 | 에이전트 | 3 | — |
+| C3 | 검증 가능성 | 가설과 반증 조건, 지표, 비교 대상이 분명한가 | 에이전트 | 2 | 어떤 결과가 나와도 가설이 틀렸다고 말할 수 없다 |
+| C4 | 전제의 근거 | 아이디어가 기대는 전제(이론, 선행 결과, 예비 관찰)가 얼마나 단단한가 | 에이전트 | 2 | — |
+| C5 | 실행 가능성 | 연산 자원·데이터·공개 코드·기간이 가진 자원 안에 드는가. 첫 결과까지 걸리는 시간 | 에이전트 | 2 | 필요한 자원이 가진 자원의 몇 배를 넘는다 (배수는 사람이 정한다) |
+| C6 | 선점 위험 | 최근 6–12개월 같은 방향 논문의 속도, 큰 연구실이 먼저 낼 가능성 | 에이전트 | 2 | — |
+| C7 | 결과의 견고성 | 가설이 틀려도(음성 결과) 논문·학위 논문의 한 장이 되는가 | 에이전트 | 1 | — |
+| C8 | 연구자 적합성 | 관심, 가진 역량과 배울 것, 연구실·지도교수 방향, 학위 일정 | **사람** | 2 | — |
+
+**수준별 근거 조건** (예: C1, C5, C6. 기준마다 1–5 모두 적는다)
+
+| 점수 | C1 독창성 | C5 실행 가능성 | C6 선점 위험 (낮을수록 높은 점수) |
+|---|---|---|---|
+| 1 | 핵심 주장을 이미 한 논문이 있다(ID, 표·절) | 필요 자원 > 가진 자원의 결격 배수 | 같은 주장을 하는 동시 연구가 이미 나왔다 |
+| 2 | 같은 문제·같은 방법. 차이는 설정(데이터, 규모)뿐 | 자원은 들지만 첫 결과까지 T(가진 기간)를 넘는다 | 최근 3개월 안에 아주 가까운 논문이 2편 넘게 나왔다 |
+| 3 | 방법 또는 문제 중 하나가 새롭다. 가까운 연구 2편 이상과의 차이 표가 있다 | 공개 코드·데이터가 있고 첫 결과(최소 실험)까지 T/2–T | 가까운 논문이 있지만 축이 다르다 |
+| 4 | 둘 다 새롭다. 검색 기록(검색어, 날짜, 결과 수)으로 빈틈을 보일 수 있다 | 첫 결과까지 T/4–T/2, 자원 추정의 근거가 있다(비슷한 실험의 GPU 시간) | 최근 12개월 같은 방향 논문이 드물다 |
+| 5 | 4에 더해, 이론 예측이나 반증 조건이 있어 결과가 어느 쪽이든 새 지식이다 | 첫 결과까지 T/4 안, 실패해도 빨리 알 수 있다 | 같은 방향이 없고, 진입 장벽(데이터, 이론)이 있다 |
+
+필요한 근거:
+- C1: 참고문헌 ID와 위치, 검색 기록(`notes/search-*.md`)
+- C2: 이 문제를 열린 문제로 꼽은 논문(ID와 위치), 인용·후속 연구 흐름
+- C3: 가설 문장, 반증 조건, 지표와 기준선(공개된 수치의 ID와 표)
+- C4: 정리 번호, 선행 결과의 표, 예비 실험
+- C5: 비슷한 실험의 자원 보고(ID와 위치), 공개 코드·데이터 주소, 가진 자원(사람이 기준 문서에 적는다: GPU 종류와 시간, 기간)
+- C6: 최근 논문 목록(날짜 포함)
+- C7: 음성 결과일 때의 논문 형태(분석, 반례, 벤치마크)
+
+**사람이 기준 문서에 함께 적는 것:**
+- 가진 자원: GPU 종류·수·월 사용 가능 시간, 데이터 접근
+- 기간: 이 아이디어에 쓸 수 있는 개월 수, 목표 학회와 마감
+- C5의 결격 배수
+
+에이전트는 이 값을 고치지 않는다.
+
+**예시:** 이 기준은 실제로 겪은 일과 맞물린다. 처음 ideation의 후보 5개를 C1·C6로 매겼다면 "GRU·고정 상태를 붙여 Coconut·CODI와 비교" 방향(비용 중심)은 C1 2–3점, C6 1–2점이었을 것이다(Penelope 등 2026-07~09 동시 연구). 표현력 방향은 C1 4–5점(정리 기반 반증 조건), C7도 높았을 것이다. 연습용 프로젝트 M0에서 늦게 도달한 방향 전환이 ideation 단계에서 근거와 함께 드러났을 것이다.
+
+**제안서(`--kind proposal`)를 ideation으로 시작할 때:** 기본 기준은 위 연구 기준이다. 제안서용 기준이 필요하면 사람이 기준 문서를 고친다(부가 기능, 기본값은 따로 두지 않는다).
+
+#### 26.6.2 잠그기
+
+- **잠그는 시점:** ideation M0-T0(지형 파악과 후보 생성 계획)의 게이트에서 사람이 기준을 확정한다. 이 판정 커밋이 `plan/criteria.md`를 `locked`로 만든다(반영 도구, `locked_commit`).
+- **사람 몫(G4에 추가):** 기준의 `draft → locked`와 잠근 뒤의 모든 변경. 에이전트는 기준 문서를 고치지 않는다. 고치고 싶으면 `notes/`에 제안한다.
+- **잠근 뒤에 바꾸면:** 사람의 `plan` 커밋으로만 바꾼다. 바꾸면 이미 매긴 모든 후보의 평가가 "기준 변경 전"으로 표시되고, 에이전트가 **모든 후보를 다시** 매긴다. 일부 후보만 새 기준으로 매기는 일을 막는다.
+- **잠기기 전에는 평가하지 않는다.** 에이전트는 `locked` 전에 점수를 쓰지 않는다. `lg verify`가 확인한다(§26.6.4).
+
+#### 26.6.3 평가 (idea 문서의 `## 평가`)
+
+```
+## 평가 (기준 locked_commit 3f2a1c9)
+
+| 기준 | 점수 | 근거 | 확신 |
+|---|---|---|---|
+| C1 | 4 | `chen2026-penelope` Table 1과 차이 표(results/M1/M1-T1_result.md §26.2), 검색 기록 notes/search-2026-10-05.md | 중 |
+| C2 | 3 | … | 상 |
+| C8 | (사람) | | |
+```
+
+- **근거 없는 점수는 무효다.** 근거 칸에는 참고문헌 ID와 위치, 결과 문서 경로, 검색 기록 같은 확인할 수 있는 것을 적는다.
+- **확신**(상·중·하): 근거가 약하면 "하"로 두고, 그 기준의 근거를 보강할 task를 제안한다.
+- **매기는 순서:** 모든 후보를 같은 task 안에서 기준별로 매긴다(후보별이 아니라 기준별로 한 줄씩). 먼저 매긴 후보가 기준점이 되어 뒤 후보가 흔들리는 것을 줄이기 위해서다. 다시 매기면 이전 점수와 이유를 `## 판단 기록`에 남긴다.
+- **출처를 가리지 않는다.** 사람이 낸 후보(`origin: conversation`)와 에이전트가 낸 후보를 같은 기준과 같은 task에서 매긴다. 에이전트가 자기 후보를 높게 매기는 편향은 근거 요건과 사람의 판정으로 견제한다.
+
+#### 26.6.4 도구: 비교표와 검사
+
+- **`lg ideas` (새 명령, 읽기만, 사람·에이전트):**
+  - 기준 문서와 idea 문서들을 읽어 비교표를 낸다: 후보 × 기준 점수, 가중 평균, 순위, 결격.
+  - 함께 알리는 것: 근거 없는 점수, 확신 "하"인 칸, 사람이 매길 칸, 잠그기 전 점수, 기준 변경 뒤 다시 매기지 않은 후보.
+  - 합계와 순위는 도구가 계산한다. 에이전트가 손으로 더하거나 순위를 매기지 않는다.
+- **`lg verify` (V5 확장):**
+  - 평가표의 기준이 기준 문서와 같다.
+  - 점수가 척도 안에 있다.
+  - 근거 칸이 비어 있지 않다.
+  - 평가가 기준을 잠근 커밋 뒤에 쓰였다.
+  - 위반이면 게이트 판정 때 `lg commit`·`lg answer`의 요약에 나온다.
+- **방향 결정(D0.1)과 `lg answer`:**
+  - 결정 문서의 선택지에 `lg ideas` 비교표를 붙인다.
+  - 사람은 판정할 때 그 표를 본다. 순위와 다른 후보를 고르면 이유를 코멘트에 남긴다. 막지는 않는다.
+
+### 26.7 brief.md (방향 확정 문서, 완성 사양)
+
+실행 프로젝트가 읽는 넘김 문서다. 사람이 읽기 좋은 Markdown이면서, `lg init --from`이 읽는 값은 frontmatter에 둔다.
+
+```
+---
+id: brief
+type: brief
+spec_version: 7
+status: draft              # draft | confirmed (M1 게이트 go 반영 때 confirmed)
+kind: research             # 넘길 실행 프로젝트의 종류 (research | proposal)
+question: "…"              # 확정 질문 → research_question
+summary: "…"               # → project.summary
+selected: [I3]
+dropped: [I1, I2, I4, I5]
+milestones:                # → milestones (제목만)
+  - "기준선 재현과 합성 과제 구축"
+  - "표현력 변형 사다리와 H1 검증"
+references: [hao2024-coconut, grazzi2024-negative-eigenvalues, …]   # 넘길 참고문헌 ID
+criteria_commit: 3f2a1c9   # 평가에 쓴 기준을 잠근 커밋
+decision: D0.1
+updated: …
+---
+# 방향 확정: …
+
+## 질문과 가설
+## 왜 이 방향인가 (고른 후보와 근거, `lg ideas` 비교표. 순위와 다르게 골랐으면 그 이유)
+## 버린 후보와 이유
+## 첫 마일스톤에서 할 일 (실행 프로젝트의 M0-T0 입력)
+## 남은 위험과 열린 질문
+```
+
+### 26.8 `lg init --from IDEATION`
+
+```
+lg init PATH --from IDEATION_PATH [--kind research|proposal] [--config FILE] [--import DIR] …
+```
+
+- **읽는 곳:** IDEATION 프로젝트의 `brief.md`. 그 프로젝트가 spec_version 7 이상의 ideation이어야 한다.
+- **전제:**
+  - `brief.md`의 `status: confirmed`. 아니면 오류(코드 2)이고 "M1 게이트를 먼저 판정하세요"라고 안내한다.
+  - ideation 프로젝트의 작업 트리가 깨끗해야 한다. 넘기는 내용이 커밋된 것과 같도록 하기 위해서다.
+- **설정 만들기:**
+  - brief에서 가져오는 값: `question` → `research_question`, `summary`, `milestones`, `kind`(`--kind`가 우선). 사람 신원도 ideation 프로젝트에서 가져온다.
+  - 새로 정하는 값: 이름과 slug. 대화형이면 묻는다(기본값은 brief 제목).
+  - `--config`를 같이 주면 설정 파일 값이 우선한다.
+- **옮기는 것:**
+
+| 무엇 | 어디로 | 어떻게 |
+|---|---|---|
+| `brief.md` | `notes/ideation-brief.md` | 그대로. 실행 프로젝트 M0-T0의 입력이 된다(T0 카드의 `--from` 분기) |
+| brief의 `references` | `references/library/` 원본 + `references/catalog.md` 행 | ID 그대로. 첫 승인 커밋 전에 stage |
+| 고른 idea 문서 | `notes/ideation/` | 근거로 |
+| 출발점 | `.lg/project.yaml`의 `origin: {path, commit, brief}`, README의 한 줄 | init 커밋에 포함(생성 파일) |
+
+- **커밋:** 옮긴 자료는 `--import`와 같이 stage만 하고, 첫 승인 커밋에 함께 들어간다. init 커밋은 생성 파일만이다(v0.6.0 규칙). 출발점 기록은 생성 파일이라 init 커밋에 들어간다.
+- **ideation 쪽:** 실행 프로젝트가 생겼다는 기록은 ideation 프로젝트에 자동으로 쓰지 않는다(다른 저장소를 바꾸지 않는다). 필요하면 사람이 남긴다. 안내에 명령 예를 보여 준다.
+
+### 26.9 함께 넣을 것 (실사용에서 나온 빈틈)
+
+| 항목 | 내용 | 이유 |
+|---|---|---|
+| 결정의 확정 내용 | 반영 도구가 결정을 `confirmed`로 바꿀 때, `확정:` 줄(커밋 본문)이나 review `## 응답`의 확정 내용을 결정 문서의 "확정 내용" 절에 옮겨 적는다(사람이 쓴 그대로). 결정 사양에 그 절이 없으면 건너뛴다 | 연습용 프로젝트: D0.1이 `confirmed`인데 본문은 "(미확정)"으로 남았다 |
+| 마일스톤 `go_nogo` | `Milestone-Verdict`를 반영할 때 마일스톤 frontmatter `go_nogo`를 채운다 | 연습용 프로젝트: M0이 `closed`인데 `go_nogo: null` |
+| ideation용 사람 몫 전이 | §26.5의 idea `→ selected`, `→ dropped`를 `lg verify` V2와 반영 도구에 | ideation의 기본 |
+
+### 26.10 미루는 것
+
+| 항목 | 이유 |
+|---|---|
+| 열린 세션의 사람 커밋 자동 감지 (UserPromptSubmit hook) | ideation과 무관하다. 지금은 "커밋했어"라고 알리면 되고, `lg commit`이 그렇게 안내한다 |
+| 커밋 순간 G3·G7 차단 | 에이전트 쪽 강제라 성격이 다르다. `lg verify`가 사후에 찾는다 |
+| 제안서 종류의 사양·절차 용어 | KZ 실사용에서 걸리는 곳이 나오면 함께 고친다 |
+| 연구 프로젝트에서 바로 `--from` (M0에서 방향이 크게 바뀐 경우) | 연구 프로젝트에는 brief가 없다. 우선 ideation만 지원하고, 필요하면 연구 프로젝트에도 brief를 쓰게 하는 쪽으로 넓힌다 |
+
+### 26.11 문서와 테스트
+
+- 명령 설명서: `lg-init.md`(`--kind ideation`, `--from`), 작업 설명서 새 페이지 `ideation.md`(탐색부터 넘기기까지), `setup.md`.
+- 설계 문서 §26으로 병합. 부록에 idea·brief 사양과 양식, ideation 템플릿 분기.
+- 테스트:
+  - unit: brief frontmatter 읽기, 설정 만들기(우선순위)
+  - contract: ideation 템플릿(용어, `ideas/`, `brief.md`, 원고 폴더 없음), 사양, 해시표 변형
+  - tools: 반영 도구의 idea 전이, 확정 내용 옮기기, `go_nogo`
+  - unit: 비교표 계산(가중 평균, 결격, 순위, 동점), 평가표 검사
+  - commands: `lg ideas`(근거 없는 점수, 잠그기 전 점수, 기준 변경 뒤 다시 매기지 않은 후보 표시), `lg verify` V5(평가표), 기준 잠그기·바꾸기 흐름
+  - commands: `lg init --kind ideation`, `--from`(전제 실패, 설정 우선순위, 옮긴 것, 출발점 기록, 첫 승인 커밋에 함께), `lg verify` V2(idea)
+  - e2e: ideation 만들기 → brief 확정 → `--from`으로 연구 프로젝트
+
+### 26.12 결정된 사항
+
+모두 초안의 추천대로 정했다(2026-10-04).
+
+| 질문 | 결정 |
+|---|---|
+| 후보 표현 | 새 문서 유형 `idea` (`ideas/I<n>_<slug>.md`, 완성 사양) |
+| 넘김 문서 | `brief.md` (Markdown + frontmatter, 완성 사양) |
+| `--from`이 옮기는 것 | 질문·요약·마일스톤·사람 신원(설정), brief, 고른 후보, 넘길 참고문헌(원본과 목록 행) |
+| ideation 마일스톤 | 기본 두 개(지형 파악과 후보 생성 / 후보 검증과 방향 선택), 바꿀 수 있음 |
+| 함께 넣을 것 (§26.9) | 넣음 |
+| `--from`의 brief 상태 | `confirmed`만 |
+| 평가 기준을 정하는 시점 | ideation M0-T0 게이트에서 잠금 (후보 생성 전) |
+| 척도 | 1–5, 수준마다 근거 조건. 결격은 결격이 있는 기준의 1점 |
+| 합계와 순위 | `lg ideas`가 계산(가중 평균), 사람이 최종 결정 |
+| 기준을 잠근 뒤 바꾸기 | 사람의 `plan` 커밋으로만, 바꾸면 모든 후보 다시 평가 |
+| 기본 기준 | C1–C8 (학회 리뷰 기준 + 박사과정 사정) |
+
+#### 26.12.1 구현하며 정한 세부
+
+- **고르기·버리기:** `gate`·`decide` 커밋의 `Select: I3`, `Drop: I1, I2` trailer로 한다. hook은 형식(`I<n>`)과 쓸 수 있는 타입을 검사한다. `lg answer`는 요청서 frontmatter `ideas:`에 있는 후보만 묻는다(결정과 같은 규칙). 버릴 때는 이유 한 줄이 필수다.
+- **기준 잠금의 반영:** `M0-T0` 게이트 승인을 반영할 때 `plan/criteria.md`가 `draft`면 `locked`로 바꾸고 `locked_commit`을 채운다. 에이전트가 이를 커밋하므로 절차 gate-apply의 특별 규칙에 G7(기준 문서의 `status`·`locked_commit`만)을 더했다. `lg verify` V4는 `Applies`가 있는 커밋이 이 세 줄(`status`, `locked_commit`, `updated`)만 바꾸면 위반으로 보지 않는다.
+- **방향 확정의 반영:** **마지막 마일스톤**의 `Milestone-Verdict: go`만 `brief.md`를 `confirmed`로 바꾼다(M0을 go로 닫아도 확정되지 않는다).
+- **기준 변경의 판단:** 기준 버전은 기준 **내용**을 마지막으로 바꾼 커밋이다. `status`·`locked_commit`·`updated`만 바꾼 커밋(잠금 반영)은 건너뛴다. 처음 구현은 "기준 문서를 마지막으로 바꾼 커밋"이라 잠금 반영 커밋이 버전이 되어, 사양대로 쓴 평가가 모두 "기준 변경 전"이 되었다(연습용 ideation 프로젝트에서 평가 전에 발견). 평가 표 머리의 커밋이 기준 버전과 다르면 "기준 변경 전" 평가다. 순위에서 빠지고 `lg verify` V5 위반이다. `lg ideas`가 기준 버전과 평가 표 머리에 쓸 줄을 보여 준다.
+- **평균:** 합계 대신 가중 평균(1–5)을 쓴다. 사람 기준이 비어 있어도 같은 척도로 비교할 수 있게 하기 위해서다.
+- **문서 유형:** conventions에 `idea`, `criteria`, `brief`, `idea-index`와 그 상태값을 더했다. `lg verify` V5는 세 사양의 필수 필드를 읽고, 후보 문서의 `id`가 파일 이름의 `I<n>_` 앞부분과 같으면 맞다고 본다.
+- **`--from` 프로젝트의 M0-T0:** 카드가 `notes/ideation-brief.md`를 출발점으로 삼는다(템플릿의 `origin` 분기).
+- **기본 기준의 보완 (연습용 ideation 프로젝트, 2026-10-05):** 에이전트의 기준 조정 제안 중 프로젝트와 상관없는 세 가지를 기본 기준에 넣었다.
+  - C5 구간을 가진 기간 T에 대한 비율로 바꿨다(T/4, T/2, T). 기간이 1개월이면 개월 단위 구간의 2–4점이 쓰이지 않았다.
+  - C6의 "아주 가까운 논문"을 정의했다: 같은 문제와 같은 방법 축이 둘 다 겹침.
+  - 다른 후보의 산출물을 전제로 하는 후보는 전제 비용을 포함해 C5를 매긴다.
+
+### 26.13 기존 프로젝트에 미치는 것
+
+- 이미 진행 중인 프로젝트(`ssm-latent-reasoning`, `-v2`, KZ)는 바뀌지 않는다. `lg upgrade`로 7로 올려도 §26.9의 반영 도구 개선만 달라진다.
+- 다음 논문 아이디어를 찾을 때 `--kind ideation`으로 시작하고, 방향이 정해지면 `--from`으로 연구 프로젝트를 만든다. 방향이 이미 정해진 일(KZ 제안서 등)은 지금처럼 바로 만든다.
+
 ---
 
 # 부록 A. 생성 문서 템플릿
@@ -1785,10 +2135,14 @@ labgate의 구조(사람이 게이트에서 판정하고 에이전트가 그 사
 
 {{ project.summary }}
 
-## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
+## {% if ideation %}탐색 주제{% elif proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
+{% if origin %}
+출발: ideation 프로젝트 `{{ origin.path }}`(커밋 `{{ origin.commit }}`)의 방향 확정 문서. 사본은 [notes/ideation-brief.md](notes/ideation-brief.md).
+
+{% endif %}
 ## 처음 볼 문서
 
 1. [STATUS.md](STATUS.md): 현재 상태와 사람의 판단이 필요한 항목
@@ -1796,6 +2150,11 @@ labgate의 구조(사람이 게이트에서 판정하고 에이전트가 그 사
 3. [FILEMAP.md](FILEMAP.md): 폴더 구조
 4. [specs/README.md](specs/README.md): 문서 작성 규칙
 5. [specs/workflow.md](specs/workflow.md): 작업 절차와 승인 게이트
+{% if ideation %}
+6. [plan/criteria.md](plan/criteria.md): 후보 평가 기준 (첫 게이트에서 사람이 확정하고 잠근다)
+7. [ideas/index.md](ideas/index.md): 아이디어 후보 목록
+8. [brief.md](brief.md): 방향 확정 문서 (마지막 게이트에서 확정)
+{% endif %}
 
 ## 사람이 하는 일
 
@@ -1841,6 +2200,9 @@ updated: {{ today }}
 | `CLAUDE.md` | Claude Code 연결: `AGENTS.md` 참조 | 사람 |
 {% endif %}
 | `STATUS.md` | 현재 상태판, 사람 판단 대기 목록 | 에이전트 |
+{% if ideation %}
+| `brief.md` | 방향 확정 문서: 확정 질문, 가설, 마일스톤, 근거 문헌, 버린 후보 (`lg init --from`이 읽는다) | 에이전트 (확정은 사람) |
+{% endif %}
 
 ## 폴더
 
@@ -1853,6 +2215,9 @@ updated: {{ today }}
 | `specs/` | 문서 사양, 워크플로우, 커밋 규약, 양식, 에이전트 절차 | `doc-types/<유형>.spec.md`, `procedures/<절차>.md` |
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
+{% if ideation %}
+| `ideas/` | 아이디어 후보와 목록 (평가 기준은 `plan/criteria.md`) | `I<n>_<slug>.md` |
+{% endif %}
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
 | `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 {% if proposal %}PoC·검증{% else %}실험{% endif %} | `<M>/<Task>_<slug>/` |
 | `runs/` | 실행 산출물 원본 (Git 제외) | `<Run-ID>/` |
@@ -1862,7 +2227,7 @@ updated: {{ today }}
 | `data/` | 데이터 생성 설정, 데이터 설명서 | |
 {% if proposal %}
 | `deliverables/` | 제안서 원고, 그림, 제출본 | |
-{% else %}
+{% elif not ideation %}
 | `paper/` | 원고, 그림, 참고문헌 bib | |
 {% endif %}
 | `notes/` | 아이디어 원문, 회의 메모, 기존 자료 | 자유 |
@@ -1893,7 +2258,7 @@ updated: {{ today }}
 ## 프로젝트
 
 - 이름: {{ project.name }}
-- {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}: {{ project.research_question }}
+- {% if ideation %}탐색 주제{% elif proposal %}제안 핵심 질문{% else %}연구 질문{% endif %}: {{ project.research_question }}
 - 에이전트 신원: {{ agent.name }} <{{ agent.email }}>
 
 ## 역할
@@ -1926,10 +2291,10 @@ updated: {{ today }}
 - **G1.** 문서는 `specs/`의 사양을 따른다. 사양이 `stub`이면 `specs/conventions.md`의 공통 규칙을 지키고, 사용한 구조를 작업 일지에 남긴다.
 - **G2.** 자기가 바꾼 파일만 경로를 지정해 stage한다(`git add -A`, `git add .`, `git add -u` 금지). 사람의 변경은 stage하지 않고, 사람의 변경이 있는 파일은 고치지 않는다. 그런 파일을 고쳐야 하면 먼저 사람에게 커밋을 요청한다.
 - **G3.** 사람 커밋 대기 상태(`.lg/pending/COMMIT_MSG` 있음)에서는 커밋하지 않는다.
-- **G4.** 사람 몫의 상태 전이를 하지 않는다: task `draft → approved`, `in-review → closed | revise | redirected`, 결정 `→ confirmed`, 마일스톤 `planned → active → closed`.
+- **G4.** 사람 몫의 상태 전이를 하지 않는다: task `draft → approved`, `in-review → closed | revise | redirected`, 결정 `→ confirmed`, 마일스톤 `planned → active → closed`{% if ideation %}, 후보 `→ selected | dropped`, 평가 기준 `draft → locked`, 방향 확정 문서 `→ confirmed`{% endif %}.
 - **G5.** review 문서의 `## 응답` 섹션을 쓰지 않는다.
 - **G6.** `plan/roadmap.md`와 `active` 이상인 마일스톤의 목표·기준을 바꾸지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
-- **G7.** `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/`를 고치지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
+- **G7.** `specs/`, `AGENTS.md`{% if claude_code %}, `CLAUDE.md`, `.claude/`{% endif %}, `.lg/`{% if ideation %}, `plan/criteria.md`{% endif %}를 고치지 않는다. 변경은 `notes/`에 제안하고 `propose` 커밋을 남긴다.
 - **G8.** 워크트리(Claude Code `--worktree`, 서브에이전트 `isolation: worktree`)는 실험 격리용으로만 쓴다. 워크트리 안에서도 커밋 규약은 같다. 워크트리 브랜치는 병합하거나 cherry-pick하지 않는다. 채택할 결과는 파일을 `main` 작업 트리로 옮겨 `scripts/agent-commit`으로 새로 커밋하고, 쓰지 않을 워크트리는 정리한다.
 - **G9.** 승인된 task의 범위와 자원 예산 안에서만 일한다. [specs/workflow.md](specs/workflow.md) §7.1의 경우에는 멈추고 에스컬레이션한다(절차 `escalate`).
 - **G10.** 본문은 한국어로 쓴다. 식별자, frontmatter 키, 상태값, 커밋 타입은 영어로 쓴다.
@@ -1947,7 +2312,7 @@ updated: {{ today }}
 | task 완료, 게이트 요청 | [task-gate](specs/procedures/task-gate.md) | 없음 |
 | G9의 멈춤 조건 | [escalate](specs/procedures/escalate.md) | 없음 |
 | 사람이 대화로 판정·결정·응답 | [gate-conversation](specs/procedures/gate-conversation.md) | G5 |
-| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4, G6 |
+| 반영되지 않은 사람 커밋이 있음 | [gate-apply](specs/procedures/gate-apply.md) | G4, G6, G7 |
 
 ## 참고
 
@@ -2103,7 +2468,7 @@ updated: {{ today }}
 
 ## 다음 예정
 
-- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 ({% if proposal %}자료 정리{% else %}문헌 정리{% endif %}, task 분해, 기존 계획 이관)
+- `{{ milestones[0].id }}-T0` 승인 후: 착수 계획 수립 ({% if ideation %}지형 파악, 평가 기준 제안, 아이디어 메모를 후보로{% elif proposal %}자료 정리{% else %}문헌 정리{% endif %}, task 분해{% if not ideation %}, 기존 계획 이관{% endif %})
 ~~~~
 
 ## A.8 `.gitignore` (S)
@@ -2158,13 +2523,19 @@ updated: {{ today }}
 ---
 # 로드맵: {{ project.name }}
 
-## {% if proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
+## {% if ideation %}탐색 주제{% elif proposal %}제안 핵심 질문{% else %}연구 질문{% endif +%}
 
 {{ project.research_question }}
 
+{% if ideation %}
+## 후보와 평가 기준
+
+후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서 사람이 확정하고 잠근다. 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
+{% else %}
 ## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
+{% endif %}
 
 ## 마일스톤
 
@@ -2174,9 +2545,15 @@ updated: {{ today }}
 | `{{ m.id }}` | {{ m.title }} | planned | [milestone.md](milestones/{{ m.id }}/milestone.md) |
 {% endfor %}
 
+{% if ideation %}
+## 방향 확정
+
+마지막 마일스톤의 게이트(Milestone-Verdict `go`)에서 [brief.md](../brief.md)를 확정한다. 확정한 방향으로 `lg init <새 폴더> --from <이 프로젝트>`를 써서 연구 프로젝트를 만든다.
+{% else %}
 ## {% if proposal %}공통 작업 원칙{% else %}공통 실험 원칙{% endif +%}
 
 > TODO: {{ milestones[0].id }}-T0에서 작성
+{% endif %}
 
 ## 범위 밖
 
@@ -2216,7 +2593,10 @@ updated: {{ today }}
 
 ## Go / No-go 기준
 
-{% if proposal %}
+{% if ideation %}
+> 마일스톤 판정: go = 다음 단계로(마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
+
+{% elif proposal %}
 > 마일스톤 판정: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단.
 
 {% endif %}
@@ -2254,7 +2634,11 @@ updated: {{ today }}
 
 ## 목표
 
-{% if proposal %}
+{% if ideation and prev is none %}
+탐색 주제의 지형(가까운 문헌, 열린 문제, 최근 동향)을 파악할 계획을 세우고, 후보를 만드는 task로 나눈다. 평가 기준(`plan/criteria.md`)에 고칠 점을 제안해, 사람이 이 게이트에서 기준을 확정하고 잠글 수 있게 한다. 후보는 기준을 잠근 뒤에 평가한다.
+{% elif ideation %}
+{{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 잠근 기준으로 모든 후보를 평가하고, 방향을 고르고, 방향 확정 문서(`brief.md`)를 쓰는 task로 나눈다.
+{% elif proposal %}
 {{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 필요한 자료(고객 자료, 공개 자료, 사례)를 정리하고, 마일스톤을 task로 분해하고, task와 자료를 연결한다.
 {% else %}
 {{ m.id }} ({{ m.title }})의 실행 계획을 세운다. 필요한 문헌을 정리하고, 마일스톤을 task로 분해하고, task와 문헌을 연결한다.
@@ -2264,18 +2648,27 @@ updated: {{ today }}
 
 ### 포함
 
-- {% if proposal %}자료 조사{% else %}문헌 조사{% endif %}, 원본을 `references/library/`에 저장, `references/catalog.md`에 등록
+- {% if ideation %}문헌·동향 조사{% elif proposal %}자료 조사{% else %}문헌 조사{% endif %}, 원본을 `references/library/`에 저장, `references/catalog.md`에 등록
 - task 분해: `{{ m.id }}-T1` 이후 task 카드를 `draft`로 작성
 - `references/{{ m.id }}/task-map.md` 작성
 - `plan/milestones/{{ m.id }}/milestone.md`의 목표, task 목록, Go/No-go 기준 초안 작성 (마일스톤이 `planned`인 동안 허용)
-{% if prev is none %}
+{% if ideation and prev is none %}
+- 평가 기준 조정 제안을 `notes/criteria-proposal.md`에 작성 (기준 문서 `plan/criteria.md`는 사람이 고치고 이 게이트에서 잠근다. 고칠 점이 없으면 그렇게 적는다)
+- `notes/`의 아이디어 메모를 후보로 옮긴다: `ideas/I<n>_<slug>.md` (`status: candidate`, [idea 사양](../../../../specs/doc-types/idea.spec.md)), `ideas/index.md`
+{% endif %}
+{% if origin and prev is none %}
+- `notes/ideation-brief.md`(ideation에서 확정한 방향)를 출발점으로 삼는다. 거기 적힌 질문·가설·근거를 검증하고 다듬는 task로 나누며, 처음부터 다시 조사하지 않는다
+{% endif %}
+{% if prev is none and not ideation %}
 - `notes/`의 기존 계획 자료를 `plan/roadmap.md`, 각 `milestone.md`, `decisions/`로 이관 (기존 결정은 `proposed` 상태로)
 - 이번 마일스톤에 필요한 stub 사양의 초안을 `notes/spec-drafts/`에 작성 (확정은 사람의 `spec` 커밋)
 {% endif %}
 
 ### 제외
 
-{% if proposal %}
+{% if ideation %}
+- 후보 평가 (기준을 잠그기 전에는 점수를 쓰지 않는다), 실험 코드 작성과 실행
+{% elif proposal %}
 - 제안서 본문 작성, PoC 코드 작성과 실행
 {% else %}
 - 실험 코드 작성과 실행
@@ -2310,7 +2703,10 @@ updated: {{ today }}
 - [ ] `task-map.md`에 각 task의 참고문헌, 또는 참고문헌이 없는 이유가 있다
 - [ ] 등록한 모든 {% if proposal %}자료{% else %}문헌{% endif %}의 원본이 `references/library/`에 있고 `catalog.md`에 기재되어 있다
 - [ ] `milestone.md`에 Go/No-go 기준 초안이 있다
-{% if prev is none %}
+{% if prev is none and ideation %}
+- [ ] 평가 기준 조정 제안(또는 "고칠 점 없음")이 `notes/criteria-proposal.md`에 있다
+- [ ] `notes/`의 아이디어 메모가 모두 후보(`ideas/`)로 옮겨졌다
+{% elif prev is none %}
 - [ ] 기존 계획의 결정 항목이 모두 `decisions/`에 `proposed`로 옮겨졌다
 {% endif %}
 - [ ] 게이트 요청서를 제출했다
@@ -2381,6 +2777,209 @@ updated: {{ today }}
 | Task | 참고문헌 ID | 볼 부분 | 이유 |
 |---|---|---|---|
 | `{{ m.id }}-T0` | (T0에서 작성) | | |
+~~~~
+
+## A.15 `plan/criteria.md` (J, ideation)
+
+~~~~markdown
+---
+id: criteria
+type: criteria
+spec_version: {{ spec_version }}
+status: draft
+locked_commit: null
+updated: {{ today }}
+---
+# 평가 기준
+
+아이디어 후보를 평가하는 기준이다. **{{ milestones[0].id }}-T0 게이트에서 사람이 확정하면 잠긴다**(`status: locked`). 잠기기 전에는 후보를 평가하지 않는다. 잠근 뒤에 바꾸면(사람의 `plan` 커밋) 모든 후보를 다시 평가한다. 에이전트는 이 문서를 고치지 않고, 고칠 점은 `notes/criteria-proposal.md`에 제안한다. 사양: [criteria.spec.md](../specs/doc-types/criteria.spec.md).
+
+기본 기준은 CS 분야 논문 아이디어 평가다(학회 리뷰의 독창성·중요도·타당성 + 박사과정의 선점 위험·실행 가능성·결과의 견고성·연구자 적합성). 프로젝트에 맞게 고친다.
+
+## 가진 자원 (사람이 적는다)
+
+| 항목 | 값 |
+|---|---|
+| GPU | (예: A100 80GB 4장, 월 300 GPU 시간) |
+| 기간 | (이 아이디어에 쓸 수 있는 개월 수) |
+| 목표 학회와 마감 | (예: NeurIPS 2027, 2027-05) |
+| C5 결격 배수 | 3 (필요 자원이 가진 자원의 3배를 넘으면 탈락) |
+
+## 기준
+
+| ID | 기준 | 묻는 것 | 누가 | 가중치 | 결격 |
+|---|---|---|---|---|---|
+| C1 | 독창성 | 가장 가까운 선행 연구가 이미 한 것과 무엇이 다른가 | 에이전트 | 3 | 핵심 주장을 이미 한 논문(arXiv 포함)이 있다 |
+| C2 | 중요도 | 답이 나오면 그 분야에서 무엇이 바뀌나, 누가 인용하나 | 에이전트 | 3 | — |
+| C3 | 검증 가능성 | 가설과 반증 조건, 지표, 비교 대상이 분명한가 | 에이전트 | 2 | 어떤 결과가 나와도 가설이 틀렸다고 말할 수 없다 |
+| C4 | 전제의 근거 | 아이디어가 기대는 이론·선행 결과·예비 관찰이 얼마나 단단한가 | 에이전트 | 2 | — |
+| C5 | 실행 가능성 | 연산 자원·데이터·공개 코드·기간이 가진 자원 안에 드는가 | 에이전트 | 2 | 필요 자원이 가진 자원의 결격 배수를 넘는다 |
+| C6 | 선점 위험 | 최근 6–12개월 같은 방향 논문의 속도, 큰 연구실이 먼저 낼 가능성 | 에이전트 | 2 | — |
+| C7 | 결과의 견고성 | 가설이 틀려도(음성 결과) 논문·학위 논문의 한 장이 되는가 | 에이전트 | 1 | — |
+| C8 | 연구자 적합성 | 관심, 역량과 배울 것, 연구실·지도교수 방향, 학위 일정 | 사람 | 2 | — |
+
+결격이 있는 기준에서 1점이면 그 후보는 결격이다(1점의 근거 조건이 결격 조건과 같다).
+
+다른 후보의 산출물을 전제로 하는 후보(예: 앞 후보의 학습된 모듈을 쓰는 후보)는 전제 후보의 비용을 포함해 C5를 매기고, 근거 칸에 전제 후보 ID를 적는다. 합치는 편이 낫다면 평가 전에 사람이 `merged`로 정한다.
+
+## 수준별 근거 조건
+
+점수마다 "이 근거가 있으면 이 점수"다. 근거 없는 점수는 무효다.
+
+### C1. 독창성
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 핵심 주장을 이미 한 논문이 있다 (참고문헌 ID, 표·절) |
+| 2 | 같은 문제·같은 방법이다. 차이는 설정(데이터, 규모)뿐이다 |
+| 3 | 방법 또는 문제 중 하나가 새롭다. 가까운 연구 2편 이상과의 차이 표가 있다 |
+| 4 | 둘 다 새롭다. 검색 기록(검색어, 날짜, 결과 수)으로 빈틈을 보일 수 있다 |
+| 5 | 4에 더해, 이론 예측이나 반증 조건이 있어 결과가 어느 쪽이든 새 지식이다 |
+
+근거: 참고문헌 ID와 위치, 검색 기록 `notes/search-*.md`
+
+### C2. 중요도
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 이 질문을 열린 문제로 꼽은 문헌이 없고, 답이 나와도 바뀌는 것을 말할 수 없다 |
+| 2 | 좁은 하위 문제다. 관련 후속 연구가 거의 없다 |
+| 3 | 이 질문을 열린 문제나 한계로 꼽은 논문이 있다 (ID와 위치) |
+| 4 | 여러 논문(3편 이상)이 이 문제를 한계로 꼽았고, 답이 나오면 쓰일 곳(방법, 벤치마크)을 말할 수 있다 |
+| 5 | 4에 더해, 분야의 주요 흐름(최근 1–2년 주요 학회의 다수 논문)이 이 답에 기대고 있다 |
+
+근거: 열린 문제·한계를 적은 문헌의 ID와 위치, 최근 논문 목록
+
+### C3. 검증 가능성
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 어떤 결과로도 가설이 틀렸다고 말할 수 없다 |
+| 2 | 가설은 있지만 지표나 비교 대상이 정해지지 않았다 |
+| 3 | 가설, 지표, 비교 대상이 있다. 반증 조건은 정성적이다 |
+| 4 | 반증 조건이 수치로 있다(예: 차이 ≥ 5%p, 시드 3개) 그리고 공개된 기준선 수치가 있다(ID와 표) |
+| 5 | 4에 더해, 가설이 여러 개면 서로 다른 결과를 예측해 구분할 수 있다 |
+
+근거: 가설 문장, 반증 조건, 지표, 기준선 수치의 출처
+
+### C4. 전제의 근거
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 전제를 반박하는 결과가 있다 (ID와 위치) |
+| 2 | 전제가 직관뿐이다 |
+| 3 | 전제를 지지하는 선행 결과가 하나 있다 (ID와 위치) |
+| 4 | 이론(정리 번호)이나 여러 선행 결과가 지지한다 |
+| 5 | 4에 더해, 이 프로젝트의 예비 실험이 지지한다 (결과 문서 경로) |
+
+근거: 정리 번호, 선행 결과의 표, 예비 실험 결과
+
+### C5. 실행 가능성
+
+T = 위 "가진 자원"의 기간. 기간에 대한 비율이라 기간이 짧아도 모든 점수가 쓰인다.
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 필요 자원이 가진 자원의 결격 배수를 넘는다 |
+| 2 | 자원은 들지만 첫 결과(최소 실험)까지 T를 넘는다 |
+| 3 | 공개 코드·데이터가 있고 첫 결과까지 T/2–T |
+| 4 | 첫 결과까지 T/4–T/2. 비슷한 실험의 자원 보고(GPU 시간)로 추정했다 |
+| 5 | 첫 결과까지 T/4 안. 실패해도 빨리 알 수 있다 |
+
+근거: 비슷한 실험의 자원 보고(ID와 위치), 공개 코드·데이터 주소, 위 "가진 자원"
+
+### C6. 선점 위험 (낮을수록 높은 점수)
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 같은 주장을 하는 동시 연구가 이미 나왔다 |
+| 2 | 최근 3개월 안에 아주 가까운 논문이 2편 넘게 나왔다 |
+| 3 | 가까운 논문이 있지만 축이 다르다 |
+| 4 | 최근 12개월 같은 방향 논문이 드물다 |
+| 5 | 같은 방향이 없고, 진입 장벽(데이터, 이론, 장비)이 있다 |
+
+"아주 가까운 논문" = 같은 문제(과제·벤치마크)와 같은 방법 축(이 프로젝트에서 비교하는 핵심 축, 예: 모듈 종류)이 **둘 다** 겹친다. 하나만 겹치면 "가깝지만 축이 다르다"(3점).
+
+근거: 최근 논문 목록(날짜 포함), 검색 기록
+
+### C7. 결과의 견고성
+
+| 점수 | 근거 조건 |
+|---|---|
+| 1 | 가설이 틀리면 남는 기여가 없다 |
+| 2 | 음성 결과는 짧은 워크숍 논문 정도다 |
+| 3 | 음성 결과도 분석 논문(왜 안 되는가)이 된다 |
+| 4 | 어느 결과든 쓸 수 있는 산출물(벤치마크, 도구, 반례)이 남는다 |
+| 5 | 결과 양쪽 모두 주장할 거리가 있도록 설계되어 있다 (예: 두 가설이 다른 결과를 예측) |
+
+근거: 음성 결과일 때의 논문 형태와 산출물
+
+### C8. 연구자 적합성 (사람이 매김)
+
+| 점수 | 기준 |
+|---|---|
+| 1–5 | 관심, 역량과 배울 것, 연구실·지도교수 방향, 학위 일정을 보고 사람이 매긴다 |
+~~~~
+
+## A.16 `ideas/index.md` (J, ideation)
+
+~~~~markdown
+---
+id: ideas-index
+type: idea-index
+spec_version: {{ spec_version }}
+updated: {{ today }}
+---
+# 아이디어 후보
+
+상태: `candidate` → `exploring` → `selected` | `dropped` (사람) / `merged`. 사양: [idea.spec.md](../specs/doc-types/idea.spec.md). 평가 기준: [criteria.md](../plan/criteria.md). 비교표는 터미널에서 `lg ideas`.
+
+| ID | 제목 | 상태 | 출처 | 문서 |
+|---|---|---|---|---|
+~~~~
+
+## A.17 `brief.md` (J, ideation)
+
+~~~~markdown
+---
+id: brief
+type: brief
+spec_version: {{ spec_version }}
+status: draft
+kind: research
+question: null
+summary: null
+selected: []
+dropped: []
+milestones: []
+references: []
+decision: null
+criteria_commit: null
+updated: {{ today }}
+---
+# 방향 확정
+
+마지막 마일스톤에서 에이전트가 쓰고, 그 게이트(Milestone-Verdict `go`)에서 사람이 확정한다. 확정되면 `lg init <새 폴더> --from <이 프로젝트>`가 frontmatter를 읽어 연구 프로젝트를 만든다. 사양: [brief.spec.md](specs/doc-types/brief.spec.md).
+
+## 질문과 가설
+
+> TODO
+
+## 왜 이 방향인가
+
+> TODO: 고른 후보, `lg ideas` 비교표, 순위와 다르게 골랐으면 그 이유
+
+## 버린 후보와 이유
+
+> TODO
+
+## 첫 마일스톤에서 할 일
+
+> TODO: 연구 프로젝트 M0-T0의 입력
+
+## 남은 위험과 열린 질문
+
+> TODO
 ~~~~
 
 ---
@@ -2456,7 +3055,7 @@ updated: {{ today }}
 ---
 id: conventions
 type: spec
-spec_version: 6
+spec_version: 7
 status: complete
 ---
 # 공통 규칙
@@ -2502,7 +3101,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 |---|---|---|
 | `id` | ✓ | 문서 ID |
 | `type` | ✓ | 문서 유형. 아래 표 참고 |
-| `spec_version` | ✓ | 따르는 사양 버전 (현재 6). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
+| `spec_version` | ✓ | 따르는 사양 버전 (현재 7). 사양을 갱신할 때 사람이 모든 문서를 일괄로 올린다(`spec` 커밋). 문서를 쓰거나 고칠 때는 바꾸지 않는다 |
 | `status` | 유형별 | §5의 상태값 |
 | `created` | 유형별 | 생성일 |
 | `updated` | ✓ (사양 문서 제외) | 마지막 수정일. 사양 문서(`type: spec`)의 변경 시점은 `spec` 커밋 이력으로 본다 |
@@ -2515,6 +3114,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | 사양 문서 자신 | `spec` |
 | 절차 문서 (`specs/procedures/`) | `procedure` |
 | 목록·안내 문서 (사양 없음) | `filemap` (`FILEMAP.md`), `spec-index` (`specs/README.md`), `decision-index` (`decisions/index.md`) |
+| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
 
 - 값이 없으면 `null`. 목록이 비면 `[]`.
 - 사람이 입력한 문자열은 큰따옴표로 감싼다.
@@ -2530,6 +3130,9 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | review | `open`, `answered`, `closed` |
 | roadmap | `draft`, `active` |
 | spec | `stub`, `complete` |
+| idea | `candidate`, `exploring`, `selected`, `dropped`, `merged` |
+| criteria | `draft`, `locked` |
+| brief | `draft`, `confirmed` |
 
 전이 규칙은 [workflow.md](workflow.md) §3.
 
@@ -2558,7 +3161,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 ---
 id: workflow
 type: spec
-spec_version: 6
+spec_version: 7
 status: complete
 ---
 # 워크플로우
@@ -2685,7 +3288,7 @@ draft ──▶ approved ──▶ in-progress ──▶ in-review ──┬─�
 ---
 id: git-commit
 type: spec
-spec_version: 6
+spec_version: 7
 status: complete
 ---
 # 커밋 규약
@@ -2855,7 +3458,7 @@ tag는 해당 `gate` 커밋에 붙인다.
 ---
 id: task-card
 type: spec
-spec_version: 6
+spec_version: 7
 status: complete
 ---
 # Task 카드 사양
@@ -2874,7 +3477,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | Task ID |
 | `type` | ✓ | `task-card` |
-| `spec_version` | ✓ | `6` |
+| `spec_version` | ✓ | `7` |
 | `title` | ✓ | 큰따옴표 문자열, 40자 이내 |
 | `milestone` | ✓ | 마일스톤 ID |
 | `status` | ✓ | conventions §5의 task 상태값 |
@@ -2932,7 +3535,7 @@ status: complete
 ---
 id: review
 type: spec
-spec_version: 6
+spec_version: 7
 status: complete
 ---
 # Review 문서 사양 (게이트 요청 · 에스컬레이션)
@@ -2955,7 +3558,7 @@ status: complete
 |---|---|---|
 | `id` | ✓ | 파일명에서 `.md`를 뺀 것 |
 | `type` | ✓ | `review` |
-| `spec_version` | ✓ | `6` |
+| `spec_version` | ✓ | `7` |
 | `kind` | ✓ | `gate` \| `escalation` |
 | `task` | ✓ | Task ID |
 | `status` | ✓ | `open` \| `answered` \| `closed` |
@@ -3101,7 +3704,7 @@ status: stub
 ---
 id: <M>-T<n>
 type: task-card
-spec_version: 6
+spec_version: 7
 title: "<40자 이내 제목>"
 milestone: <M>
 status: draft
@@ -3162,7 +3765,7 @@ updated: <YYYY-MM-DD>
 ---
 id: <Task>_<gate|esc>-<NN>
 type: review
-spec_version: 6
+spec_version: 7
 kind: <gate|escalation>
 task: <Task>
 status: open
@@ -3222,7 +3825,7 @@ updated: <YYYY-MM-DD>
 ---
 id: session-start
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 세션 시작
 
@@ -3254,7 +3857,7 @@ spec_version: 6
 ---
 id: session-close
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 세션 종료
 
@@ -3283,7 +3886,7 @@ spec_version: 6
 ---
 id: commit-prep
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 사람 커밋 준비
 
@@ -3324,7 +3927,7 @@ spec_version: 6
 ---
 id: task-start
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # Task 착수
 
@@ -3351,7 +3954,7 @@ spec_version: 6
 ---
 id: task-gate
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 게이트 요청
 
@@ -3379,7 +3982,7 @@ spec_version: 6
 ---
 id: escalate
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 에스컬레이션
 
@@ -3405,7 +4008,7 @@ spec_version: 6
 ---
 id: gate-conversation
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 대화 경로 판정
 
@@ -3443,7 +4046,7 @@ spec_version: 6
 ---
 id: gate-apply
 type: procedure
-spec_version: 6
+spec_version: 7
 ---
 # 사람 커밋의 반영
 
@@ -3458,6 +4061,7 @@ spec_version: 6
 |---|---|
 | G4 (사람 몫의 상태 전이를 하지 않는다) | 사람 커밋이 정한 상태 전이를 커밋한다. 전이는 `scripts/apply-human-commits`가 만든 것만 쓰고, 상태 필드를 직접 편집하지 않는다 |
 | G6 (`plan/roadmap.md`를 바꾸지 않는다) | 로드맵 "마일스톤" 표의 상태 칸은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 로드맵의 다른 내용은 바꾸지 않는다 |
+| G7 (`plan/criteria.md`를 고치지 않는다, ideation) | 평가 기준 문서의 `status`·`locked_commit`은 `scripts/apply-human-commits`가 바꾼 것을 커밋한다. 기준 내용은 바꾸지 않는다 |
 
 ## 단계
 
@@ -3479,6 +4083,236 @@ spec_version: 6
 | 결정 확정 | 그 결정에 의존하던 작업을 이어 간다. 확정 내용은 `decide` 커밋 본문(`확정:` 줄)이나 review의 `## 응답`에 있다 |
 ~~~~
 
+## B.11 `specs/doc-types/idea.spec.md` (S, ideation)
+
+~~~~markdown
+---
+id: idea
+type: spec
+spec_version: 7
+status: complete
+---
+# 아이디어 후보 사양
+
+## 1. 목적
+
+연구 방향 후보 하나를 주장, 가설, 최소 실험, 가까운 선행 연구, 평가와 함께 기록한다. 후보마다 ID가 있어 방향을 틀 때 되돌아갈 수 있고, 버린 후보와 이유도 남는다.
+
+## 2. 위치와 파일명
+
+`ideas/I<n>_<slug>.md`. `I<n>`은 프로젝트 안에서 한 번 쓰면 다시 쓰지 않는다. 목록은 `ideas/index.md`.
+
+## 3. Frontmatter
+
+| 필드 | 필수 | 값 |
+|---|---|---|
+| `id` | ✓ | `I<n>` |
+| `type` | ✓ | `idea` |
+| `spec_version` | ✓ | `7` |
+| `title` | ✓ | 한 줄 |
+| `status` | ✓ | `candidate` \| `exploring` \| `selected` \| `dropped` \| `merged` |
+| `origin` | ✓ | `conversation` (사람이 낸 것) \| `literature` \| `agent` |
+| `merged_into` | ✓ | `merged`일 때 다른 `I<n>`, 아니면 `null` |
+| `decision` | ✓ | 고르거나 버린 사람 커밋의 결정 ID 또는 `null` |
+| `created` | ✓ | 날짜 |
+| `updated` | ✓ | 날짜 |
+
+## 4. 본문 구조
+
+| 섹션 | 내용 |
+|---|---|
+| `# <id>. <title>` | |
+| `## 한 줄 주장` | 이 방향이 보이려는 것 |
+| `## 가설` | 반증할 수 있는 문장 |
+| `## 최소 실험` | 무엇을 돌리면 맞고 틀림이 드러나나, 자원 추정 |
+| `## 가장 가까운 선행 연구와 차이` | 참고문헌 ID와 차이 |
+| `## 새로움 위험` | 선점 가능성, 이미 있을 수 있는 연구 |
+| `## 평가 (기준 <기준 버전>)` | 아래 표. 기준 버전은 `lg ideas`가 보여 주는 커밋(기준 내용을 마지막으로 바꾼 커밋)이다. 기준이 잠기기 전에는 쓰지 않는다 |
+| `## 판단 기록` | 상태가 바뀐 날짜, 근거, 커밋. 다시 매기면 이전 점수와 이유 |
+
+평가 표:
+
+```
+| 기준 | 점수 | 근거 | 확신 |
+|---|---|---|---|
+| C1 | 4 | `<참고문헌 ID>` Table 2, 검색 기록 notes/search-2026-10-05.md | 중 |
+| C8 | (사람) | | |
+```
+
+- 기준은 `plan/criteria.md`의 기준 전부, 같은 ID로.
+- 점수는 1–5(수준별 근거 조건을 따른다). "누가"가 사람인 기준은 `(사람)`.
+- 근거 없는 점수는 무효다. 확신은 상·중·하.
+
+## 5. 작성·수정 권한
+
+| 부분 | 에이전트 | 사람 |
+|---|---|---|
+| 새 후보, 주장~새로움 위험 | 작성 (사람이 대화로 낸 아이디어도 옮겨 적는다, `origin: conversation`) | 작성 |
+| `status: exploring`, `merged` | 가능 | 가능 |
+| `status: selected`, `dropped` | 하지 않는다. 사람 커밋의 `Select`·`Drop` trailer를 반영 도구가 반영한다 | 결정 |
+| `## 평가` | 기준이 잠긴 뒤에, 모든 후보를 같은 task에서 기준별로 | 사람 기준(`(사람)`)을 채운다 |
+
+## 6. 생성·갱신 시점
+
+- 생성: 후보를 만드는 task, 사람이 대화로 아이디어를 냈을 때.
+- 평가: 기준을 잠근 뒤 평가 task. 기준이 바뀌면 모든 후보를 다시 평가한다.
+- 고르기·버리기: 사람의 `gate`·`decide` 커밋(`Select: I3`, `Drop: I1, I2`).
+
+## 7. 검증 규칙
+
+- `id`가 파일 이름의 `I<n>`과 같다.
+- `## 평가`가 있으면: 기준이 `plan/criteria.md`와 같고, 점수가 1–5 또는 `(사람)`이며, 에이전트 기준의 근거가 비어 있지 않고, 기준이 잠긴 상태다(`lg verify` V5).
+- 버린 후보도 지우지 않는다.
+~~~~
+
+## B.12 `specs/doc-types/criteria.spec.md` (S, ideation)
+
+~~~~markdown
+---
+id: criteria
+type: spec
+spec_version: 7
+status: complete
+---
+# 평가 기준 사양
+
+## 1. 목적
+
+아이디어 후보를 평가하는 기준을 **후보를 보기 전에** 정하고 잠근다. 에이전트의 평가가 임의적이지 않도록, 기준마다 1–5 점수의 근거 조건을 미리 적는다.
+
+## 2. 위치와 파일명
+
+`plan/criteria.md` (ideation 프로젝트에 하나).
+
+## 3. Frontmatter
+
+| 필드 | 필수 | 값 |
+|---|---|---|
+| `id` | ✓ | `criteria` |
+| `type` | ✓ | `criteria` |
+| `spec_version` | ✓ | `7` |
+| `status` | ✓ | `draft` \| `locked` |
+| `locked_commit` | ✓ | 잠근 사람 커밋의 해시 또는 `null` |
+| `updated` | ✓ | 날짜 |
+
+## 4. 본문 구조
+
+| 섹션 | 내용 |
+|---|---|
+| `## 가진 자원` | GPU, 기간, 목표 학회와 마감, 결격 배수 (사람이 적는다) |
+| `## 기준` | 표: `ID \| 기준 \| 묻는 것 \| 누가 \| 가중치 \| 결격`. ID는 `C<n>`, 누가는 `에이전트` 또는 `사람`, 가중치는 0 이상의 정수 |
+| `## 수준별 근거 조건` | 기준마다 `### C<n>. <이름>`과 1–5 점수의 근거 조건 표, 필요한 근거 |
+
+결격이 있는 기준에서 1점이면 그 후보는 결격이다.
+
+## 5. 작성·수정 권한
+
+| 부분 | 에이전트 | 사람 |
+|---|---|---|
+| 전체 | 고치지 않는다. 고칠 점은 `notes/criteria-proposal.md`에 제안 | 작성 |
+| `status: draft → locked`, `locked_commit` | 하지 않는다. 첫 마일스톤 T0의 게이트 승인을 반영 도구가 반영한다 | 결정 |
+
+## 6. 생성·갱신 시점
+
+- 생성: `lg init --kind ideation` (기본 기준).
+- 잠금: 첫 마일스톤 T0 게이트 승인.
+- 잠근 뒤 변경: 사람의 `plan` 커밋. 바꾸면 기준 버전(기준 내용을 마지막으로 바꾼 커밋, 잠금 반영처럼 `status`·`locked_commit`·`updated`만 바꾼 커밋은 세지 않음)이 바뀌어, 이미 매긴 평가는 "기준 변경 전"이 되고(`lg ideas`가 표시) 에이전트가 모든 후보를 다시 평가한다.
+
+## 7. 검증 규칙
+
+- 기준 표의 ID가 겹치지 않고, 수준별 근거 조건 절이 기준마다 있다.
+- 평가는 `status: locked`일 때만 있다.
+~~~~
+
+## B.13 `specs/doc-types/brief.spec.md` (S, ideation)
+
+~~~~markdown
+---
+id: brief
+type: spec
+spec_version: 7
+status: complete
+---
+# 방향 확정 문서 사양
+
+## 1. 목적
+
+ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽고 판정하는 문서이면서, `lg init --from`이 frontmatter를 읽는다.
+
+## 2. 위치와 파일명
+
+`brief.md` (ideation 프로젝트 루트에 하나).
+
+## 3. Frontmatter
+
+| 필드 | 필수 | 값 |
+|---|---|---|
+| `id` | ✓ | `brief` |
+| `type` | ✓ | `brief` |
+| `spec_version` | ✓ | `7` |
+| `status` | ✓ | `draft` \| `confirmed` |
+| `kind` | ✓ | 넘길 실행 프로젝트의 종류: `research` \| `proposal` |
+| `question` | ✓ | 확정 질문 (실행 프로젝트의 `research_question`) |
+| `summary` | ✓ | 한 줄 요약 |
+| `selected` | ✓ | 고른 후보 ID 목록 |
+| `dropped` | ✓ | 버린 후보 ID 목록 |
+| `milestones` | ✓ | 실행 프로젝트의 마일스톤 제목 목록 (1개 이상) |
+| `references` | ✓ | 넘길 참고문헌 ID 목록 |
+| `decision` | ✓ | 방향을 정한 결정 ID |
+| `criteria_commit` | ✓ | 평가에 쓴 기준을 잠근 커밋 |
+| `updated` | ✓ | 날짜 |
+
+## 4. 본문 구조
+
+`## 질문과 가설`, `## 왜 이 방향인가`(고른 후보와 `lg ideas` 비교표, 순위와 다르게 골랐으면 그 이유), `## 버린 후보와 이유`, `## 첫 마일스톤에서 할 일`, `## 남은 위험과 열린 질문`.
+
+## 5. 작성·수정 권한
+
+| 부분 | 에이전트 | 사람 |
+|---|---|---|
+| 내용 | 작성 (마지막 마일스톤의 task) | 수정 |
+| `status: draft → confirmed` | 하지 않는다. 마지막 마일스톤 게이트의 `Milestone-Verdict: go`를 반영 도구가 반영한다 | 결정 |
+
+## 6. 생성·갱신 시점
+
+생성: `lg init --kind ideation`(빈 양식). 작성: 마지막 마일스톤. 확정: 그 게이트.
+
+## 7. 검증 규칙
+
+- `confirmed`이면 `question`, `summary`, `milestones`가 비어 있지 않다.
+- `selected`, `dropped`의 ID가 `ideas/`에 있다. `references`의 ID가 `references/catalog.md`에 있다.
+~~~~
+
+## B.14 `specs/templates/idea.md` (S, ideation)
+
+~~~~markdown
+---
+id: I<n>
+type: idea
+spec_version: 7
+title: ""
+status: candidate
+origin: agent
+merged_into: null
+decision: null
+created: <YYYY-MM-DD>
+updated: <YYYY-MM-DD>
+---
+# I<n>. <title>
+
+## 한 줄 주장
+
+## 가설
+
+## 최소 실험
+
+## 가장 가까운 선행 연구와 차이
+
+## 새로움 위험
+
+## 판단 기록
+~~~~
+
 ---
 
 # 부록 C. 실행 파일 원문
@@ -3487,7 +4321,7 @@ spec_version: 6
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate commit-msg hook (spec_version 6).
+"""labgate commit-msg hook (spec_version 7).
 
 specs/git-commit.md 규약을 검사한다. 표준 라이브러리만 사용한다.
 """
@@ -3511,6 +4345,7 @@ HEADER_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()\s]+)\))?: (?P<summ
 TRAILER_RE = re.compile(r"^(?P<key>[A-Z][A-Za-z-]*): (?P<value>\S.*)$")
 TASK_ID_RE = re.compile(r"^M\d+-T\d+$")
 DECISION_ID_RE = re.compile(r"^D\d+\.\d+$")
+IDEA_ID_RE = re.compile(r"^I\d+$")
 HASH_RE = re.compile(r"^[0-9a-f]{7,40}$")
 MAX_HEADER = 72
 SCISSORS = "# ------------------------ >8 ------------------------"
@@ -3687,6 +4522,10 @@ def check(text, check_author=True):
     check_list(trailers, "Decisions", DECISION_ID_RE, errors)
     check_list(trailers, "Approve", TASK_ID_RE, errors)
     check_list(trailers, "Applies", HASH_RE, errors)
+    for key in ("Select", "Drop"):  # ideation 후보 고르기·버리기 (§26)
+        if key in trailers and ctype not in ("gate", "decide"):
+            errors.append(f"{key} trailer는 gate·decide 커밋에만 쓸 수 있습니다.")
+        check_list(trailers, key, IDEA_ID_RE, errors)
     return errors
 
 
@@ -3763,7 +4602,7 @@ exec git commit "$@"
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 세션 시작 점검 (spec_version 6).
+"""labgate 세션 시작 점검 (spec_version 7).
 
 1. 사람이 이미 커밋한 초안(.lg/pending/COMMIT_MSG)을 정리한다.
 2. 사람 커밋 대기 상태를 알린다.
@@ -3924,7 +4763,7 @@ if __name__ == "__main__":
 
 ~~~~python
 #!/usr/bin/env python3
-"""labgate 사람 커밋 반영 도구 (spec_version 6).
+"""labgate 사람 커밋 반영 도구 (spec_version 7).
 
 사람 커밋의 trailer가 정한 상태 전이를 문서의 상태 필드에 반영한다. 커밋하지 않는다.
 표준 라이브러리만 사용한다. 사양: labgate 설계 문서 §21.
@@ -4032,7 +4871,7 @@ def applied_hashes(history):
 
 
 def unreflected():
-    """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer)] (오래된 순)."""
+    """반영되지 않은 사람 커밋: [(해시, 타입, scope, 헤더, trailer, 메시지)] (오래된 순)."""
     humans = human_emails()
     history = commits()
     applied = applied_hashes(history)
@@ -4040,7 +4879,7 @@ def unreflected():
     for sha, email, body in history:
         ctype, scope, header, trailers = parse(body)
         if email in humans and is_target(ctype, trailers) and not any(sha.startswith(p) for p in applied):
-            pending.append((sha, ctype, scope, header, trailers))
+            pending.append((sha, ctype, scope, header, trailers, body))
     return pending
 
 
@@ -4131,6 +4970,15 @@ class Plan:
         self.texts[card] = text
         self.log.append(f"  {card}: 게이트 이력에 추가")
 
+    def review_text(self, task_id, kind, review_id):
+        """반영할 review 문서의 내용 (없으면 None)."""
+        if review_id:
+            path = ROOT / "reviews" / "open" / f"{review_id}.md"
+        else:
+            found = sorted((ROOT / "reviews" / "open").glob(f"{task_id}_{kind}-*.md"))
+            path = found[-1] if found else None
+        return path.read_text(encoding="utf-8") if path and path.is_file() else None
+
     def close_review(self, task_id, kind, review_id):
         if review_id:
             name = f"{review_id}.md"
@@ -4146,13 +4994,45 @@ class Plan:
         self.moves.append((src, dst))
         self.log.append(f"  {src} → {dst} (status closed)")
 
-    def decision(self, decision_id, short):
+    def decision(self, decision_id, short, content=None):
         found = sorted((ROOT / "decisions").glob(f"{decision_id}_*.md"))
         if len(found) != 1:
             raise CannotApply(f"결정 문서를 하나로 찾지 못했습니다: decisions/{decision_id}_*.md ({len(found)}개)")
         rel = found[0].relative_to(ROOT).as_posix()
         if self.transition(rel, f"결정 {decision_id}", {"proposed", "discussing"}, "confirmed", set()):
             self.table_row("decisions/index.md", decision_id, 2, "confirmed", 4, f"`{short}`")
+            if content:  # 사람이 쓴 확정 내용을 그대로 "확정 내용" 절에 (절이 없으면 건너뛴다)
+                self.set_section(rel, "확정 내용", f"{content}\n\n(사람 커밋 `{short}`)")
+
+    def idea(self, idea_id, target, short):
+        """ideation 후보를 고르거나 버린다 (Select·Drop, §26)."""
+        found = sorted((ROOT / "ideas").glob(f"{idea_id}_*.md"))
+        if len(found) != 1:
+            raise CannotApply(f"후보 문서를 하나로 찾지 못했습니다: ideas/{idea_id}_*.md ({len(found)}개)")
+        rel = found[0].relative_to(ROOT).as_posix()
+        if self.transition(rel, f"후보 {idea_id}", {"candidate", "exploring"}, target, {target}):
+            self.table_row("ideas/index.md", idea_id, 2, target)
+            if frontmatter_value(self.read(rel), "decision", rel, required=False) is not None:
+                self.texts[rel] = set_frontmatter(self.read(rel), "decision", f"'{short}'", rel)
+
+    def set_field(self, rel, key, value):
+        """frontmatter 필드가 있으면 값을 바꾼다 (없으면 그대로)."""
+        if not (ROOT / rel).is_file() and rel not in self.texts:
+            return
+        if frontmatter_value(self.read(rel), key, rel, required=False) is not None:
+            self.texts[rel] = set_frontmatter(self.read(rel), key, value, rel)
+            self.log.append(f"  {rel}: {key} → {value}")
+
+    def set_section(self, rel, heading, body):
+        """`## heading` 절의 내용을 바꾼다. 절이 없으면 그대로 둔다."""
+        text = self.read(rel)
+        m = re.search(rf"^## {re.escape(heading)}[ \t]*$", text, re.M)
+        if not m:
+            return
+        end = text.find("\n## ", m.end())
+        tail = "" if end == -1 else text[end:]
+        self.texts[rel] = text[:m.end()] + "\n\n" + body.strip() + "\n" + tail
+        self.log.append(f"  {rel}: {heading} 절에 확정 내용")
 
     def paths(self):
         return sorted({p for move in self.moves for p in move} | set(self.texts))
@@ -4195,11 +5075,37 @@ def set_frontmatter(text, key, value, rel):
     return text[:start] + head + text[end:]
 
 
-def plan_for(sha, ctype, scope, trailers, today):
+def last_milestone():
+    """plan/milestones/ 아래 번호가 가장 큰 마일스톤 ID."""
+    ids = [p.name for p in (ROOT / "plan" / "milestones").glob("M*") if re.fullmatch(r"M\d+", p.name)]
+    return max(ids, key=lambda m: int(m[1:])) if ids else None
+
+
+def confirmed_contents(body, review_text, decisions):
+    """결정 ID → 사람이 쓴 확정 내용. decide 커밋 본문의 `확정: …`(결정이 하나일 때),
+    또는 review `### 확정 결정`의 `- D0.1: …` 줄."""
+    out = {}
+    if review_text:
+        m = re.search(r"^### 확정 결정[ \t]*\n(.*?)(?=^#{2,3} |\Z)", review_text, re.M | re.S)
+        for line in (m.group(1).splitlines() if m else []):
+            found = re.match(r"^- (D\d+\.\d+): (.+)$", line.strip())
+            if found:
+                out[found.group(1)] = found.group(2).strip()
+    lines = [l[len("확정: "):].strip() for l in (body or "").splitlines() if l.startswith("확정: ")]
+    if len(decisions) == 1 and lines:
+        out.setdefault(decisions[0], lines[0])
+    return out
+
+
+def plan_for(sha, ctype, scope, trailers, today, body=""):
     """한 사람 커밋의 반영 계획과 커밋 메시지."""
     plan = Plan(today)
     short = sha[:7]
     task = trailers.get("Task")
+    for i in split_list(trailers.get("Select")):  # ideation (§26): gate·decide에만 있다
+        plan.idea(i, "selected", short)
+    for i in split_list(trailers.get("Drop")):
+        plan.idea(i, "dropped", short)
     if ctype == "plan":
         approve = split_list(trailers.get("Approve"))
         for t in approve:
@@ -4217,10 +5123,22 @@ def plan_for(sha, ctype, scope, trailers, today):
         milestone = f"M{TASK_ID_RE.match(task).group(1)}"
         if verdict == "approve" and task.endswith("-T0"):
             plan.milestone(milestone, "착수", {"planned"}, "active", {"active", "closed"})
-        if trailers.get("Milestone-Verdict"):
+        if verdict == "approve" and task == "M0-T0" and (ROOT / "plan/criteria.md").is_file():
+            # ideation: 첫 T0 게이트 승인이 평가 기준을 잠근다 (§26.6)
+            if plan.transition("plan/criteria.md", "평가 기준 잠금", {"draft"}, "locked", {"locked"}):
+                plan.set_field("plan/criteria.md", "locked_commit", f"'{short}'")
+        mv = trailers.get("Milestone-Verdict")
+        if mv:
             plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
-        for d in split_list(trailers.get("Decisions")):
-            plan.decision(d, short)
+            plan.set_field(f"plan/milestones/{milestone}/milestone.md", "go_nogo", mv)
+            if mv == "go" and (ROOT / "brief.md").is_file() and milestone == last_milestone():
+                # ideation: 마지막 마일스톤의 go가 방향을 확정한다 (§26)
+                plan.transition("brief.md", "방향 확정", {"draft"}, "confirmed", {"confirmed"})
+        review_text = plan.review_text(task, "gate", trailers.get("Review"))
+        decisions = split_list(trailers.get("Decisions"))
+        contents = confirmed_contents(body, review_text, decisions)
+        for d in decisions:
+            plan.decision(d, short, contents.get(d))
         plan.history(card, f"- {today} gate {verdict} `{short}`", short)
         plan.close_review(task, "gate", trailers.get("Review"))
         msg_scope = task
@@ -4231,8 +5149,9 @@ def plan_for(sha, ctype, scope, trailers, today):
         msg_scope = task
     else:  # decide
         decisions = split_list(trailers.get("Decisions"))
+        contents = confirmed_contents(body, None, decisions)
         for d in decisions:
-            plan.decision(d, short)
+            plan.decision(d, short, contents.get(d))
         msg_scope = decisions[0] if decisions else scope
 
     if ctype == "respond":
@@ -4274,7 +5193,7 @@ def preview(message):
         print(f"반영할 것이 없습니다: {header}")
         return 0
     try:
-        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat())
+        plan, _ = plan_for("(새 커밋)", ctype, scope, trailers, datetime.date.today().isoformat(), message)
     except CannotApply as e:
         print(f"✗ 이 커밋은 반영할 수 없습니다: {e}", file=sys.stderr)
         return 1
@@ -4294,7 +5213,7 @@ def main(argv):
             return preview(sys.stdin.read())
         pending = unreflected()
         if "--check" in argv:
-            for sha, _, _, header, _ in pending:
+            for sha, _, _, header, _, _ in pending:
                 print(f"{sha[:7]} {header}")
             return 0
         if not pending:
@@ -4307,8 +5226,8 @@ def main(argv):
             raise UsageError(
                 f"지난 반영({state[1]})이 아직 커밋되지 않았습니다. 먼저 커밋하세요:\n  {commit_command(state[2])}"
             )
-        sha, ctype, scope, header, trailers = pending[0]
-        plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat())
+        sha, ctype, scope, header, trailers, body = pending[0]
+        plan, message = plan_for(sha, ctype, scope, trailers, datetime.date.today().isoformat(), body)
         paths = plan.paths()
         dirty = git("status", "--porcelain", "--", *paths).strip() if paths else ""
         if dirty:

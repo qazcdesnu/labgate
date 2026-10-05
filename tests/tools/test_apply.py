@@ -241,3 +241,28 @@ def test_preview_refuses_what_cannot_be_applied(project):
 def test_preview_of_non_target_commit(project):
     result = project.apply("--preview", input="exp: x\n\nActor: human\n")
     assert result.returncode == 0 and result.stdout.startswith("반영할 것이 없습니다")
+
+
+# ---------------------------------------------------------------- 확정 내용, go_nogo (§26.9: 연습용 프로젝트에서 빈 채로 남았다)
+
+
+def test_decide_writes_confirmed_content(project):
+    project.write("decisions/D0.1_core.md", "---\nid: D0.1\ntype: decision\nstatus: proposed\nupdated: 2026-01-01\n---\n"
+                  "# D0.1\n\n## 확정 내용\n\n(미확정)\n\n## 이력\n\n없음\n")
+    project.agent("propose(D0.1): core\n\nActor: agent", "decisions")
+    sha = project.human("decide(D0.1): confirm\n\n확정: Mamba-2로 간다\n\nActor: human\nDecisions: D0.1\nSource: document")
+    project.commit_apply(project.apply())
+    text = project.read("decisions/D0.1_core.md")
+    assert f"## 확정 내용\n\nMamba-2로 간다\n\n(사람 커밋 `{sha[:7]}`)\n\n## 이력\n" in text
+
+
+def test_gate_writes_confirmed_content_from_response(project):
+    to_review(project)
+    path = "reviews/open/M0-T0_gate-01.md"
+    project.write("decisions/D0.1_core.md", project.read("decisions/D0.1_core.md") + "\n## 확정 내용\n\n(미확정)\n")
+    project.write(path, project.read(path) + "\n## 응답\n\n### 확정 결정\n- D0.1: 대각 SSM부터\n")
+    project.human("gate(M0-T0): approve\n\nActor: human\nTask: M0-T0\nVerdict: approve\nSource: document\n"
+                  "Next: none\nMilestone-Verdict: go\nDecisions: D0.1\nReview: M0-T0_gate-01", path, "decisions")
+    project.commit_apply(project.apply())
+    assert "## 확정 내용\n\n대각 SSM부터\n" in project.read("decisions/D0.1_core.md")
+    assert "go_nogo: go" in project.read(MILESTONE0)

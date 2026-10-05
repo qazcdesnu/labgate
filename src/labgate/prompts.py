@@ -9,6 +9,7 @@ import typer
 
 from .config import (
     DEFAULT_AGENT_NAME,
+    IDEATION_MILESTONES,
     MAX_MILESTONES,
     Config,
     Email,
@@ -65,7 +66,11 @@ def ask_path() -> Path:
     return Path(raw.strip()).expanduser()
 
 
-KIND_CHOICES = {"연구 (research)": "research", "제안서 (proposal)": "proposal"}
+KIND_CHOICES = {"연구 (research)": "research", "아이디어 탐색 (ideation)": "ideation", "제안서 (proposal)": "proposal"}
+
+
+KIND_LABELS = {"research": "연구", "ideation": "아이디어 탐색", "proposal": "제안서"}
+QUESTION_LABELS = {"research": "연구 질문", "ideation": "탐색 주제", "proposal": "제안 핵심 질문"}
 
 
 def ask_config(target: Path, kind: Optional[str] = None) -> Config:
@@ -75,7 +80,8 @@ def ask_config(target: Path, kind: Optional[str] = None) -> Config:
     name = _text("프로젝트 이름", ProjectName)
     slug = _text("slug (영문 소문자·숫자·하이픈)", Slug, default=suggest_slug(target) or "")
     summary = _text("한 줄 요약", Summary)
-    question = _text("제안 핵심 질문" if kind == "proposal" else "핵심 연구 질문", ResearchQuestion)
+    label = {"proposal": "제안 핵심 질문", "ideation": "탐색 주제 (질문이 아니어도 된다)"}.get(kind, "핵심 연구 질문")
+    question = _text(label, ResearchQuestion)
 
     git_name, git_email = global_identity()
     humans: list[dict[str, str]] = []
@@ -99,11 +105,14 @@ def ask_config(target: Path, kind: Optional[str] = None) -> Config:
     claude_code = _confirm("Claude Code를 사용합니까?", default=True)
 
     milestones: list[dict[str, str]] = []
+    optional = kind == "ideation"  # 생략하면 기본 두 개 (§26)
+    if optional:
+        typer.echo("마일스톤을 생략하면 기본 두 개를 씁니다: " + ", ".join(IDEATION_MILESTONES))
     while len(milestones) < MAX_MILESTONES:
         n = len(milestones)
         title = _answer(questionary.text(
             f"M{n} 제목 (빈 입력이면 종료)",
-            validate=lambda v, n=n: _milestone_error(v, n) or True,
+            validate=lambda v, n=n: _milestone_error(v, n, optional) or True,
             **IO,
         )).strip()
         if not title:
@@ -121,9 +130,16 @@ def ask_config(target: Path, kind: Optional[str] = None) -> Config:
     })
 
 
-def _milestone_error(raw: str, n: int) -> Optional[str]:
+def ask_name_slug(target: Path) -> tuple[str, str]:
+    """`lg init --from`: 이름과 slug만 묻는다. 나머지는 ideation의 brief에서 온다."""
+    name = _text("프로젝트 이름", ProjectName)
+    slug = _text("slug (영문 소문자·숫자·하이픈)", Slug, default=suggest_slug(target) or "")
+    return name, slug
+
+
+def _milestone_error(raw: str, n: int, optional: bool = False) -> Optional[str]:
     if not raw.strip():
-        return "마일스톤이 최소 1개 필요합니다" if n == 0 else None
+        return "마일스톤이 최소 1개 필요합니다" if n == 0 and not optional else None
     return check_value(MilestoneTitle, raw)[1]
 
 
@@ -132,8 +148,8 @@ def summarize(target: Path, config: Config, git: bool) -> str:
         f"경로: {target}",
         f"프로젝트: {config.project.name} ({config.project.slug})",
         f"요약: {config.project.summary}",
-        f"종류: {'제안서' if config.project.kind == 'proposal' else '연구'}",
-        f"{'제안 핵심 질문' if config.project.kind == 'proposal' else '연구 질문'}: {config.project.research_question}",
+        f"종류: {KIND_LABELS[config.project.kind]}",
+        f"{QUESTION_LABELS[config.project.kind]}: {config.project.research_question}",
         "사람: " + ", ".join(f"{h.name} <{h.email}>" for h in config.humans),
         f"에이전트: {config.agent.name} <{config.agent.email}>",
         f"Claude Code: {'사용' if config.agent_tools.claude_code else '사용 안 함'}",
