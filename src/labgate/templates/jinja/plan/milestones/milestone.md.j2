@@ -23,7 +23,7 @@ updated: {{ today }}
 ## Go / No-go 기준
 
 {% if ideation %}
-> 마일스톤 판정: go = 다음 단계로(첫 마일스톤이면 기준선 `plan/baseline.md` 잠금, 마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
+> 마일스톤 판정: go = 다음 단계로(첫 마일스톤이면, `lock_task`로 아직 잠기지 않은 기준선 `plan/baseline.md` 잠금, 마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
 
 {% elif proposal %}
 > 마일스톤 판정: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단.

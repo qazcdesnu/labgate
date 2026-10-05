@@ -39,7 +39,7 @@ updated: {{ today }}
 {% if ideation and prev is none %}
 - 평가 기준 조정 제안을 `notes/criteria-proposal.md`에 작성 (기준 문서 `plan/criteria.md`는 사람이 고치고 이 게이트에서 잠근다. 고칠 점이 없으면 그렇게 적는다)
 - `notes/`의 아이디어 메모를 후보로 옮긴다: `ideas/I<n>_<slug>.md` (`status: candidate`, [idea 사양](../../../../specs/doc-types/idea.spec.md)), `ideas/index.md`
-- 이 마일스톤 task에 "기준선 후보 조사와 추천"(`plan/baseline.md`, [사양](../../../../specs/doc-types/baseline.spec.md))을 넣는다. 선정과 잠금은 사람이 이 마일스톤의 마지막 게이트에서 한다
+- 이 마일스톤 task에 "기준선 선정"(후보 기준선 비교, 도달점과 한계, 추천: `plan/baseline.md`, [사양](../../../../specs/doc-types/baseline.spec.md))을 넣고, 그 task ID를 `plan/baseline.md`의 `lock_task`에 적는다. 선정과 잠금은 사람이 그 task의 게이트(approve)에서 한다
 {% endif %}
 {% if origin and prev is none %}
 - `notes/ideation-brief.md`(ideation에서 확정한 방향)를 출발점으로 삼는다. 거기 적힌 질문·가설·근거를 검증하고 다듬는 task로 나누며, 처음부터 다시 조사하지 않는다
@@ -92,7 +92,7 @@ updated: {{ today }}
 {% if prev is none and ideation %}
 - [ ] 평가 기준 조정 제안(또는 "고칠 점 없음")이 `notes/criteria-proposal.md`에 있다
 - [ ] `notes/`의 아이디어 메모가 모두 후보(`ideas/`)로 옮겨졌다
-- [ ] 기준선 후보 조사와 추천 task가 이 마일스톤에 있다
+- [ ] 기준선 선정 task가 이 마일스톤에 있고, `plan/baseline.md`의 `lock_task`가 그 ID다
 {% elif prev is none %}
 - [ ] 기존 계획의 결정 항목이 모두 `decisions/`에 `proposed`로 옮겨졌다
 {% endif %}

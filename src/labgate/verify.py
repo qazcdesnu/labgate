@@ -168,8 +168,9 @@ def human_transition(doc_type: str, before: Optional[str], after: Optional[str])
     return False
 
 
-def justifies(doc_type: str, doc_id: str, after: str, ctype: str, trailers: dict[str, str]) -> bool:
-    """사람 커밋(타입, trailer)이 그 문서의 그 전이를 정하는가."""
+def justifies(doc_type: str, doc_id: str, after: str, ctype: str, trailers: dict[str, str],
+              fields: Optional[dict] = None) -> bool:
+    """사람 커밋(타입, trailer)이 그 문서의 그 전이를 정하는가. `fields`: 전이 전 문서의 frontmatter."""
     items = lambda key: [v.strip() for v in trailers.get(key, "").split(",") if v.strip()]  # noqa: E731
     task = trailers.get("Task", "")
     if doc_type == "task-card":
@@ -192,7 +193,10 @@ def justifies(doc_type: str, doc_id: str, after: str, ctype: str, trailers: dict
         return ctype in ("gate", "decide") and doc_id in items(key)
     if doc_type == "criteria":
         return ctype == "gate" and task == "M0-T0" and trailers.get("Verdict") == "approve"
-    if doc_type == "baseline":  # 첫 마일스톤의 go (§27)
+    if doc_type == "baseline":  # 기준선 선정 task의 approve, lock_task가 없으면 첫 마일스톤의 go (§27)
+        lock_task = (fields or {}).get("lock_task")
+        if lock_task not in (None, "", "null"):
+            return ctype == "gate" and task == str(lock_task) and trailers.get("Verdict") == "approve"
         return ctype == "gate" and task.split("-")[0] == "M0" and trailers.get("Milestone-Verdict") == "go"
     if doc_type == "brief":
         return ctype == "gate" and trailers.get("Milestone-Verdict") == "go"
@@ -348,8 +352,8 @@ def _check_states(project: Project, c: Commit, changes, by_sha, humans: set[str]
         before, after = before_fields.get("status"), after_fields.get("status")
         if not human_transition(doc_type, before, after):
             continue
-        if any(justifies(doc_type, doc_id, after, project.header_type(e.body) or "", project.trailers(e.body))
-               for e in evidence):
+        if any(justifies(doc_type, doc_id, after, project.header_type(e.body) or "", project.trailers(e.body),
+                         before_fields) for e in evidence):
             continue
         basis = ", ".join(e.sha[:7] for e in evidence) or "근거(Applies) 없음"
         report.findings.append(Finding("V2", c.short, c.header,
@@ -455,6 +459,10 @@ def _check_documents(project: Project, report: Report) -> None:
             report.findings.append(Finding("V5", "", "", f"{path}: id({data.get('id')})가 파일 이름과 다름"))
         if doc_type == "idea":
             _check_evaluation(project, path, text, report)
+        if doc_type == "baseline" and data.get("status") == "locked":
+            from . import ideas
+            for issue in ideas.lock_issues(project, ideas.baseline_state(project)):
+                report.findings.append(Finding("V5", "", "", f"{path}: 잠긴 기준선: {issue}"))
     if outdated:
         report.notices.append(f"V5: 갱신 전 문서 {outdated}개 (spec_version < {spec_version}, lg upgrade 참고)")
 

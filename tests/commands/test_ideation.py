@@ -16,7 +16,7 @@ def idea_project(tmp_path, git_sandbox):
     return init_project(tmp_path, git_sandbox, project_config(kind="ideation", milestones=()), name="idea")
 
 
-def gate(p, task, extra="", review=None):
+def gate(p, task, extra="", review=None, apply=True):
     """사람의 gate 승인 커밋을 만들고 반영까지 한다 (에이전트가 하는 반영 포함)."""
     card = f"plan/milestones/{task.split('-')[0]}/tasks/{task}.md"
     if p.status(card) == "draft":
@@ -25,10 +25,11 @@ def gate(p, task, extra="", review=None):
     p.agent(f"review({task}): request gate\n\nActor: agent\nTask: {task}", card)
     p.human(f"gate({task}): approve\n\nActor: human\nTask: {task}\nVerdict: approve\nSource: document\n"
             f"Next: none{extra}")
-    p.commit_apply(p.apply())
+    if apply:
+        p.commit_apply(p.apply())
 
 
-def write_idea(p, n, title, scores, head, status="candidate", versus="기준선 + X: 같은 GSM8K 설정에서 +2%p"):
+def write_idea(p, n, title, scores, head, status="candidate", versus="기준선 + X: 같은 GSM8K 설정에서 +2%p, L1을 푼다"):
     """head: 평가 표 머리의 괄호 안 (lg ideas가 보여 주는 것, 예: '기준 abc, 기준선 def')."""
     rows = "".join(f"| {c} | {v} | {e} | 중 |\n" for c, (v, e) in scores.items())
     vs = f"## 기준선 대비\n\n{versus}\n\n" if versus else ""
@@ -39,13 +40,21 @@ def write_idea(p, n, title, scores, head, status="candidate", versus="기준선 
             f"{rows}\n## 판단 기록\n\n")
 
 
-def set_baseline(p):
-    """에이전트가 기준선 추천을 채운다 (잠기기 전)."""
+def set_baseline(p, lock_task=None, limitations=True):
+    """에이전트가 기준선 추천(선정, 참고문헌 등록, 한계)을 채운다 (잠기기 전)."""
     text = p.read("plan/baseline.md")
-    for k, v in (("reference", "shen2025-codi"), ("task", "GSM8K"), ("metric", "accuracy"), ("reported", '"43.7 (Table 2)"')):
-        text = re.sub(rf"^{k}: null$", f"{k}: {v}", text, count=1, flags=re.M)
+    for k, v in (("reference", "shen2025-codi"), ("task", "GSM8K"), ("metric", "accuracy"), ("reported", '"43.7 (Table 2)"'),
+                 ("lock_task", lock_task)):
+        if v:
+            text = re.sub(rf"^{k}: null$", f"{k}: {v}", text, count=1, flags=re.M)
+    if limitations:
+        text = text.replace("| ID | 한계 | 근거 | 연구 질문과의 관계 |\n|---|---|---|---|\n",
+                            "| ID | 한계 | 근거 | 연구 질문과의 관계 |\n|---|---|---|---|\n"
+                            "| L1 | latent 단계 수가 고정 | `shen2025-codi` §6 | 단계 수와 표현력 |\n")
     p.write("plan/baseline.md", text)
-    p.agent("propose(M0): baseline recommendation\n\nActor: agent", "plan/baseline.md")
+    p.write("references/catalog.md", p.read("references/catalog.md")
+            + "| shen2025-codi | CODI | Shen | 2025 | library/shen2025-codi.pdf | M0 | 자기 증류 latent CoT |\n")
+    p.agent("propose(M0): baseline recommendation\n\nActor: agent", "plan/baseline.md", "references/catalog.md")
 
 
 def lock_both(p):
@@ -145,6 +154,56 @@ def test_ideas_need_locked_baseline_and_versus_section(idea_project):
     p.agent("chore: switch baseline task\n\nActor: agent", "plan/baseline.md")
     result = p.lg("verify")
     assert "✗ V4" in result.output and "plan/baseline.md" in result.output
+
+
+def test_versus_must_name_a_baseline_limitation(idea_project):
+    """§27: 기준선은 기여의 기준점이다. 후보는 기준선의 어느 한계(L<n>)를 푸는지 적는다."""
+    p = idea_project
+    head = lock_both(p)
+    write_idea(p, 1, "ok", scores(4), head)
+    write_idea(p, 2, "nolimit", scores(5), head, versus="기준선 + X: 같은 GSM8K 설정에서 +2%p")
+    p.agent("propose(M1): evaluate\n\nActor: agent", "ideas")
+    out = p.lg("ideas").output
+    assert "기준선의 한계: L1" in out
+    rows = {l.split()[0]: l for l in out.splitlines() if re.match(r"^  I\d", l)}
+    assert rows["I1"].rstrip().endswith(" 1") and not rows["I2"].rstrip().endswith(("1", "2"))
+    assert "I2: 기준선 대비에 푸는 한계 없음" in out
+    result = p.lg("verify", "--all")
+    assert result.exit_code == 3 and "기준선 대비에 푸는 한계 없음" in result.output
+
+
+def test_lock_task_approve_locks_baseline(idea_project):
+    """§27: M0이 끝난 뒤에도 기준선 선정 task(lock_task)의 게이트 approve가 기준선을 잠근다."""
+    p = idea_project
+    set_baseline(p, lock_task="M1-T0")
+    gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
+    assert p.status("plan/baseline.md") == "draft"  # lock_task가 있으면 첫 마일스톤의 go로 잠그지 않는다
+    assert "M1-T0 게이트를 approve하면 잠기고" in p.lg("ideas").output
+    gate(p, "M1-T0")
+    assert p.status("plan/baseline.md") == "locked"
+    locked = re.search(r"^locked_commit: '?([0-9a-f]+)'?$", p.read("plan/baseline.md"), re.M).group(1)
+    assert p.git("log", "--format=%h", "--grep", "gate(M1-T0)").startswith(locked[:7])
+    assert p.lg("verify", "--all").exit_code == 0  # 잠금 반영의 근거는 lock_task의 approve (V2)
+
+
+def test_incomplete_baseline_is_not_locked(idea_project):
+    """§27: 선정 필드·참고문헌·한계가 없는 기준선은 잠그지 않는다. 반영 도구가 아무것도 바꾸지 않고 멈춘다."""
+    p = idea_project
+    set_baseline(p, lock_task="M0-T0", limitations=False)
+    message = "gate(M0-T0): approve\n\nActor: human\nTask: M0-T0\nVerdict: approve\nSource: document\nNext: none\n"
+    p.approve_and_start("M0-T0")
+    p.set_status("plan/milestones/M0/tasks/M0-T0.md", "in-review")
+    preview = p.apply("--preview", input=message)  # lg answer·lg commit이 판정 커밋 전에 보는 것
+    assert preview.returncode != 0 and "기준선을 잠글 수 없습니다" in preview.stdout + preview.stderr
+    gate(p, "M0-T0", apply=False)
+    result = p.apply()
+    out = result.stdout + result.stderr
+    assert result.returncode != 0 and "기준선을 잠글 수 없습니다" in out and "## 한계에 L<n>이 없음" in out
+    assert p.status("plan/baseline.md") == "draft" and p.status(CRITERIA) == "draft"
+    # 사람이 직접 잠가도 lg verify가 잡는다
+    p.set_status("plan/baseline.md", "locked")
+    p.human("plan: lock baseline by hand\n\nActor: human", "plan/baseline.md")
+    assert "잠긴 기준선: 기준선 ## 한계에 L<n>이 없음" in p.lg("verify", "--all").output
 
 
 def test_baseline_before_lock_is_agents_to_draft(idea_project):
@@ -260,6 +319,7 @@ def test_init_from_refusals(tmp_path, idea_project, confirmed):
 def test_brief_is_confirmed_only_at_last_milestone(idea_project):
     """M0을 go로 닫아도 방향 확정 문서는 그대로다. 마지막 마일스톤(M1)의 go에서만 확정된다."""
     p = idea_project
+    set_baseline(p)
     gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
     assert p.status("plan/milestones/M0/milestone.md") == "closed"
     assert p.status("brief.md") == "draft"

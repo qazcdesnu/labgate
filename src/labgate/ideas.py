@@ -120,6 +120,8 @@ class Baseline:
     metric: str
     reported: str
     version: Optional[str]
+    lock_task: str = ""
+    limitations: list[str] = field(default_factory=list)  # 기여 기준점: ## 한계의 L<n>
 
 
 def baseline_state(project: Project) -> Optional[Baseline]:
@@ -127,10 +129,32 @@ def baseline_state(project: Project) -> Optional[Baseline]:
     path = project.root / BASELINE
     if not path.is_file():
         return None
-    f = frontmatter_fields(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    f = frontmatter_fields(text)
     value = lambda k: "" if f.get(k) in (None, "null") else f.get(k, "")  # noqa: E731
     return Baseline(f.get("status", ""), value("reference"), value("task"), value("metric"), value("reported"),
-                    criteria_version(project, BASELINE))
+                    criteria_version(project, BASELINE), value("lock_task"), limitation_ids(text))
+
+
+LIMITATION_ROW = re.compile(r"^\|\s*`?(L\d+)`?\s*\|", re.M)
+LIMITATION_REF = re.compile(r"(?<![A-Za-z0-9_])L\d+(?!\d)")  # "L1을"처럼 조사가 붙어도
+
+
+def limitation_ids(text: str) -> list[str]:
+    """기준선 문서 ## 한계 표의 ID (L1, L2, …)."""
+    return LIMITATION_ROW.findall(section(text, "한계"))
+
+
+def lock_issues(project: Project, baseline: Baseline) -> list[str]:
+    """잠긴 기준선이 갖춰야 할 것 (기준선 사양 §8). 반영 도구도 같은 것을 보고 잠그기 전에 멈춘다."""
+    issues = [f"기준선의 {k}가 비어 있음" for k in ("reference", "task", "metric", "reported") if not getattr(baseline, k)]
+    catalog = project.root / "references" / "catalog.md"
+    if baseline.reference and catalog.is_file() and not re.search(
+            rf"^\|\s*`?{re.escape(baseline.reference)}`?\s*\|", catalog.read_text(encoding="utf-8"), re.M):
+        issues.append(f"기준선 참고문헌 {baseline.reference}가 references/catalog.md에 없음")
+    if not baseline.limitations:
+        issues.append("기준선 ## 한계에 L<n>이 없음")
+    return issues
 
 
 def baseline_issues(baseline: Optional[Baseline], text: str) -> list[str]:
@@ -143,6 +167,8 @@ def baseline_issues(baseline: Optional[Baseline], text: str) -> list[str]:
     issues = []
     if not section(text, "기준선 대비").strip():
         issues.append("기준선 대비 절 없음 (기준선 + X로 쓸 수 없으면 이 방향의 범위 밖)")
+    elif baseline.limitations and not set(LIMITATION_REF.findall(section(text, "기준선 대비"))) & set(baseline.limitations):
+        issues.append(f"기준선 대비에 푸는 한계 없음 (기준선 ## 한계의 {', '.join(baseline.limitations)} 중 하나 이상)")
     if baseline.status != "locked":
         issues.append("기준선이 잠기기 전의 평가")
     else:
@@ -184,7 +210,7 @@ def evaluation_issues(criteria: list[Criterion], locked: bool, current: Optional
     return issues
 
 
-BLOCKING = ("기준이 잠기기", "기준 변경 전", "기준선 대비 절 없음", "기준선이 잠기기", "기준선 변경 전", "평가 표 머리에 기준선")
+BLOCKING = ("기준이 잠기기", "기준 변경 전", "기준선 대비 절 없음", "기준선 대비에 푸는 한계", "기준선이 잠기기", "기준선 변경 전", "평가 표 머리에 기준선")
 
 
 def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row], Optional[str]]:
@@ -221,7 +247,11 @@ def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], ve
         what = " · ".join(x for x in (baseline.reference, baseline.task, f"{baseline.metric} {baseline.reported}".strip()) if x)
         lines.append(f"기준선: {what or '(아직 정하지 않음)'} ({baseline.status}) · 기준선 버전 {baseline.version or '없음'}")
         if baseline.status != "locked":
-            lines.append("  ! 기준선이 잠기기 전입니다. 첫 마일스톤의 마지막 게이트(go)에서 확정하면 잠기고, 그 뒤에 평가합니다.")
+            when = (f"{baseline.lock_task} 게이트를 approve하면" if baseline.lock_task
+                    else "첫 마일스톤의 마지막 게이트(go)에서 확정하면")
+            lines.append(f"  ! 기준선이 잠기기 전입니다. {when} 잠기고, 그 뒤에 평가합니다.")
+        if baseline.limitations:
+            lines.append(f"  기준선의 한계: {', '.join(baseline.limitations)} (후보는 ## 기준선 대비에 푸는 한계를 적는다)")
     if status == "locked" and version:
         head = f"기준 {version}" + (f", 기준선 {baseline.version}" if baseline is not None and baseline.version else "")
         if baseline is None or baseline.status == "locked":

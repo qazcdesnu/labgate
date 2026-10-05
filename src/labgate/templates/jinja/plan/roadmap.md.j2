@@ -15,7 +15,7 @@ updated: {{ today }}
 {% if ideation %}
 ## 후보와 평가 기준
 
-후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md), 기준선 연구는 [baseline.md](baseline.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서, 기준선은 {{ milestones[0].id }}의 마지막 게이트(go)에서 사람이 확정하고 잠근다. 모든 후보는 기준선 하나와 비교한다("기준선 + X"). 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
+후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md), 기준선 연구는 [baseline.md](baseline.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서, 기준선은 기준선 선정 task(`plan/baseline.md`의 `lock_task`)의 게이트(approve)에서 사람이 확정하고 잠근다. 모든 후보는 기준선 하나와 비교한다("기준선 + X", 기준선의 어느 한계를 푸나). 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
 {% else %}
 ## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 

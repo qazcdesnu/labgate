@@ -2140,32 +2140,54 @@ ideation의 모든 후보를 **기준선 연구 하나**와 비교하게 한다.
 
 후보들이 같은 질문에 대한 다른 답이 아니라 서로 다른 논문 계획이 되어 "중구난방"으로 보였다. 가까운 선행 연구와의 차이(새로움)는 정리되었지만, 성능 비교의 기준점이 없었다.
 
+**역할.** 기준선은 두 가지의 기준점이다.
+
+| 역할 | 기준선 문서가 정하는 것 | 후보가 쓰는 것 (`## 기준선 대비`) |
+|---|---|---|
+| 성능 기준점 | 과제·벤치마크, 지표와 보고 수치, 설정 | 같은 과제·지표·설정에서 "기준선 + X"가 무엇을 얼마나 바꾸나, 반증 조건 |
+| 기여 기준점 | 도달점(기준선과 그 계열 연구가 이미 보인 것), 한계(아직 못 한 것과 근거, `L1`, `L2`, …) | 어느 한계를 푸나. 도달점을 다시 보이는 것은 기여가 아니다 |
+
+논문의 기여는 "기존 연구가 어디까지 왔고 어디서 막혔나"에 대한 것이다. 성능 수치만 정하면 후보가 같은 표에 놓이지만, 무엇에 대한 기여인지는 여전히 후보마다 다를 수 있다. 그래서 기준선 문서가 도달점과 한계를 함께 정하고, 후보는 그 한계 중 무엇을 푸는지 적는다.
+
+**선정 기준.** 후보 기준선 2–4개를 다음 기준마다 비교하고 하나를 고른다.
+
+1. 같은 문제: 연구 질문과 같은 문제를 같은 과제·지표로 푼다.
+2. 강한 대표: 그 문제의 최신 대표 방법이다(최근 12개월, 또는 최근 목표 학회 논문들의 주 비교 대상). 약한 기준선을 이기는 것은 기여가 아니다.
+3. 재현 가능성: 공개 코드·체크포인트, 표준 벤치마크의 보고 수치, 가진 자원으로 재현.
+4. 근거 있는 한계: 연구 질문과 관련된 한계가 근거(저자 서술, 후속 연구의 지적, 예비 실험)와 함께 있다.
+5. 하나만.
+
 ### 27.2 기준선 문서
 
 `plan/baseline.md`(ideation에 생성, 사양 `baseline.spec.md`, 부록 A.18, B.15).
 
-- **frontmatter:** `status`(`draft` | `locked`), `locked_commit`, `reference`(참고문헌 ID), `task`, `metric`, `reported`.
+- **frontmatter:** `status`(`draft` | `locked`), `locked_commit`, `lock_task`(기준선 선정 task ID 또는 `null`), `reference`(참고문헌 ID), `task`, `metric`, `reported`.
 - **본문:**
   - 선정한 기준선: 논문, 과제, 지표와 수치, 설정, 공개 코드, 재현 비용
-  - 선정 규칙: 최신성, 목표 학회에서 비교 대상으로 쓰이나, 재현 가능성, 하나만
-  - 후보 기준선 비교 표
+  - 도달점: 기준선과 그 계열 연구가 이미 보인 것
+  - 한계: 표 `| ID | 한계 | 근거 | 연구 질문과의 관계 |`, ID는 `L<n>`
+  - 선정 기준: 위의 다섯 기준
+  - 후보 기준선 비교 표 (열이 선정 기준)
   - 선정 이유
 
 ### 27.3 정하고 잠그기
 
-- **작성:** 첫 마일스톤(지형 파악)에서 에이전트가 후보 기준선 2–4개를 비교하고 추천을 채운다. 잠기기 전에는 에이전트가 고칠 수 있다.
-- **잠금:** 사람은 추천을 보고 다르면 고쳐 커밋하고, 첫 마일스톤의 마지막 게이트를 `Milestone-Verdict: go`로 판정한다. 반영 도구가 `draft → locked`와 `locked_commit`을 채운다(`first_milestone()`).
-- **시점:** 평가 기준(첫 T0 게이트)보다 늦은 이유는 최신 기준선을 고르려면 지형 조사가 필요해서다. 후보 평가(다음 마일스톤)보다는 앞이다.
+- **작성:** 기준선 선정 task(새 프로젝트는 첫 마일스톤의 지형 파악. M0-T0 카드가 이 task를 넣고 그 ID를 `lock_task`에 적게 한다)에서 에이전트가 후보 기준선 2–4개를 비교하고, 도달점·한계·추천을 채운다. 잠기기 전에는 에이전트가 고칠 수 있다.
+- **잠금:** 사람은 추천을 보고 다르면 고쳐 커밋하고, `lock_task` 게이트를 `Verdict: approve`로 판정한다. 반영 도구가 `draft → locked`와 `locked_commit`을 채운다(`lock_baseline()`). `lock_task`가 `null`이면 첫 마일스톤의 마지막 게이트(`Milestone-Verdict: go`)에서 잠근다(`first_milestone()`).
+  - 실사용(연습용 ideation, 2026-10-06): spec_version 7로 시작해 M0이 끝난 뒤 8로 올린 프로젝트는 첫 마일스톤의 go가 이미 지나 기준선을 잠글 길이 없었다. 기준선 선정 task를 M1에 더하고(M1-T4) 그 approve로 잠그게 했다. 첫 마일스톤의 go보다 기준선을 검토하는 그 게이트가 판단 시점으로도 맞다.
+- **잠글 수 있는 조건:** `reference`·`task`·`metric`·`reported`가 있고, `reference`가 `references/catalog.md`에 있고, `## 한계`에 `L<n>`이 하나 이상 있다. 아니면 반영 도구가 아무것도 바꾸지 않고 멈춘다. `lg answer`·`lg commit`의 반영 미리보기가 같은 계산을 하므로 판정 커밋 전에 알린다. 사람이 `plan` 커밋으로 직접 잠근 경우는 `lg verify` V5가 잡는다(`ideas.lock_issues`).
+- **시점:** 평가 기준(첫 T0 게이트)보다 늦은 이유는 최신 기준선을 고르려면 지형 조사가 필요해서다. 후보 평가보다는 앞이다.
 - **잠근 뒤:** 사람의 `plan` 커밋으로만 바꾼다. G4에 기준선 `draft → locked`, G7에 "잠긴 `plan/baseline.md`"를 더했다.
   - `lg verify` V4: 잠기기 전의 에이전트 수정은 허용하고, 잠긴 뒤의 수정은 위반이다(잠금 반영의 `status`·`locked_commit`·`updated`는 예외).
-  - V2: 잠금 전이의 근거는 첫 마일스톤의 go다.
+  - V2: 잠금 전이의 근거는 `lock_task`(전이 전 문서의 값) 게이트의 approve, `lock_task`가 없으면 첫 마일스톤의 go다.
 
 ### 27.4 후보와 평가
 
-- **기준선 대비:** idea 사양에 `## 기준선 대비` 절을 더했다(한 줄 "기준선 + X", 같은 설정인가, 예상 효과와 반증, 추가 비용). 기준선 대비로 쓸 수 없는 후보는 이 방향의 범위 밖이다.
+- **기준선 대비:** idea 사양에 `## 기준선 대비` 절을 더했다(한 줄 "기준선 + X", 푸는 한계 `L<n>`, 같은 설정인가, 예상 효과와 반증, 추가 비용). 기준선 대비로 쓸 수 없거나 기준선의 어느 한계도 풀지 않는 후보는 이 방향의 범위 밖이다.
 - **평가 표 머리:** `## 평가 (기준 <기준 버전>, 기준선 <기준선 버전>)`. 기준선 버전도 내용을 마지막으로 바꾼 커밋이다(잠금만 바꾼 커밋은 세지 않음, `criteria_version(project, path)`).
 - **`lg ideas`:** 기준선(참고문헌, 과제, 지표와 수치, 상태, 버전)과 평가 표 머리에 쓸 줄을 보여 준다. 순위에서 빼는 것:
   - 기준선 대비 절이 없는 후보
+  - 기준선 대비에 기준선 `## 한계`의 `L<n>`이 하나도 없는 후보 (`L1을`처럼 조사가 붙어도 읽는다)
   - 기준선이 잠기기 전의 평가
   - 평가 표 머리에 기준선 버전이 없거나 다른 평가
 - **`lg verify` V5:** 같은 검사를 한다(`ideas.baseline_issues`).
@@ -2184,7 +2206,9 @@ ideation의 모든 후보를 **기준선 연구 하나**와 비교하게 한다.
 | 질문 | 결정 | 이유 |
 |---|---|---|
 | 기준선 개수 | 정확히 하나 | 비교 상대가 여럿이면 다시 흩어진다. 보조 비교는 후보 안에서 |
-| 잠그는 시점 | 첫 마일스톤의 마지막 게이트(go) | 지형 조사 뒤, 후보 평가 전 |
+| 기준선의 역할 | 성능 기준점과 기여 기준점(도달점, 한계 `L<n>`) | 수치만으로는 무엇에 대한 기여인지가 후보마다 달라진다 |
+| 잠그는 시점 | 기준선 선정 task(`lock_task`)의 approve. 없으면 첫 마일스톤의 마지막 게이트(go) | 지형 조사 뒤, 후보 평가 전. 기준선을 검토하는 게이트에서 정한다. M0이 끝난 프로젝트도 잠글 수 있다 |
+| 덜 채운 기준선 | 잠그지 않고 반영을 멈춘다 | 잠근 뒤 고치면 모든 후보를 다시 써야 한다. 판정 전에 미리보기가 알린다 |
 | 기준선 대비가 없는 후보 | 평가하지 않고 표시 | 결격 점수보다 "범위 밖"을 드러내는 편이 정확하다 |
 | 버전 | v0.8.0 (spec_version 8) | 생성 파일이 바뀌므로 패치가 될 수 없다(§22.2.2). 사용자가 v0.7.1을 원했으나 규칙대로 마이너로 정했다. 규칙(패치 = `lg upgrade` 불필요)은 1.0 이후에 다시 본다 |
 
@@ -2597,7 +2621,7 @@ updated: {{ today }}
 {% if ideation %}
 ## 후보와 평가 기준
 
-후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md), 기준선 연구는 [baseline.md](baseline.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서, 기준선은 {{ milestones[0].id }}의 마지막 게이트(go)에서 사람이 확정하고 잠근다. 모든 후보는 기준선 하나와 비교한다("기준선 + X"). 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
+후보 목록은 [ideas/index.md](../ideas/index.md), 평가 기준은 [criteria.md](criteria.md), 기준선 연구는 [baseline.md](baseline.md)에 있다. 기준은 {{ milestones[0].id }}-T0 게이트에서, 기준선은 기준선 선정 task(`plan/baseline.md`의 `lock_task`)의 게이트(approve)에서 사람이 확정하고 잠근다. 모든 후보는 기준선 하나와 비교한다("기준선 + X", 기준선의 어느 한계를 푸나). 잠근 뒤에 바꾸면 모든 후보를 다시 평가한다.
 {% else %}
 ## {% if proposal %}제안 전략과 가정{% else %}가설{% endif +%}
 
@@ -2661,7 +2685,7 @@ updated: {{ today }}
 ## Go / No-go 기준
 
 {% if ideation %}
-> 마일스톤 판정: go = 다음 단계로(첫 마일스톤이면 기준선 `plan/baseline.md` 잠금, 마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
+> 마일스톤 판정: go = 다음 단계로(첫 마일스톤이면, `lock_task`로 아직 잠기지 않은 기준선 `plan/baseline.md` 잠금, 마지막 마일스톤이면 방향 확정: `brief.md` 확정), conditional = 다시 탐색, nogo = 탐색 중단.
 
 {% elif proposal %}
 > 마일스톤 판정: go = 다음 단계로 진행(마지막 마일스톤이면 제출), conditional = 보완 조건부 진행, nogo = 중단.
@@ -2722,7 +2746,7 @@ updated: {{ today }}
 {% if ideation and prev is none %}
 - 평가 기준 조정 제안을 `notes/criteria-proposal.md`에 작성 (기준 문서 `plan/criteria.md`는 사람이 고치고 이 게이트에서 잠근다. 고칠 점이 없으면 그렇게 적는다)
 - `notes/`의 아이디어 메모를 후보로 옮긴다: `ideas/I<n>_<slug>.md` (`status: candidate`, [idea 사양](../../../../specs/doc-types/idea.spec.md)), `ideas/index.md`
-- 이 마일스톤 task에 "기준선 후보 조사와 추천"(`plan/baseline.md`, [사양](../../../../specs/doc-types/baseline.spec.md))을 넣는다. 선정과 잠금은 사람이 이 마일스톤의 마지막 게이트에서 한다
+- 이 마일스톤 task에 "기준선 선정"(후보 기준선 비교, 도달점과 한계, 추천: `plan/baseline.md`, [사양](../../../../specs/doc-types/baseline.spec.md))을 넣고, 그 task ID를 `plan/baseline.md`의 `lock_task`에 적는다. 선정과 잠금은 사람이 그 task의 게이트(approve)에서 한다
 {% endif %}
 {% if origin and prev is none %}
 - `notes/ideation-brief.md`(ideation에서 확정한 방향)를 출발점으로 삼는다. 거기 적힌 질문·가설·근거를 검증하고 다듬는 task로 나누며, 처음부터 다시 조사하지 않는다
@@ -2775,7 +2799,7 @@ updated: {{ today }}
 {% if prev is none and ideation %}
 - [ ] 평가 기준 조정 제안(또는 "고칠 점 없음")이 `notes/criteria-proposal.md`에 있다
 - [ ] `notes/`의 아이디어 메모가 모두 후보(`ideas/`)로 옮겨졌다
-- [ ] 기준선 후보 조사와 추천 task가 이 마일스톤에 있다
+- [ ] 기준선 선정 task가 이 마일스톤에 있고, `plan/baseline.md`의 `lock_task`가 그 ID다
 {% elif prev is none %}
 - [ ] 기존 계획의 결정 항목이 모두 `decisions/`에 `proposed`로 옮겨졌다
 {% endif %}
@@ -3062,6 +3086,7 @@ type: baseline
 spec_version: {{ spec_version }}
 status: draft
 locked_commit: null
+lock_task: null
 reference: null
 task: null
 metric: null
@@ -3070,7 +3095,12 @@ updated: {{ today }}
 ---
 # 기준선 연구
 
-모든 후보는 **이 기준선 하나**와 비교한다: "기준선 + 무엇을 바꾸면, 같은 과제·지표·설정에서 무엇이 얼마나 좋아지나". 기준선은 {{ milestones[0].id }}의 마지막 게이트(Milestone-Verdict `go`)에서 사람이 확정하면 잠긴다(`status: locked`). 잠기기 전에는 후보를 평가하지 않는다. 에이전트는 이 문서에 후보 기준선 비교와 추천을 쓰고, 선정은 사람이 한다(잠근 뒤에는 고치지 않는다). 사양: [baseline.spec.md](../specs/doc-types/baseline.spec.md).
+모든 후보는 **이 기준선 하나**와 비교한다. 기준선은 두 가지의 기준점이다.
+
+- **성능 기준점:** "기준선 + X"가 같은 과제·지표·설정에서 무엇을 얼마나 바꾸나.
+- **기여 기준점:** 기준선이 이미 보인 것(`## 도달점`)을 다시 보이는 것은 기여가 아니다. 아직 못 한 것(`## 한계`의 `L<n>`)을 푸는 것이 기여다. 후보는 어느 한계를 푸는지 적는다.
+
+기준선은 기준선 선정 task(frontmatter `lock_task`)의 게이트를 사람이 approve하면 잠긴다(`status: locked`). `lock_task`가 비어 있으면 {{ milestones[0].id }}의 마지막 게이트(Milestone-Verdict `go`)에서 잠긴다. 잠기기 전에는 후보를 평가하지 않는다. 에이전트는 이 문서에 후보 기준선 비교와 추천을 쓰고, 선정은 사람이 한다(잠근 뒤에는 고치지 않는다). 사양: [baseline.spec.md](../specs/doc-types/baseline.spec.md).
 
 ## 선정한 기준선
 
@@ -3085,16 +3115,28 @@ frontmatter의 `reference`(참고문헌 ID), `task`(과제·벤치마크), `metr
 | 공개 코드·체크포인트 | |
 | 재현 비용 | (가진 자원 대비, `plan/criteria.md`의 가진 자원) |
 
-## 선정 규칙
+## 도달점
 
-1. **최신성:** 최근 12개월 안에 나왔거나, 그 뒤 나온 연구들이 비교 대상으로 쓰고 있다.
-2. **비교 대상으로 쓰이나:** 목표 학회의 최근 논문들이 이 기준선과 비교한다.
-3. **재현 가능성:** 공개 코드(가능하면 체크포인트)가 있고, 가진 자원으로 재현할 수 있다.
-4. **하나만:** 판단은 이 기준선 하나로 한다. 다른 비교 대상은 후보 안에서 보조로 적는다.
+> TODO: 이 기준선과 그 계열 연구가 이미 보인 것. 무엇을, 어떤 방법으로, 어떤 수치까지 (참고문헌 ID와 위치)
+
+## 한계
+
+후보는 `## 기준선 대비`에 여기 있는 `L<n>` 중 무엇을 푸는지 적는다.
+
+| ID | 한계 | 근거 | 연구 질문과의 관계 |
+|---|---|---|---|
+
+## 선정 기준
+
+1. **같은 문제:** 연구 질문과 같은 문제를 같은 과제·지표로 푼다. 이 기준선 위의 결과로 연구 질문에 답할 수 있다.
+2. **강한 대표:** 그 문제의 최신 대표 방법이다. 최근 12개월 안에 나왔거나, 최근 목표 학회 논문들이 주 비교 대상으로 쓴다. 약한 기준선을 이기는 것은 기여가 아니다.
+3. **재현 가능성:** 공개 코드(가능하면 체크포인트)와 표준 벤치마크의 보고 수치가 있고, 가진 자원으로 재현할 수 있다.
+4. **근거 있는 한계:** 연구 질문과 관련된 한계가 근거(저자의 서술, 후속 연구의 지적, 예비 실험)와 함께 드러나 있다.
+5. **하나만:** 판단은 이 기준선 하나로 한다. 다른 비교 대상은 후보 안에서 보조로 적는다.
 
 ## 후보 기준선 비교
 
-| 후보 (참고문헌 ID) | 최신성 | 비교 대상으로 쓰이나 | 공개 코드 | 재현 비용 | 비고 |
+| 후보 (참고문헌 ID) | 같은 문제 | 강한 대표 | 재현 가능성 | 근거 있는 한계 | 비고 |
 |---|---|---|---|---|---|
 
 ## 선정 이유
@@ -4248,7 +4290,7 @@ status: complete
 | `## 최소 실험` | 무엇을 돌리면 맞고 틀림이 드러나나, 자원 추정 |
 | `## 가장 가까운 선행 연구와 차이` | 참고문헌 ID와 차이 |
 | `## 새로움 위험` | 선점 가능성, 이미 있을 수 있는 연구 |
-| `## 기준선 대비` | 잠근 기준선(`plan/baseline.md`) 하나와의 비교: 한 줄 "기준선 + X", 같은 과제·지표·설정인가, 예상 효과와 반증 조건, 기준선 재현 외에 더 드는 비용. 기준선 대비로 쓸 수 없는 후보는 이 방향의 범위 밖이다(평가하지 않는다) |
+| `## 기준선 대비` | 잠근 기준선(`plan/baseline.md`) 하나와의 비교: 한 줄 "기준선 + X", 푸는 한계(기준선 `## 한계`의 `L<n>`), 같은 과제·지표·설정인가, 예상 효과와 반증 조건, 기준선 재현 외에 더 드는 비용. 기준선 대비로 쓸 수 없는 후보는 이 방향의 범위 밖이다(평가하지 않는다) |
 | `## 평가 (기준 <기준 버전>, 기준선 <기준선 버전>)` | 아래 표. 두 버전은 `lg ideas`가 보여 주는 커밋(내용을 마지막으로 바꾼 커밋)이다. 기준과 기준선이 모두 잠기기 전에는 쓰지 않는다 |
 | `## 판단 기록` | 상태가 바뀐 날짜, 근거, 커밋. 다시 매기면 이전 점수와 이유 |
 
@@ -4283,7 +4325,7 @@ status: complete
 ## 7. 검증 규칙
 
 - `id`가 파일 이름의 `I<n>`과 같다.
-- `## 평가`가 있으면 `## 기준선 대비`가 비어 있지 않다. 기준선(`plan/baseline.md`)이 잠겨 있고 평가 표 머리의 기준선 버전이 지금 버전과 같다.
+- `## 평가`가 있으면 `## 기준선 대비`가 비어 있지 않고 기준선 `## 한계`의 `L<n>`을 하나 이상 적는다. 기준선(`plan/baseline.md`)이 잠겨 있고 평가 표 머리의 기준선 버전이 지금 버전과 같다.
 - `## 평가`가 있으면: 기준이 `plan/criteria.md`와 같고, 점수가 1–5 또는 `(사람)`이며, 에이전트 기준의 근거가 비어 있지 않고, 기준이 잠긴 상태다(`lg verify` V5).
 - 버린 후보도 지우지 않는다.
 ~~~~
@@ -4450,9 +4492,16 @@ status: complete
 ---
 # 기준선 연구 사양
 
-## 1. 목적
+## 1. 목적과 역할
 
-후보들이 성능을 비교할 **기준선 연구 하나**를 후보 평가 전에 정하고 잠근다. 기준선이 없으면 후보마다 비교 대상·과제·설정이 달라 후보끼리 비교할 수 없다.
+후보를 평가하기 전에 **기준선 연구 하나**를 정하고 잠근다. 기준선은 두 가지의 기준점이다.
+
+| 역할 | 기준선 문서가 정하는 것 | 후보가 쓰는 것 (`## 기준선 대비`) |
+|---|---|---|
+| 성능 기준점 | 과제·벤치마크, 지표와 보고 수치, 설정(backbone, 데이터, 학습량) | 같은 과제·지표·설정에서 "기준선 + X"가 무엇을 얼마나 바꾸나, 반증 조건 |
+| 기여 기준점 | 도달점(이 기준선과 그 계열 연구가 이미 보인 것), 한계(아직 못 한 것과 그 근거, `L<n>`) | 어느 한계(`L<n>`)를 푸나. 도달점을 다시 보이는 것은 기여가 아니다 |
+
+기준선이 없으면 후보마다 비교 대상·과제·설정이 달라 후보끼리 비교할 수 없고, 무엇에 대한 기여인지도 후보마다 달라진다.
 
 ## 2. 위치와 파일명
 
@@ -4467,33 +4516,52 @@ status: complete
 | `spec_version` | ✓ | `8` |
 | `status` | ✓ | `draft` \| `locked` |
 | `locked_commit` | ✓ | 잠근 사람 커밋의 해시 또는 `null` |
-| `reference` | ✓ | 기준선 논문의 참고문헌 ID (잠글 때는 비어 있으면 안 된다) |
+| `lock_task` | ✓ | 기준선 선정 task ID(그 게이트의 `Verdict: approve`에서 잠긴다) 또는 `null`(첫 마일스톤의 마지막 게이트 go에서 잠긴다) |
+| `reference` | ✓ | 기준선 논문의 참고문헌 ID |
 | `task` | ✓ | 과제·벤치마크 |
 | `metric` | ✓ | 지표 |
 | `reported` | ✓ | 보고 수치와 표 번호 |
 | `updated` | ✓ | 날짜 |
 
-## 4. 본문 구조
+## 4. 선정 기준
 
-`## 선정한 기준선`(논문, 과제, 지표와 수치, 설정, 공개 코드, 재현 비용), `## 선정 규칙`(최신성, 비교 대상으로 쓰이나, 재현 가능성, 하나만), `## 후보 기준선 비교`(표), `## 선정 이유`.
+후보 기준선 2–4개를 아래 기준마다 비교하고(`## 후보 기준선 비교`의 열) 하나를 고른다.
 
-## 5. 작성·수정 권한
+1. **같은 문제:** 연구 질문과 같은 문제를 같은 과제·지표로 푼다. 이 기준선 위의 결과로 연구 질문에 답할 수 있다.
+2. **강한 대표:** 그 문제의 최신 대표 방법이다. 최근 12개월 안에 나왔거나, 최근 목표 학회 논문들이 주 비교 대상으로 쓴다. 약한 기준선을 이기는 것은 기여가 아니다.
+3. **재현 가능성:** 공개 코드(가능하면 체크포인트)와 표준 벤치마크의 보고 수치가 있고, 가진 자원(`plan/criteria.md`)으로 재현할 수 있다.
+4. **근거 있는 한계:** 연구 질문과 관련된 한계가 근거(저자의 서술, 후속 연구의 지적, 예비 실험)와 함께 드러나 있다. 한계가 없으면 그 위에서 기여를 말할 수 없다.
+5. **하나만:** 판단은 이 기준선 하나로 한다. 다른 비교 대상은 후보 안에서 보조로 적는다.
+
+## 5. 본문 구조
+
+| 절 | 내용 |
+|---|---|
+| `## 선정한 기준선` | 논문, 과제·벤치마크, 지표와 보고 수치(표 번호), 설정, 공개 코드·체크포인트, 재현 비용 |
+| `## 도달점` | 이 기준선과 그 계열 연구가 이미 보인 것: 무엇을, 어떤 방법으로, 어떤 수치까지. 참고문헌 ID와 위치 |
+| `## 한계` | 표 `\| ID \| 한계 \| 근거 \| 연구 질문과의 관계 \|`. ID는 `L1`, `L2`, …. 근거는 참고문헌 ID와 위치(저자 서술, 후속 연구), 또는 예비 실험 결과의 경로 |
+| `## 선정 기준` | §4의 다섯 기준 (프로젝트에 맞게 고칠 수 있다) |
+| `## 후보 기준선 비교` | 후보 2–4개를 §4의 기준마다 비교한 표 |
+| `## 선정 이유` | 에이전트 추천과 근거. 사람이 다르게 고르면 그 이유 |
+
+## 6. 작성·수정 권한
 
 | 부분 | 에이전트 | 사람 |
 |---|---|---|
-| 후보 기준선 비교, 추천, 선정 이유 초안 | 작성 (잠기기 전) | 수정 |
-| 선정(frontmatter `reference` 등) | 추천을 채운다 (잠기기 전) | 결정 |
-| `status: draft → locked`, `locked_commit` | 하지 않는다. 첫 마일스톤의 `Milestone-Verdict: go`를 반영 도구가 반영한다 | 결정 |
-| 잠근 뒤 | 고치지 않는다 (G7) | `plan` 커밋으로만. 바꾸면 모든 후보를 다시 쓰고 평가한다 |
+| 비교, 도달점, 한계, 추천, 선정 이유 | 작성 (잠기기 전) | 수정 |
+| 선정(frontmatter `reference` 등), `lock_task` | 추천과 기준선 선정 task ID를 채운다 (잠기기 전) | 결정 |
+| `status: draft → locked`, `locked_commit` | 하지 않는다. 반영 도구가 `lock_task` 게이트의 approve(`lock_task`가 `null`이면 첫 마일스톤의 go)를 반영한다 | 결정 |
+| 잠근 뒤 | 고치지 않는다 (G7). 새로 찾은 한계는 `notes/baseline-proposal.md`에 제안한다 | `plan` 커밋으로만. 바꾸면 모든 후보를 다시 쓰고 평가한다 |
 
-## 6. 생성·갱신 시점
+## 7. 생성·갱신 시점
 
-생성: `lg init --kind ideation`. 작성: 첫 마일스톤의 지형 조사. 잠금: 첫 마일스톤의 마지막 게이트(go).
+생성: `lg init --kind ideation`. 작성: 기준선 선정 task(보통 첫 마일스톤의 지형 조사). 잠금: `lock_task` 게이트의 approve, `lock_task`가 `null`이면 첫 마일스톤의 마지막 게이트(go).
 
-## 7. 검증 규칙
+## 8. 검증 규칙
 
-- 잠글 때 `reference`, `task`, `metric`, `reported`가 비어 있지 않고 `reference`가 `references/catalog.md`에 있다.
+- 잠그는 반영은 다음이 모두 맞을 때만 한다(아니면 반영 도구가 멈추고, `lg answer`·`lg commit`은 판정 커밋 전에 알린다): `reference`, `task`, `metric`, `reported`가 비어 있지 않고, `reference`가 `references/catalog.md`에 있고, `## 한계`에 `L<n>`이 하나 이상 있다.
 - 후보의 평가는 기준선이 잠긴 뒤에만 있고, 평가 표 머리의 기준선 버전이 지금 버전과 같다.
+- 평가가 있는 후보의 `## 기준선 대비`는 기준선 `## 한계`에 있는 `L<n>`을 하나 이상 적는다.
 ~~~~
 
 ---
@@ -5274,6 +5342,49 @@ def last_milestone():
     return ids[-1] if ids else None
 
 
+BASELINE = "plan/baseline.md"
+
+
+def baseline_lock_task(plan):
+    """기준선 문서의 lock_task (기준선이 없거나 비어 있으면 None)."""
+    if not (ROOT / BASELINE).is_file() and BASELINE not in plan.texts:
+        return None
+    value = frontmatter_value(plan.read(BASELINE), "lock_task", BASELINE, required=False)
+    return None if value in (None, "", "null", "~") else value
+
+
+def baseline_lock_issues(text):
+    """잠글 수 없는 이유 (기준선 사양 §8): 비어 있는 선정 필드, 목록에 없는 참고문헌, 한계 없음."""
+    issues = []
+    for key in ("reference", "task", "metric", "reported"):
+        if frontmatter_value(text, key, BASELINE, required=False) in (None, "", "null", "~"):
+            issues.append(f"{key}가 비어 있음")
+    ref = frontmatter_value(text, "reference", BASELINE, required=False)
+    catalog = ROOT / "references" / "catalog.md"
+    if ref not in (None, "", "null", "~") and catalog.is_file() and not re.search(
+            rf"^\|\s*`?{re.escape(ref)}`?\s*\|", catalog.read_text(encoding="utf-8"), re.M):
+        issues.append(f"참고문헌 {ref}가 references/catalog.md에 없음")
+    if not limitation_ids(text):
+        issues.append("## 한계에 L<n>이 없음")
+    return issues
+
+
+def limitation_ids(text):
+    m = re.search(r"^## 한계[ \t]*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    return re.findall(r"^\|\s*`?(L\d+)`?\s*\|", m.group(1), re.M) if m else []
+
+
+def lock_baseline(plan, short):
+    text = plan.read(BASELINE)
+    if frontmatter_value(text, "status", BASELINE) == "draft":
+        issues = baseline_lock_issues(text)
+        if issues:
+            raise CannotApply("기준선을 잠글 수 없습니다 (plan/baseline.md): " + ", ".join(issues)
+                              + ". 기준선 문서를 채운 뒤 판정하거나, 기준선을 나중에 정하려면 lock_task에 기준선 선정 task를 적으세요")
+    if plan.transition(BASELINE, "기준선 잠금", {"draft"}, "locked", {"locked"}):
+        plan.set_field(BASELINE, "locked_commit", f"'{short}'")
+
+
 def confirmed_contents(body, review_text, decisions):
     """결정 ID → 사람이 쓴 확정 내용. decide 커밋 본문의 `확정: …`(결정이 하나일 때),
     또는 review `### 확정 결정`의 `- D0.1: …` 줄."""
@@ -5320,14 +5431,18 @@ def plan_for(sha, ctype, scope, trailers, today, body=""):
             # ideation: 첫 T0 게이트 승인이 평가 기준을 잠근다 (§26.6)
             if plan.transition("plan/criteria.md", "평가 기준 잠금", {"draft"}, "locked", {"locked"}):
                 plan.set_field("plan/criteria.md", "locked_commit", f"'{short}'")
+        lock_task = baseline_lock_task(plan)
+        if verdict == "approve" and lock_task == task:
+            # ideation: 기준선 선정 task의 승인이 기준선을 잠근다 (§27)
+            lock_baseline(plan, short)
         mv = trailers.get("Milestone-Verdict")
         if mv:
             plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
             plan.set_field(f"plan/milestones/{milestone}/milestone.md", "go_nogo", mv)
-            if mv == "go" and (ROOT / "plan/baseline.md").is_file() and milestone == first_milestone():
-                # ideation: 첫 마일스톤의 go가 기준선을 잠근다 (§27)
-                if plan.transition("plan/baseline.md", "기준선 잠금", {"draft"}, "locked", {"locked"}):
-                    plan.set_field("plan/baseline.md", "locked_commit", f"'{short}'")
+            if mv == "go" and lock_task is None and (ROOT / "plan/baseline.md").is_file() \
+                    and milestone == first_milestone():
+                # ideation: lock_task가 없으면 첫 마일스톤의 go가 기준선을 잠근다 (§27)
+                lock_baseline(plan, short)
             if mv == "go" and (ROOT / "brief.md").is_file() and milestone == last_milestone():
                 # ideation: 마지막 마일스톤의 go가 방향을 확정한다 (§26)
                 plan.transition("brief.md", "방향 확정", {"draft"}, "confirmed", {"confirmed"})
