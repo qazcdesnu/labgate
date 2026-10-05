@@ -41,12 +41,12 @@ def extract_sources(tmp_path_factory):
     return out
 
 
-def make_old(tmp_path, env, sources, spec, claude_code=True):
+def make_old(tmp_path, env, sources, spec, claude_code=True, kind=None):
     """옛 labgate(그 spec_version을 처음 릴리즈한 tag)로 프로젝트를 만든다."""
     src = sources[spec]
     if src is None:
         pytest.skip(f"tag {TAGS[spec]} 없음")
-    cfg = write_config(tmp_path / "cfg.yaml", project_config(claude_code))
+    cfg = write_config(tmp_path / "cfg.yaml", project_config(claude_code, kind=kind))
     root = tmp_path / f"old{spec}"
     code = f"import sys; sys.path.insert(0, {str(src)!r}); from labgate.cli import app; app()"
     result = subprocess.run([sys.executable, "-c", code, "init", str(root), "--config", str(cfg)],

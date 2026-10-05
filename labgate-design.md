@@ -1099,7 +1099,7 @@ upgrades:                       # upgrade가 추가한다. 오래된 순
 
 | 분류 | 파일 | 해시가 그 버전과 같음 | 다름 | `--force` |
 |---|---|---|---|---|
-| **관리 문서** | `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/*`, `specs/conventions.md`, `specs/workflow.md`, `specs/git-commit.md`, 완성 사양(`task-card`, `review`), `specs/templates/*`, `specs/procedures/*`, `scripts/*`, `.lg/hooks/commit-msg` | 새 버전으로 교체 | **갱신 실패** | 새 버전으로 덮어씀 |
+| **관리 문서** | `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/*`, `specs/conventions.md`, `specs/workflow.md`, `specs/git-commit.md`, 완성 사양(`task-card`, `review`, ideation의 `idea`·`criteria`·`brief`·`baseline`), `specs/templates/*`, `specs/procedures/*`, `scripts/*`, `.lg/hooks/commit-msg` | 새 버전으로 교체 | **갱신 실패** | 새 버전으로 덮어씀 |
 | **사람이 채우는 관리 문서** | stub 사양 11종, `specs/README.md` | 새 버전으로 교체 | 사람이 채운 것으로 보고 내용 유지, `spec_version`만 갱신 | 덮어쓰지 않음 |
 | **관리 구역** | `.gitignore` | `# labgate:begin` ~ `# labgate:end` 구역만 새 버전으로 바꾸고, 구역 밖의 줄은 그대로 (§22.5.2) | | |
 | **연구 문서** | 위에 없는, Git이 추적하는 모든 `.md` (`plan/`, `decisions/`, `references/`, `reviews/`, `results/`, `logs/`, `STATUS.md`, `FILEMAP.md`, `README.md`, …) | frontmatter `spec_version`만 갱신. 내용은 그대로 | | |

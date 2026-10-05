@@ -70,6 +70,21 @@ def test_filled_stub_is_kept(tmp_path, git_sandbox, old_sources):
     assert "사람이 채운 것으로 봄" in result.output
 
 
+def test_edited_ideation_spec_is_managed(tmp_path, git_sandbox, old_sources):
+    """실사용(연습용 ideation): 릴리즈 전 dev로 만든 idea.spec이 릴리즈본과 달라 사람이 채운 문서로 남았다.
+    ideation 규칙 문서는 완성된 관리 문서이므로 알리고, --force면 바꾼다."""
+    p = make_old(tmp_path, git_sandbox, old_sources, 7, kind="ideation")
+    spec = "specs/doc-types/idea.spec.md"
+    p.write(spec, p.read(spec) + "\n고친 줄\n")
+    p.human("spec: x\n\nActor: human", all=True)
+    result = p.lg("upgrade")
+    assert result.exit_code != 0 and spec in result.output
+    result = p.lg("upgrade", "--force")
+    assert result.exit_code == 0, result.output
+    assert "고친 줄" not in p.read(spec) and "## 기준선 대비" in p.read(spec)
+    assert spec in p.yaml()["upgrades"][-1]["forced"]
+
+
 def test_agents_project_lines_preserved(tmp_path, git_sandbox, old_sources):
     p = make_old(tmp_path, git_sandbox, old_sources, 2)
     p.write("AGENTS.md", p.read("AGENTS.md").replace(f"- 이름: {PROJECT_NAME}", "- 이름: 새 이름"))
