@@ -16,8 +16,8 @@ from .project import Project, find_project
 from .verify import frontmatter_fields, section
 
 CRITERIA = "plan/criteria.md"
-BASELINE = "plan/baseline.md"
-EVAL_HEADING = re.compile(r"^## 평가(?: \(기준 ([0-9a-f]{7,40})(?:, 기준선 ([0-9a-f]{7,40}))?\))?[ \t]*$", re.M)
+ANCHOR = "plan/anchor.md"
+EVAL_HEADING = re.compile(r"^## 평가(?: \(기준 ([0-9a-f]{7,40})(?:, 앵커 ([0-9a-f]{7,40}))?\))?[ \t]*$", re.M)
 HUMAN_SCORE = "(사람)"
 
 
@@ -91,7 +91,7 @@ LOCK_LINE = re.compile(r"^(status|locked_commit|updated):.*$", re.M)
 
 def criteria_version(project: Project, path: str = CRITERIA) -> Optional[str]:
     """문서 버전: **내용**을 마지막으로 바꾼 커밋. 잠금 반영처럼 `status`·`locked_commit`·`updated`만
-    바꾼 커밋은 건너뛴다 (그래야 잠가도 버전이 바뀌지 않는다). 평가 기준과 기준선이 쓴다."""
+    바꾼 커밋은 건너뛴다 (그래야 잠가도 버전이 바뀌지 않는다). 평가 기준과 앵커가 쓴다."""
     log = gitops.run(["log", "--format=%h", "--", path], cwd=project.root)
     if log.returncode != 0:
         return None
@@ -113,7 +113,7 @@ def criteria_state(project: Project) -> tuple[Optional[str], list[Criterion], Op
 
 
 @dataclass
-class Baseline:
+class Anchor:
     status: str
     reference: str
     task: str
@@ -124,16 +124,16 @@ class Baseline:
     limitations: list[str] = field(default_factory=list)  # 기여 기준점: ## 한계의 L<n>
 
 
-def baseline_state(project: Project) -> Optional[Baseline]:
-    """기준선 문서(§27). spec_version 7 ideation 프로젝트처럼 없으면 None (검사하지 않는다)."""
-    path = project.root / BASELINE
+def anchor_state(project: Project) -> Optional[Anchor]:
+    """앵커 문서(§27). spec_version 7 ideation 프로젝트처럼 없으면 None (검사하지 않는다)."""
+    path = project.root / ANCHOR
     if not path.is_file():
         return None
     text = path.read_text(encoding="utf-8")
     f = frontmatter_fields(text)
     value = lambda k: "" if f.get(k) in (None, "null") else f.get(k, "")  # noqa: E731
-    return Baseline(f.get("status", ""), value("reference"), value("task"), value("metric"), value("reported"),
-                    criteria_version(project, BASELINE), value("lock_task"), limitation_ids(text))
+    return Anchor(f.get("status", ""), value("reference"), value("task"), value("metric"), value("reported"),
+                    criteria_version(project, ANCHOR), value("lock_task"), limitation_ids(text))
 
 
 LIMITATION_ROW = re.compile(r"^\|\s*`?(L\d+)`?\s*\|", re.M)
@@ -141,42 +141,42 @@ LIMITATION_REF = re.compile(r"(?<![A-Za-z0-9_])L\d+(?!\d)")  # "L1을"처럼 조
 
 
 def limitation_ids(text: str) -> list[str]:
-    """기준선 문서 ## 한계 표의 ID (L1, L2, …)."""
+    """앵커 문서 ## 한계 표의 ID (L1, L2, …)."""
     return LIMITATION_ROW.findall(section(text, "한계"))
 
 
-def lock_issues(project: Project, baseline: Baseline) -> list[str]:
-    """잠긴 기준선이 갖춰야 할 것 (기준선 사양 §8). 반영 도구도 같은 것을 보고 잠그기 전에 멈춘다."""
-    issues = [f"기준선의 {k}가 비어 있음" for k in ("reference", "task", "metric", "reported") if not getattr(baseline, k)]
+def lock_issues(project: Project, anchor: Anchor) -> list[str]:
+    """잠긴 앵커가 갖춰야 할 것 (앵커 사양 §8). 반영 도구도 같은 것을 보고 잠그기 전에 멈춘다."""
+    issues = [f"앵커의 {k}가 비어 있음" for k in ("reference", "task", "metric", "reported") if not getattr(anchor, k)]
     catalog = project.root / "references" / "catalog.md"
-    if baseline.reference and catalog.is_file() and not re.search(
-            rf"^\|\s*`?{re.escape(baseline.reference)}`?\s*\|", catalog.read_text(encoding="utf-8"), re.M):
-        issues.append(f"기준선 참고문헌 {baseline.reference}가 references/catalog.md에 없음")
-    if not baseline.limitations:
-        issues.append("기준선 ## 한계에 L<n>이 없음")
+    if anchor.reference and catalog.is_file() and not re.search(
+            rf"^\|\s*`?{re.escape(anchor.reference)}`?\s*\|", catalog.read_text(encoding="utf-8"), re.M):
+        issues.append(f"앵커 참고문헌 {anchor.reference}가 references/catalog.md에 없음")
+    if not anchor.limitations:
+        issues.append("앵커 ## 한계에 L<n>이 없음")
     return issues
 
 
-def baseline_issues(baseline: Optional[Baseline], text: str) -> list[str]:
-    """후보의 평가가 잠근 기준선을 따르나: 기준선 대비 절, 잠금, 기준선 버전 (§27)."""
-    if baseline is None:
+def anchor_issues(anchor: Optional[Anchor], text: str) -> list[str]:
+    """후보의 평가가 잠근 앵커를 따르나: 앵커 대비 절, 잠금, 앵커 버전 (§27)."""
+    if anchor is None:
         return []
     m = EVAL_HEADING.search(text)
     if not m:
         return []
     issues = []
-    if not section(text, "기준선 대비").strip():
-        issues.append("기준선 대비 절 없음 (기준선 + X로 쓸 수 없으면 이 방향의 범위 밖)")
-    elif baseline.limitations and not set(LIMITATION_REF.findall(section(text, "기준선 대비"))) & set(baseline.limitations):
-        issues.append(f"기준선 대비에 푸는 한계 없음 (기준선 ## 한계의 {', '.join(baseline.limitations)} 중 하나 이상)")
-    if baseline.status != "locked":
-        issues.append("기준선이 잠기기 전의 평가")
+    if not section(text, "앵커 대비").strip():
+        issues.append("앵커 대비 절 없음 (앵커 + X로 쓸 수 없으면 이 방향의 범위 밖)")
+    elif anchor.limitations and not set(LIMITATION_REF.findall(section(text, "앵커 대비"))) & set(anchor.limitations):
+        issues.append(f"앵커 대비에 푸는 한계 없음 (앵커 ## 한계의 {', '.join(anchor.limitations)} 중 하나 이상)")
+    if anchor.status != "locked":
+        issues.append("앵커가 잠기기 전의 평가")
     else:
         written = m.group(2)
         if not written:
-            issues.append("평가 표 머리에 기준선 버전이 없음")
-        elif baseline.version and not (baseline.version.startswith(written) or written.startswith(baseline.version)):
-            issues.append(f"기준선 변경 전의 평가 (기준선 {written}, 지금 {baseline.version}): 다시 써야 한다")
+            issues.append("평가 표 머리에 앵커 버전이 없음")
+        elif anchor.version and not (anchor.version.startswith(written) or written.startswith(anchor.version)):
+            issues.append(f"앵커 변경 전의 평가 (앵커 {written}, 지금 {anchor.version}): 다시 써야 한다")
     return issues
 
 
@@ -210,12 +210,12 @@ def evaluation_issues(criteria: list[Criterion], locked: bool, current: Optional
     return issues
 
 
-BLOCKING = ("기준이 잠기기", "기준 변경 전", "기준선 대비 절 없음", "기준선 대비에 푸는 한계", "기준선이 잠기기", "기준선 변경 전", "평가 표 머리에 기준선")
+BLOCKING = ("기준이 잠기기", "기준 변경 전", "앵커 대비 절 없음", "앵커 대비에 푸는 한계", "앵커가 잠기기", "앵커 변경 전", "평가 표 머리에 앵커")
 
 
 def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row], Optional[str]]:
     status, criteria, current = criteria_state(project)
-    baseline = baseline_state(project)
+    anchor = anchor_state(project)
     if status is None:
         raise Fail(EXIT_USAGE, "✗ plan/criteria.md 가 없습니다. ideation 프로젝트(lg init --kind ideation)에서 씁니다.")
     rows = []
@@ -227,7 +227,7 @@ def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row]
                   scores, commit)
         if has_eval:
             row.issues = evaluation_issues(criteria, status == "locked", current, commit, scores) \
-                + baseline_issues(baseline, text)
+                + anchor_issues(anchor, text)
             agent_scores = {c.id: scores[c.id].value for c in criteria if c.id in scores}
             if not any(i.startswith(BLOCKING) for i in row.issues):  # 무효한 평가는 순위에 넣지 않는다
                 row.knocked_out = [c.id for c in criteria if c.knockout and agent_scores.get(c.id) == 1]
@@ -241,20 +241,20 @@ def compare(project: Project) -> tuple[Optional[str], list[Criterion], list[Row]
 
 
 def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], version: Optional[str] = None,
-           baseline: Optional[Baseline] = None) -> str:
+           anchor: Optional[Anchor] = None) -> str:
     lines = [f"평가 기준: plan/criteria.md ({status}) · 기준 버전 {version or '없음'} · 후보 {len(rows)}개"]
-    if baseline is not None:
-        what = " · ".join(x for x in (baseline.reference, baseline.task, f"{baseline.metric} {baseline.reported}".strip()) if x)
-        lines.append(f"기준선: {what or '(아직 정하지 않음)'} ({baseline.status}) · 기준선 버전 {baseline.version or '없음'}")
-        if baseline.status != "locked":
-            when = (f"{baseline.lock_task} 게이트를 approve하면" if baseline.lock_task
+    if anchor is not None:
+        what = " · ".join(x for x in (anchor.reference, anchor.task, f"{anchor.metric} {anchor.reported}".strip()) if x)
+        lines.append(f"앵커: {what or '(아직 정하지 않음)'} ({anchor.status}) · 앵커 버전 {anchor.version or '없음'}")
+        if anchor.status != "locked":
+            when = (f"{anchor.lock_task} 게이트를 approve하면" if anchor.lock_task
                     else "첫 마일스톤의 마지막 게이트(go)에서 확정하면")
-            lines.append(f"  ! 기준선이 잠기기 전입니다. {when} 잠기고, 그 뒤에 평가합니다.")
-        if baseline.limitations:
-            lines.append(f"  기준선의 한계: {', '.join(baseline.limitations)} (후보는 ## 기준선 대비에 푸는 한계를 적는다)")
+            lines.append(f"  ! 앵커가 잠기기 전입니다. {when} 잠기고, 그 뒤에 평가합니다.")
+        if anchor.limitations:
+            lines.append(f"  앵커의 한계: {', '.join(anchor.limitations)} (후보는 ## 앵커 대비에 푸는 한계를 적는다)")
     if status == "locked" and version:
-        head = f"기준 {version}" + (f", 기준선 {baseline.version}" if baseline is not None and baseline.version else "")
-        if baseline is None or baseline.status == "locked":
+        head = f"기준 {version}" + (f", 앵커 {anchor.version}" if anchor is not None and anchor.version else "")
+        if anchor is None or anchor.status == "locked":
             lines.append(f"  평가 표 머리: ## 평가 ({head})")
     if status != "locked":
         lines.append("  ! 기준이 잠기기 전입니다. 첫 T0 게이트에서 사람이 확정하면 잠기고, 그 뒤에 평가합니다.")
@@ -281,8 +281,8 @@ def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], ve
     fmt = lambda cells: "  " + "  ".join(str(c).ljust(w) for c, w in zip(cells, widths)).rstrip()  # noqa: E731
     lines += ["", fmt(head)] + [fmt(c) for c in table]
     lines += ["", "평균: 근거가 있는 점수의 가중 평균. 결격: 결격이 있는 기준에서 1점. !: 근거 없는 점수(무효), ?: 확신 하, ·: 아직 없음"]
-    if baseline is not None:
-        lines.append("모든 후보는 위 기준선 하나와 비교한다 (후보 문서의 ## 기준선 대비).")
+    if anchor is not None:
+        lines.append("모든 후보는 위 앵커 하나와 비교한다 (후보 문서의 ## 앵커 대비).")
     notes = [f"  {r.id}: {i}" for r in rows for i in r.issues]
     if notes:
         lines += ["", "확인할 것:"] + notes
@@ -293,9 +293,9 @@ def render(status: Optional[str], criteria: list[Criterion], rows: list[Row], ve
 def run_ideas(as_json: bool = False, cwd: Optional[Path] = None) -> str:
     project = find_project(cwd)
     status, criteria, rows, version = compare(project)
-    baseline = baseline_state(project)
+    anchor = anchor_state(project)
     if as_json:
         return json.dumps({"criteria_status": status, "criteria_version": version,
-                           "baseline": asdict(baseline) if baseline else None, "criteria": [asdict(c) for c in criteria],
+                           "anchor": asdict(anchor) if anchor else None, "criteria": [asdict(c) for c in criteria],
                            "ideas": [asdict(r) for r in rows]}, ensure_ascii=False, indent=2)
-    return render(status, criteria, rows, version, baseline)
+    return render(status, criteria, rows, version, anchor)

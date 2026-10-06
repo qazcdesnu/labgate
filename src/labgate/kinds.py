@@ -21,7 +21,7 @@ _MANAGED_FILES = {
     "specs/doc-types/task-card.spec.md", "specs/doc-types/review.spec.md",
     # ideation의 완성된 규칙 문서 (§26, §27): 사람이 채우는 틀이 아니다
     "specs/doc-types/idea.spec.md", "specs/doc-types/criteria.spec.md",
-    "specs/doc-types/brief.spec.md", "specs/doc-types/baseline.spec.md",
+    "specs/doc-types/brief.spec.md", "specs/doc-types/anchor.spec.md",
 }
 _MANAGED_DIRS = (".claude/", "scripts/", ".lg/hooks/", "specs/procedures/", "specs/templates/")
 

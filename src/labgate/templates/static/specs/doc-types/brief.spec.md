@@ -31,7 +31,7 @@ ideation에서 고른 방향을 실행 프로젝트로 넘긴다. 사람이 읽�
 | `references` | ✓ | 넘길 참고문헌 ID 목록 |
 | `decision` | ✓ | 방향을 정한 결정 ID |
 | `criteria_commit` | ✓ | 평가에 쓴 기준을 잠근 커밋 |
-| `baseline` | ✓ | 기준선 논문의 참고문헌 ID (`plan/baseline.md`의 `reference`). 실행 프로젝트로 넘어가 첫 task가 그 재현이 된다 |
+| `anchor` | ✓ | 앵커 논문의 참고문헌 ID (`plan/anchor.md`의 `reference`). 실행 프로젝트로 넘어가 첫 task가 그 재현이 된다. 실행 프로젝트의 실험별 기준선(baseline)과는 다르다 |
 | `updated` | ✓ | 날짜 |
 
 ## 4. 본문 구조

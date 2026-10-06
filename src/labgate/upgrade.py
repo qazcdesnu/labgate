@@ -33,7 +33,7 @@ MIGRATIONS: dict[int, tuple] = {2: (), 3: (), 4: (), 5: (), 6: (), 7: ()}
 
 # n번 spec_version에서 새로 생긴 연구 문서. 갱신할 때 그 종류의 프로젝트에 없으면 새로 만든다 (§27).
 # 연구 문서는 사람이 지웠을 수도 있으므로 여기 적은 것만 만든다.
-NEW_RESEARCH_DOCS: dict[int, tuple[str, ...]] = {8: ("plan/baseline.md",)}
+NEW_RESEARCH_DOCS: dict[int, tuple[str, ...]] = {8: ("plan/anchor.md",)}
 
 SPEC_LINE = re.compile(r"^spec_version:(.*)$", re.M)
 EXACT_VALUE = re.compile(r"^ (\d+)$")
@@ -252,7 +252,7 @@ def _plan_gitignore(plan: UpgradePlan, hashes: dict, new: dict) -> None:
 
 
 def _plan_new_research(plan: UpgradePlan, new: dict, tracked: set[str]) -> None:
-    """이번 갱신 사이에 새로 생긴 연구 문서 중 이 프로젝트 종류가 만드는 것 (예: 8의 plan/baseline.md)."""
+    """이번 갱신 사이에 새로 생긴 연구 문서 중 이 프로젝트 종류가 만드는 것 (예: 8의 plan/anchor.md)."""
     for version in range(plan.source + 1, SPEC_VERSION + 1):
         for path in NEW_RESEARCH_DOCS.get(version, ()):
             if path in new and path not in tracked and not (plan.root / path).exists():

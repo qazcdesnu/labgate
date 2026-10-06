@@ -64,10 +64,10 @@ SINGLE_TEMPLATES: tuple[tuple[str, bool], ...] = (
 )
 
 # ideation 종류에서만 만드는 파일 (§26): Jinja와 정적 파일
-IDEATION_TEMPLATES: tuple[str, ...] = ("plan/criteria.md.j2", "plan/baseline.md.j2", "ideas/index.md.j2", "brief.md.j2")
+IDEATION_TEMPLATES: tuple[str, ...] = ("plan/criteria.md.j2", "plan/anchor.md.j2", "ideas/index.md.j2", "brief.md.j2")
 IDEATION_STATIC: tuple[str, ...] = (
     "specs/doc-types/idea.spec.md", "specs/doc-types/criteria.spec.md",
-    "specs/doc-types/brief.spec.md", "specs/doc-types/baseline.spec.md", "specs/templates/idea.md",
+    "specs/doc-types/brief.spec.md", "specs/doc-types/anchor.spec.md", "specs/templates/idea.md",
 )
 
 # 마일스톤마다 렌더링하는 템플릿 → 출력 경로 형식

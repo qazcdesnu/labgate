@@ -81,7 +81,7 @@ def test_edited_ideation_spec_is_managed(tmp_path, git_sandbox, old_sources):
     assert result.exit_code != 0 and spec in result.output
     result = p.lg("upgrade", "--force")
     assert result.exit_code == 0, result.output
-    assert "고친 줄" not in p.read(spec) and "## 기준선 대비" in p.read(spec)
+    assert "고친 줄" not in p.read(spec) and "## 앵커 대비" in p.read(spec)
     assert spec in p.yaml()["upgrades"][-1]["forced"]
 
 

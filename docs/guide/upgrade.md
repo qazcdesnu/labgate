@@ -19,7 +19,7 @@
 | 5 | labgate 0.5.x | 쓸 수 있다. `lg answer`의 반영 미리보기(`apply-human-commits --preview`), 게이트 요청 전 카드 체크와 `lg verify`, 에이전트 보고의 `lg answer` 안내 |
 | 6 | labgate 0.6.x | 쓸 수 있다. 프로젝트 종류(`--kind proposal`), 원고 폴더 안내에 `deliverables/` |
 | 7 | labgate 0.7.x | 쓸 수 있다. 아이디어 탐색(`--kind ideation`, `--from`, `lg ideas`), 결정 확정 내용과 마일스톤 `go_nogo`를 반영 도구가 채움 |
-| 8 | labgate 0.8.x | 쓸 수 있다. ideation의 기준선 연구(`plan/baseline.md`, 후보의 `## 기준선 대비`) |
+| 8 | labgate 0.8.x | 쓸 수 있다. ideation의 앵커 연구(`plan/anchor.md`, 후보의 `## 앵커 대비`) |
 
 ## 순서
 

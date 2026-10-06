@@ -60,7 +60,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | 사양 문서 자신 | `spec` |
 | 절차 문서 (`specs/procedures/`) | `procedure` |
 | 목록·안내 문서 (사양 없음) | `filemap` (`FILEMAP.md`), `spec-index` (`specs/README.md`), `decision-index` (`decisions/index.md`) |
-| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `baseline` (`plan/baseline.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
+| ideation 프로젝트에만 | `idea` (`ideas/I<n>_<slug>.md`), `criteria` (`plan/criteria.md`), `anchor` (`plan/anchor.md`), `brief` (`brief.md`), `idea-index` (`ideas/index.md`) |
 
 - 값이 없으면 `null`. 목록이 비면 `[]`.
 - 사람이 입력한 문자열은 큰따옴표로 감싼다.
@@ -78,7 +78,7 @@ Markdown 문서는 YAML frontmatter로 시작한다. 다음은 예외다(frontma
 | spec | `stub`, `complete` |
 | idea | `candidate`, `exploring`, `selected`, `dropped`, `merged` |
 | criteria | `draft`, `locked` |
-| baseline | `draft`, `locked` |
+| anchor | `draft`, `locked` |
 | brief | `draft`, `confirmed` |
 
 전이 규칙은 [workflow.md](workflow.md) §3.

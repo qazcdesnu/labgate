@@ -103,15 +103,15 @@ def carry(source: Source, target: Path) -> list[str]:
         changed.append(rel)
 
     copy(source.root / "brief.md", "notes/ideation-brief.md")
-    if (source.root / "plan" / "baseline.md").is_file():  # §27: 기준선 연구
-        copy(source.root / "plan" / "baseline.md", "notes/ideation-baseline.md")
+    if (source.root / "plan" / "anchor.md").is_file():  # §27: 앵커 연구
+        copy(source.root / "plan" / "anchor.md", "notes/ideation-anchor.md")
     for idea in source.brief.get("selected") or []:
         for path in sorted((source.root / "ideas").glob(f"{idea}_*.md")):
             copy(path, f"notes/ideation/{path.name}")
 
     refs = [str(r) for r in source.brief.get("references") or []]
-    if source.brief.get("baseline") and str(source.brief["baseline"]) not in refs:
-        refs.append(str(source.brief["baseline"]))
+    if source.brief.get("anchor") and str(source.brief["anchor"]) not in refs:
+        refs.append(str(source.brief["anchor"]))
     rows = _catalog_rows(source.root / "references" / "catalog.md", refs)
     for ref in refs:
         for path in sorted((source.root / "references" / "library").glob(f"{ref}.*")):

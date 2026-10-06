@@ -327,24 +327,24 @@ def last_milestone():
     return ids[-1] if ids else None
 
 
-BASELINE = "plan/baseline.md"
+ANCHOR = "plan/anchor.md"
 
 
-def baseline_lock_task(plan):
-    """기준선 문서의 lock_task (기준선이 없거나 비어 있으면 None)."""
-    if not (ROOT / BASELINE).is_file() and BASELINE not in plan.texts:
+def anchor_lock_task(plan):
+    """앵커 문서의 lock_task (앵커가 없거나 비어 있으면 None)."""
+    if not (ROOT / ANCHOR).is_file() and ANCHOR not in plan.texts:
         return None
-    value = frontmatter_value(plan.read(BASELINE), "lock_task", BASELINE, required=False)
+    value = frontmatter_value(plan.read(ANCHOR), "lock_task", ANCHOR, required=False)
     return None if value in (None, "", "null", "~") else value
 
 
-def baseline_lock_issues(text):
-    """잠글 수 없는 이유 (기준선 사양 §8): 비어 있는 선정 필드, 목록에 없는 참고문헌, 한계 없음."""
+def anchor_lock_issues(text):
+    """잠글 수 없는 이유 (앵커 사양 §8): 비어 있는 선정 필드, 목록에 없는 참고문헌, 한계 없음."""
     issues = []
     for key in ("reference", "task", "metric", "reported"):
-        if frontmatter_value(text, key, BASELINE, required=False) in (None, "", "null", "~"):
+        if frontmatter_value(text, key, ANCHOR, required=False) in (None, "", "null", "~"):
             issues.append(f"{key}가 비어 있음")
-    ref = frontmatter_value(text, "reference", BASELINE, required=False)
+    ref = frontmatter_value(text, "reference", ANCHOR, required=False)
     catalog = ROOT / "references" / "catalog.md"
     if ref not in (None, "", "null", "~") and catalog.is_file() and not re.search(
             rf"^\|\s*`?{re.escape(ref)}`?\s*\|", catalog.read_text(encoding="utf-8"), re.M):
@@ -359,15 +359,15 @@ def limitation_ids(text):
     return re.findall(r"^\|\s*`?(L\d+)`?\s*\|", m.group(1), re.M) if m else []
 
 
-def lock_baseline(plan, short):
-    text = plan.read(BASELINE)
-    if frontmatter_value(text, "status", BASELINE) == "draft":
-        issues = baseline_lock_issues(text)
+def lock_anchor(plan, short):
+    text = plan.read(ANCHOR)
+    if frontmatter_value(text, "status", ANCHOR) == "draft":
+        issues = anchor_lock_issues(text)
         if issues:
-            raise CannotApply("기준선을 잠글 수 없습니다 (plan/baseline.md): " + ", ".join(issues)
-                              + ". 기준선 문서를 채운 뒤 판정하거나, 기준선을 나중에 정하려면 lock_task에 기준선 선정 task를 적으세요")
-    if plan.transition(BASELINE, "기준선 잠금", {"draft"}, "locked", {"locked"}):
-        plan.set_field(BASELINE, "locked_commit", f"'{short}'")
+            raise CannotApply("앵커를 잠글 수 없습니다 (plan/anchor.md): " + ", ".join(issues)
+                              + ". 앵커 문서를 채운 뒤 판정하거나, 앵커를 나중에 정하려면 lock_task에 앵커 선정 task를 적으세요")
+    if plan.transition(ANCHOR, "앵커 잠금", {"draft"}, "locked", {"locked"}):
+        plan.set_field(ANCHOR, "locked_commit", f"'{short}'")
 
 
 def confirmed_contents(body, review_text, decisions):
@@ -416,18 +416,18 @@ def plan_for(sha, ctype, scope, trailers, today, body=""):
             # ideation: 첫 T0 게이트 승인이 평가 기준을 잠근다 (§26.6)
             if plan.transition("plan/criteria.md", "평가 기준 잠금", {"draft"}, "locked", {"locked"}):
                 plan.set_field("plan/criteria.md", "locked_commit", f"'{short}'")
-        lock_task = baseline_lock_task(plan)
+        lock_task = anchor_lock_task(plan)
         if verdict == "approve" and lock_task == task:
-            # ideation: 기준선 선정 task의 승인이 기준선을 잠근다 (§27)
-            lock_baseline(plan, short)
+            # ideation: 앵커 선정 task의 승인이 앵커를 잠근다 (§27)
+            lock_anchor(plan, short)
         mv = trailers.get("Milestone-Verdict")
         if mv:
             plan.milestone(milestone, "판정", {"active"}, "closed", {"closed"})
             plan.set_field(f"plan/milestones/{milestone}/milestone.md", "go_nogo", mv)
-            if mv == "go" and lock_task is None and (ROOT / "plan/baseline.md").is_file() \
+            if mv == "go" and lock_task is None and (ROOT / "plan/anchor.md").is_file() \
                     and milestone == first_milestone():
-                # ideation: lock_task가 없으면 첫 마일스톤의 go가 기준선을 잠근다 (§27)
-                lock_baseline(plan, short)
+                # ideation: lock_task가 없으면 첫 마일스톤의 go가 앵커를 잠근다 (§27)
+                lock_anchor(plan, short)
             if mv == "go" and (ROOT / "brief.md").is_file() and milestone == last_milestone():
                 # ideation: 마지막 마일스톤의 go가 방향을 확정한다 (§26)
                 plan.transition("brief.md", "방향 확정", {"draft"}, "confirmed", {"confirmed"})

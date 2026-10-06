@@ -29,10 +29,10 @@ def gate(p, task, extra="", review=None, apply=True):
         p.commit_apply(p.apply())
 
 
-def write_idea(p, n, title, scores, head, status="candidate", versus="기준선 + X: 같은 GSM8K 설정에서 +2%p, L1을 푼다"):
-    """head: 평가 표 머리의 괄호 안 (lg ideas가 보여 주는 것, 예: '기준 abc, 기준선 def')."""
+def write_idea(p, n, title, scores, head, status="candidate", versus="앵커 + X: 같은 GSM8K 설정에서 +2%p, L1을 푼다"):
+    """head: 평가 표 머리의 괄호 안 (lg ideas가 보여 주는 것, 예: '기준 abc, 앵커 def')."""
     rows = "".join(f"| {c} | {v} | {e} | 중 |\n" for c, (v, e) in scores.items())
-    vs = f"## 기준선 대비\n\n{versus}\n\n" if versus else ""
+    vs = f"## 앵커 대비\n\n{versus}\n\n" if versus else ""
     p.write(f"ideas/I{n}_{title}.md",
             f"---\nid: I{n}\ntype: idea\nspec_version: 8\ntitle: \"{title}\"\nstatus: {status}\norigin: agent\n"
             f"merged_into: null\ndecision: null\ncreated: 2026-10-05\nupdated: 2026-10-05\n---\n# I{n}. {title}\n\n"
@@ -40,9 +40,9 @@ def write_idea(p, n, title, scores, head, status="candidate", versus="기준선 
             f"{rows}\n## 판단 기록\n\n")
 
 
-def set_baseline(p, lock_task=None, limitations=True):
-    """에이전트가 기준선 추천(선정, 참고문헌 등록, 한계)을 채운다 (잠기기 전)."""
-    text = p.read("plan/baseline.md")
+def set_anchor(p, lock_task=None, limitations=True):
+    """에이전트가 앵커 추천(선정, 참고문헌 등록, 한계)을 채운다 (잠기기 전)."""
+    text = p.read("plan/anchor.md")
     for k, v in (("reference", "shen2025-codi"), ("task", "GSM8K"), ("metric", "accuracy"), ("reported", '"43.7 (Table 2)"'),
                  ("lock_task", lock_task)):
         if v:
@@ -51,15 +51,15 @@ def set_baseline(p, lock_task=None, limitations=True):
         text = text.replace("| ID | 한계 | 근거 | 연구 질문과의 관계 |\n|---|---|---|---|\n",
                             "| ID | 한계 | 근거 | 연구 질문과의 관계 |\n|---|---|---|---|\n"
                             "| L1 | latent 단계 수가 고정 | `shen2025-codi` §6 | 단계 수와 표현력 |\n")
-    p.write("plan/baseline.md", text)
+    p.write("plan/anchor.md", text)
     p.write("references/catalog.md", p.read("references/catalog.md")
             + "| shen2025-codi | CODI | Shen | 2025 | library/shen2025-codi.pdf | M0 | 자기 증류 latent CoT |\n")
-    p.agent("propose(M0): baseline recommendation\n\nActor: agent", "plan/baseline.md", "references/catalog.md")
+    p.agent("propose(M0): anchor recommendation\n\nActor: agent", "plan/anchor.md", "references/catalog.md")
 
 
 def lock_both(p):
-    """M0을 go로 닫는다: 기준(M0-T0 승인)과 기준선(M0의 go)이 함께 잠긴다. 평가 표 머리를 돌려준다."""
-    set_baseline(p)
+    """M0을 go로 닫는다: 기준(M0-T0 승인)과 앵커(M0의 go)이 함께 잠긴다. 평가 표 머리를 돌려준다."""
+    set_anchor(p)
     gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
     return re.search(r"평가 표 머리: ## 평가 \((.+)\)", p.lg("ideas").output).group(1)
 
@@ -113,7 +113,7 @@ def test_lg_ideas_compares_ranks_and_flags(idea_project):
     current = lock_both(p)
     criteria_version = re.search(r"기준 ([0-9a-f]+)", current).group(1)
     assert not p.git("log", "-1", "--format=%s", criteria_version).startswith("log(M0-T0): apply")
-    assert "기준선: shen2025-codi · GSM8K · accuracy 43.7 (Table 2) (locked)" in p.lg("ideas").output
+    assert "앵커: shen2025-codi · GSM8K · accuracy 43.7 (Table 2) (locked)" in p.lg("ideas").output
     write_idea(p, 1, "cost", scores(2, rest=3), current)
     write_idea(p, 2, "expressivity", scores(5, rest=4), current)
     write_idea(p, 3, "scooped", scores(1, rest=5), current)            # C1 결격
@@ -137,79 +137,79 @@ def test_lg_ideas_compares_ranks_and_flags(idea_project):
     assert out.count("기준 변경 전의 평가") == 4
 
 
-def test_ideas_need_locked_baseline_and_versus_section(idea_project):
-    """§27: 모든 후보는 잠근 기준선 하나와 비교한다. 기준선 대비가 없거나 기준선이 잠기기 전이면 순위에서 뺀다."""
+def test_ideas_need_locked_anchor_and_versus_section(idea_project):
+    """§27: 모든 후보는 잠근 앵커 하나와 비교한다. 앵커 대비가 없거나 앵커가 잠기기 전이면 순위에서 뺀다."""
     p = idea_project
     head = lock_both(p)
     write_idea(p, 1, "ok", scores(4), head)
-    write_idea(p, 2, "scattered", scores(5), head, versus=None)          # 기준선 대비 없음
-    write_idea(p, 3, "oldheader", scores(5), head.split(",")[0])          # 기준선 버전 없음
+    write_idea(p, 2, "scattered", scores(5), head, versus=None)          # 앵커 대비 없음
+    write_idea(p, 3, "oldheader", scores(5), head.split(",")[0])          # 앵커 버전 없음
     p.agent("propose(M1): evaluate\n\nActor: agent", "ideas")
     out = p.lg("ideas").output
     rows = {l.split()[0]: l for l in out.splitlines() if re.match(r"^  I\d", l)}
     assert rows["I1"].rstrip().endswith(" 1") and not rows["I2"].rstrip().endswith(("1", "2"))
-    assert "I2: 기준선 대비 절 없음" in out and "I3: 평가 표 머리에 기준선 버전이 없음" in out
-    # 잠긴 기준선을 에이전트가 고치면 V4
-    p.write("plan/baseline.md", p.read("plan/baseline.md").replace("task: GSM8K", "task: MATH"))
-    p.agent("chore: switch baseline task\n\nActor: agent", "plan/baseline.md")
+    assert "I2: 앵커 대비 절 없음" in out and "I3: 평가 표 머리에 앵커 버전이 없음" in out
+    # 잠긴 앵커를 에이전트가 고치면 V4
+    p.write("plan/anchor.md", p.read("plan/anchor.md").replace("task: GSM8K", "task: MATH"))
+    p.agent("chore: switch anchor task\n\nActor: agent", "plan/anchor.md")
     result = p.lg("verify")
-    assert "✗ V4" in result.output and "plan/baseline.md" in result.output
+    assert "✗ V4" in result.output and "plan/anchor.md" in result.output
 
 
-def test_versus_must_name_a_baseline_limitation(idea_project):
-    """§27: 기준선은 기여의 기준점이다. 후보는 기준선의 어느 한계(L<n>)를 푸는지 적는다."""
+def test_versus_must_name_a_anchor_limitation(idea_project):
+    """§27: 앵커는 기여의 기준점이다. 후보는 앵커의 어느 한계(L<n>)를 푸는지 적는다."""
     p = idea_project
     head = lock_both(p)
     write_idea(p, 1, "ok", scores(4), head)
-    write_idea(p, 2, "nolimit", scores(5), head, versus="기준선 + X: 같은 GSM8K 설정에서 +2%p")
+    write_idea(p, 2, "nolimit", scores(5), head, versus="앵커 + X: 같은 GSM8K 설정에서 +2%p")
     p.agent("propose(M1): evaluate\n\nActor: agent", "ideas")
     out = p.lg("ideas").output
-    assert "기준선의 한계: L1" in out
+    assert "앵커의 한계: L1" in out
     rows = {l.split()[0]: l for l in out.splitlines() if re.match(r"^  I\d", l)}
     assert rows["I1"].rstrip().endswith(" 1") and not rows["I2"].rstrip().endswith(("1", "2"))
-    assert "I2: 기준선 대비에 푸는 한계 없음" in out
+    assert "I2: 앵커 대비에 푸는 한계 없음" in out
     result = p.lg("verify", "--all")
-    assert result.exit_code == 3 and "기준선 대비에 푸는 한계 없음" in result.output
+    assert result.exit_code == 3 and "앵커 대비에 푸는 한계 없음" in result.output
 
 
-def test_lock_task_approve_locks_baseline(idea_project):
-    """§27: M0이 끝난 뒤에도 기준선 선정 task(lock_task)의 게이트 approve가 기준선을 잠근다."""
+def test_lock_task_approve_locks_anchor(idea_project):
+    """§27: M0이 끝난 뒤에도 앵커 선정 task(lock_task)의 게이트 approve가 앵커를 잠근다."""
     p = idea_project
-    set_baseline(p, lock_task="M1-T0")
+    set_anchor(p, lock_task="M1-T0")
     gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
-    assert p.status("plan/baseline.md") == "draft"  # lock_task가 있으면 첫 마일스톤의 go로 잠그지 않는다
+    assert p.status("plan/anchor.md") == "draft"  # lock_task가 있으면 첫 마일스톤의 go로 잠그지 않는다
     assert "M1-T0 게이트를 approve하면 잠기고" in p.lg("ideas").output
     gate(p, "M1-T0")
-    assert p.status("plan/baseline.md") == "locked"
-    locked = re.search(r"^locked_commit: '?([0-9a-f]+)'?$", p.read("plan/baseline.md"), re.M).group(1)
+    assert p.status("plan/anchor.md") == "locked"
+    locked = re.search(r"^locked_commit: '?([0-9a-f]+)'?$", p.read("plan/anchor.md"), re.M).group(1)
     assert p.git("log", "--format=%h", "--grep", "gate(M1-T0)").startswith(locked[:7])
     assert p.lg("verify", "--all").exit_code == 0  # 잠금 반영의 근거는 lock_task의 approve (V2)
 
 
-def test_incomplete_baseline_is_not_locked(idea_project):
-    """§27: 선정 필드·참고문헌·한계가 없는 기준선은 잠그지 않는다. 반영 도구가 아무것도 바꾸지 않고 멈춘다."""
+def test_incomplete_anchor_is_not_locked(idea_project):
+    """§27: 선정 필드·참고문헌·한계가 없는 앵커는 잠그지 않는다. 반영 도구가 아무것도 바꾸지 않고 멈춘다."""
     p = idea_project
-    set_baseline(p, lock_task="M0-T0", limitations=False)
+    set_anchor(p, lock_task="M0-T0", limitations=False)
     message = "gate(M0-T0): approve\n\nActor: human\nTask: M0-T0\nVerdict: approve\nSource: document\nNext: none\n"
     p.approve_and_start("M0-T0")
     p.set_status("plan/milestones/M0/tasks/M0-T0.md", "in-review")
     preview = p.apply("--preview", input=message)  # lg answer·lg commit이 판정 커밋 전에 보는 것
-    assert preview.returncode != 0 and "기준선을 잠글 수 없습니다" in preview.stdout + preview.stderr
+    assert preview.returncode != 0 and "앵커를 잠글 수 없습니다" in preview.stdout + preview.stderr
     gate(p, "M0-T0", apply=False)
     result = p.apply()
     out = result.stdout + result.stderr
-    assert result.returncode != 0 and "기준선을 잠글 수 없습니다" in out and "## 한계에 L<n>이 없음" in out
-    assert p.status("plan/baseline.md") == "draft" and p.status(CRITERIA) == "draft"
+    assert result.returncode != 0 and "앵커를 잠글 수 없습니다" in out and "## 한계에 L<n>이 없음" in out
+    assert p.status("plan/anchor.md") == "draft" and p.status(CRITERIA) == "draft"
     # 사람이 직접 잠가도 lg verify가 잡는다
-    p.set_status("plan/baseline.md", "locked")
-    p.human("plan: lock baseline by hand\n\nActor: human", "plan/baseline.md")
-    assert "잠긴 기준선: 기준선 ## 한계에 L<n>이 없음" in p.lg("verify", "--all").output
+    p.set_status("plan/anchor.md", "locked")
+    p.human("plan: lock anchor by hand\n\nActor: human", "plan/anchor.md")
+    assert "잠긴 앵커: 앵커 ## 한계에 L<n>이 없음" in p.lg("verify", "--all").output
 
 
-def test_baseline_before_lock_is_agents_to_draft(idea_project):
-    """잠기기 전에는 에이전트가 기준선 추천을 써도 위반이 아니다."""
+def test_anchor_before_lock_is_agents_to_draft(idea_project):
+    """잠기기 전에는 에이전트가 앵커 추천을 써도 위반이 아니다."""
     p = idea_project
-    set_baseline(p)
+    set_anchor(p)
     assert "✓ V4" in p.lg("verify", "--all").output
 
 
@@ -228,9 +228,9 @@ def test_agent_cannot_lock_or_edit_criteria(idea_project):
 def fill_brief(p, refs=("ref1",)):
     text = p.read("brief.md")
     text = text.replace("question: null", 'question: "표현력이 정확도를 정하는가?"').replace("summary: null", 'summary: "표현력 연구"')
-    text = text.replace("milestones: []", 'milestones: ["기준선 재현", "표현력 사다리"]')
+    text = text.replace("milestones: []", 'milestones: ["앵커 재현", "표현력 사다리"]')
     text = text.replace("selected: []", "selected: [I2]").replace("dropped: []", "dropped: [I1]")
-    text = text.replace("references: []", f"references: [{', '.join(refs)}]").replace("baseline: null", "baseline: ref1")
+    text = text.replace("references: []", f"references: [{', '.join(refs)}]").replace("anchor: null", "anchor: ref1")
     p.write("brief.md", text)
 
 
@@ -285,14 +285,14 @@ def test_init_from_carries_direction(tmp_path, confirmed):
     assert result.exit_code == 0, result.output
     data = yaml.safe_load((target / ".lg/project.yaml").read_text(encoding="utf-8"))
     assert data["project"]["research_question"] == "표현력이 정확도를 정하는가?" and data["project"]["kind"] == "research"
-    assert [m["title"] for m in data["milestones"]] == ["기준선 재현", "표현력 사다리"]
+    assert [m["title"] for m in data["milestones"]] == ["앵커 재현", "표현력 사다리"]
     assert data["people"]["humans"][0]["email"] == HUMAN
     assert data["origin"]["path"] == str(confirmed.root) and data["origin"]["commit"]
     assert "출발: ideation 프로젝트" in (target / "README.md").read_text(encoding="utf-8")
     assert "notes/ideation-brief.md" in (target / "plan/milestones/M0/tasks/M0-T0.md").read_text(encoding="utf-8")
     assert (target / "notes/ideation-brief.md").exists() and (target / "notes/ideation/I2_expressivity.md").exists()
-    assert (target / "references/library/ref1.pdf").exists() and (target / "notes/ideation-baseline.md").exists()
-    assert "기준선 연구(`notes/ideation-baseline.md`" in (target / "plan/milestones/M0/tasks/M0-T0.md").read_text(encoding="utf-8")
+    assert (target / "references/library/ref1.pdf").exists() and (target / "notes/ideation-anchor.md").exists()
+    assert "앵커 연구(`notes/ideation-anchor.md`" in (target / "plan/milestones/M0/tasks/M0-T0.md").read_text(encoding="utf-8")
     assert "| `ref1` | 제목 |" in (target / "references/catalog.md").read_text(encoding="utf-8")
     import subprocess
     staged = subprocess.run(["git", "diff", "--cached", "--name-only"], cwd=target, capture_output=True, text=True).stdout
@@ -319,22 +319,22 @@ def test_init_from_refusals(tmp_path, idea_project, confirmed):
 def test_brief_is_confirmed_only_at_last_milestone(idea_project):
     """M0을 go로 닫아도 방향 확정 문서는 그대로다. 마지막 마일스톤(M1)의 go에서만 확정된다."""
     p = idea_project
-    set_baseline(p)
+    set_anchor(p)
     gate(p, "M0-T0", extra="\nMilestone-Verdict: go")
     assert p.status("plan/milestones/M0/milestone.md") == "closed"
     assert p.status("brief.md") == "draft"
 
 
-def test_upgrade_adds_baseline_to_spec7_ideation(idea_project):
-    """§27: spec_version 7로 만든 ideation 프로젝트를 올리면 plan/baseline.md가 새로 생긴다 (연구 문서지만 이 버전에서 생긴 것)."""
+def test_upgrade_adds_anchor_to_spec7_ideation(idea_project):
+    """§27: spec_version 7로 만든 ideation 프로젝트를 올리면 plan/anchor.md가 새로 생긴다 (연구 문서지만 이 버전에서 생긴 것)."""
     p = idea_project
-    p.run("git", "rm", "-q", "plan/baseline.md", "specs/doc-types/baseline.spec.md")
+    p.run("git", "rm", "-q", "plan/anchor.md", "specs/doc-types/anchor.spec.md")
     data = p.yaml()
     data["generated"]["spec_version"] = 7
     p.write(".lg/project.yaml", yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
     p.human("chore: pretend spec 7\n\nActor: human", all=True, no_verify=True)
     from labgate import upgrade
     plan_new = upgrade.NEW_RESEARCH_DOCS[8]
-    assert plan_new == ("plan/baseline.md",)
+    assert plan_new == ("plan/anchor.md",)
     result = p.lg("upgrade", "--dry-run")
-    assert "plan/baseline.md" in result.output
+    assert "plan/anchor.md" in result.output
