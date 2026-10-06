@@ -85,6 +85,28 @@ def test_edited_ideation_spec_is_managed(tmp_path, git_sandbox, old_sources):
     assert spec in p.yaml()["upgrades"][-1]["forced"]
 
 
+def test_filemap_notice_compares_with_the_project(tmp_path, git_sandbox, old_sources):
+    """해시표의 FILEMAP 줄은 research 종류의 것이다. ideation 프로젝트에 원래 있는 줄(brief, ideas)을
+    새 구조라고 알리거나, 원래 없는 줄(paper)을 빠졌다고 알리지 않는다."""
+    p = make_old(tmp_path, git_sandbox, old_sources, 7, kind="ideation")
+    out = p.lg("upgrade", "--dry-run").output
+    notice = out.split("FILEMAP.md: labgate의 구조가 바뀌었습니다", 1)[1].split("\n\n", 1)[0]
+    assert "plan/anchor.md" in notice
+    assert "`brief.md`" not in notice and "`paper/`" not in notice
+
+
+def test_new_required_field_is_added(tmp_path, git_sandbox, old_sources):
+    """v0.7.0 ideation의 brief.md에는 anchor가 없다. 갱신 직후 lg verify가 위반을 내지 않게 넣는다."""
+    p = make_old(tmp_path, git_sandbox, old_sources, 7, kind="ideation")
+    result = p.lg("upgrade")
+    assert result.exit_code == 0, result.output
+    assert "brief.md: 새 필수 필드 `anchor: null`" in result.output
+    assert "\nanchor: null\n" in p.read("brief.md")
+    p.human("spec: upgrade\n\nActor: human", all=True)
+    result = p.lg("verify", "--all")
+    assert result.exit_code == 0, result.output
+
+
 def test_agents_project_lines_preserved(tmp_path, git_sandbox, old_sources):
     p = make_old(tmp_path, git_sandbox, old_sources, 2)
     p.write("AGENTS.md", p.read("AGENTS.md").replace(f"- 이름: {PROJECT_NAME}", "- 이름: 새 이름"))

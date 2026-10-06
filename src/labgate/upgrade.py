@@ -35,6 +35,10 @@ MIGRATIONS: dict[int, tuple] = {2: (), 3: (), 4: (), 5: (), 6: (), 7: ()}
 # 연구 문서는 사람이 지웠을 수도 있으므로 여기 적은 것만 만든다.
 NEW_RESEARCH_DOCS: dict[int, tuple[str, ...]] = {8: ("plan/anchor.md",)}
 
+# n번 spec_version에서 연구 문서에 새로 생긴 필수 frontmatter 필드: (경로, 필드, 기본값).
+# 문서가 있고 필드가 없을 때만 넣는다. 내용은 사람·에이전트가 채운다.
+NEW_FIELDS: dict[int, tuple[tuple[str, str, str], ...]] = {8: (("brief.md", "anchor", "null"),)}
+
 SPEC_LINE = re.compile(r"^spec_version:(.*)$", re.M)
 EXACT_VALUE = re.compile(r"^ (\d+)$")
 MAX_SHOWN = 20
@@ -97,6 +101,7 @@ def run_upgrade(dry_run: bool, force: bool, cwd: Optional[Path] = None, diff: bo
     _plan_gitignore(plan, hashes, new)
     _plan_versions(plan, tracked)
     _plan_new_research(plan, new, tracked)
+    _plan_new_fields(plan)
     _plan_filemap(plan, hashes, new)
     if plan.errors:
         raise Fail(EXIT_USAGE, "✗ 갱신할 수 없습니다:\n" + "\n".join(f"  - {e}" for e in plan.errors))
@@ -260,6 +265,20 @@ def _plan_new_research(plan: UpgradePlan, new: dict, tracked: set[str]) -> None:
                 plan.added.append(path)
 
 
+def _plan_new_fields(plan: UpgradePlan) -> None:
+    """새 필수 필드를 넣는다 (예: 8의 brief.md anchor). 없으면 lg verify V5가 바로 위반으로 본다."""
+    for version in range(plan.source + 1, SPEC_VERSION + 1):
+        for path, key, value in NEW_FIELDS.get(version, ()):
+            text = plan.writes.get(path) or _read(plan.root, path)
+            if text is None or not text.startswith("---\n") or "\n---\n" not in text[3:]:
+                continue
+            end = text.index("\n---\n", 3)
+            if re.search(rf"^{re.escape(key)}:", text[:end], re.M):
+                continue
+            plan.writes[path] = text[:end] + f"\n{key}: {value}" + text[end:]
+            plan.notices.append(f"{path}: 새 필수 필드 `{key}: {value}`를 넣었습니다 (spec_version {version})")
+
+
 def _plan_versions(plan: UpgradePlan, tracked: set[str]) -> None:
     """연구 문서와 사람이 채운 관리 문서의 frontmatter spec_version을 올린다."""
     candidates = sorted(p for p in tracked if classify(p) == RESEARCH) + plan.kept
@@ -286,10 +305,13 @@ def _plan_versions(plan: UpgradePlan, tracked: set[str]) -> None:
 def _plan_filemap(plan: UpgradePlan, hashes: dict, new: dict) -> None:
     if _read(plan.root, "FILEMAP.md") is None or "FILEMAP.md" not in new:
         return
+    # 해시표의 줄 목록은 한 종류(research)의 것이라, 프로젝트의 지금 FILEMAP과 비교한다.
+    # 새 줄 중 프로젝트에 없는 것, 그리고 labgate가 전에 넣었고 프로젝트에 아직 있지만 새 버전에는 없는 것.
     old = hashes.get("filemap", [])
+    current = filemap_lines(_read(plan.root, "FILEMAP.md") or "")
     now = filemap_lines(new["FILEMAP.md"].content)
-    added = [l for l in now if l not in old]
-    removed = [l for l in old if l not in now]
+    added = [l for l in now if l not in current]
+    removed = [l for l in current if l in old and l not in now]
     if added or removed:
         lines = [f"    + {l}" for l in added] + [f"    - {l}" for l in removed]
         plan.notices.append("FILEMAP.md: labgate의 구조가 바뀌었습니다. 필요하면 반영하세요:\n" + "\n".join(lines))

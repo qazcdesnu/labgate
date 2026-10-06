@@ -2199,7 +2199,8 @@ ideation의 모든 후보를 **앵커 연구 하나**와 비교하게 한다. �
   - 앵커 문서를 `notes/ideation-anchor.md`로 옮긴다.
   - 앵커 논문을 넘길 참고문헌에 더한다.
   - 새 프로젝트의 M0-T0 카드가 "앵커 재현을 첫 task로, 모든 실험은 같은 과제·지표·설정에서 비교"를 담는다.
-- **`lg upgrade` 7 → 8:** 연구 문서는 원래 새로 만들지 않는다. 다만 이 버전에서 생긴 연구 문서(`NEW_RESEARCH_DOCS[8] = ("plan/anchor.md",)`)는 그 종류(ideation)의 프로젝트에 없으면 새로 만든다.
+- **`lg upgrade` 7 → 8:** 연구 문서는 원래 새로 만들지 않는다. 다만 이 버전에서 생긴 연구 문서(`NEW_RESEARCH_DOCS[8] = ("plan/anchor.md",)`)는 그 종류(ideation)의 프로젝트에 없으면 새로 만든다. 이 버전에서 생긴 필수 필드(`NEW_FIELDS[8]`: `brief.md`의 `anchor`)는 문서에 없으면 `null`로 넣는다. 넣지 않으면 갱신 직후 `lg verify` V5가 위반으로 본다.
+- **FILEMAP 알림:** 해시표의 FILEMAP 줄 목록은 research 종류의 것이라, 프로젝트의 지금 `FILEMAP.md`와 비교한다(새 줄 중 프로젝트에 없는 것, 전에 labgate가 넣었고 아직 있지만 새 버전에 없는 것). 전에는 ideation·proposal 프로젝트에서 원래 있던 줄을 "바뀐 구조"로 알렸다(v0.6.0부터).
 
 ### 27.6 결정된 사항
 
@@ -2308,7 +2309,7 @@ updated: {{ today }}
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
 {% if ideation %}
-| `ideas/` | 아이디어 후보와 목록 (평가 기준은 `plan/criteria.md`) | `I<n>_<slug>.md` |
+| `ideas/` | 아이디어 후보와 목록 (평가 기준은 `plan/criteria.md`, 앵커 연구는 `plan/anchor.md`) | `I<n>_<slug>.md` |
 {% endif %}
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
 | `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 {% if proposal %}PoC·검증{% else %}실험{% endif %} | `<M>/<Task>_<slug>/` |

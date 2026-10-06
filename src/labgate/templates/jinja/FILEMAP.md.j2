@@ -35,7 +35,7 @@ updated: {{ today }}
 | `plan/` | 로드맵과 마일스톤·task 계획 | `milestones/<M>/tasks/<Task>.md` |
 | `decisions/` | 결정 문서와 목록 | `<D-ID>_<slug>.md` |
 {% if ideation %}
-| `ideas/` | 아이디어 후보와 목록 (평가 기준은 `plan/criteria.md`) | `I<n>_<slug>.md` |
+| `ideas/` | 아이디어 후보와 목록 (평가 기준은 `plan/criteria.md`, 앵커 연구는 `plan/anchor.md`) | `I<n>_<slug>.md` |
 {% endif %}
 | `references/` | 참고문헌 목록, 원본, 마일스톤별 task-문헌 매핑 | `library/<Ref-ID>.<ext>` |
 | `experiments/` | 공용 코드(`src/`, `tests/`)와 task별 {% if proposal %}PoC·검증{% else %}실험{% endif %} | `<M>/<Task>_<slug>/` |
